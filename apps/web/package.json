@@ -1,0 +1,12 @@
+{
+  "name": "@felege-yordanos/web",
+  "version": "0.0.1",
+  "private": true,
+  "dependencies": {
+    "@felege-yordanos/db": "workspace:*",
+    "@felege-yordanos/ui": "workspace:*",
+    "next": "~16.1.6",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  }
+}
