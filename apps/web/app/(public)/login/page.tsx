@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -36,33 +37,35 @@ export default function LoginPage() {
 
   return (
     <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
-      {/* Cross ornament */}
-      <div className="mb-6 flex flex-col items-center">
-        <span className="text-4xl text-[#D4A843] leading-none" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
-          ✞
-        </span>
-        <div className="mt-3 h-[1px] w-20 bg-gradient-to-r from-transparent via-[#D4A843] to-transparent" />
+      {/* Sunday School icon */}
+      <div className="mb-4 rounded-full border-2 border-[#D4A843]/30 p-1 shadow-lg shadow-[#D4A843]/10">
+        <Image
+          src="/ss-logo.png"
+          alt="Felege Yordanos Sunday School"
+          width={96}
+          height={96}
+          className="rounded-full"
+          priority
+        />
       </div>
 
       {/* Title */}
       <h1
-        className="text-center text-[#FFFDF7] text-2xl tracking-wide"
+        className="text-center text-[#FFFDF7] text-xl tracking-wide"
         style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
       >
-        <span className="text-[#D4A843]">Ethiopian </span>
-        <span>Orthodox</span>
+        <span className="text-[#D4A843]">E</span>thiopian{' '}
+        <span className="text-[#D4A843]">O</span>rthodox
       </h1>
       <h2
-        className="mt-1 text-center text-[#FFFDF7] text-2xl tracking-wide"
+        className="mt-0.5 text-center text-[#FFFDF7] text-xl tracking-wide"
         style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
       >
-        <span>Sunday </span>
-        <span className="text-[#D4A843]">S</span>
-        <span>chool</span>
+        Sunday <span className="text-[#D4A843]">S</span>chool
       </h2>
 
       <p
-        className="mt-2 text-center text-[#D4A843]/70 text-sm"
+        className="mt-1 text-center text-[#D4A843]/60 text-xs"
         style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
       >
         ፈለገ ዮርዳኖስ ሰንበት ት/ቤት

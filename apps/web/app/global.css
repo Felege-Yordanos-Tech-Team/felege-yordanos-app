@@ -68,26 +68,25 @@
 }
 
 @layer components {
-  /* Ethiopian cross mandala pattern — dark mode (inspired by reference) */
+  /* Dark auth background — subtle cross pattern via CSS shapes */
   .auth-bg-dark {
     background-color: #0F1729;
     background-image:
-      radial-gradient(ellipse at 50% 40%, rgba(107, 29, 42, 0.15) 0%, transparent 60%),
-      radial-gradient(circle at 50% 50%, rgba(212, 168, 67, 0.04) 0%, transparent 50%),
-      repeating-conic-gradient(from 0deg at 50% 50%, rgba(212, 168, 67, 0.03) 0deg 10deg, transparent 10deg 20deg);
-    background-size: 100% 100%, 100% 100%, 400px 400px;
-    background-position: center, center, center;
+      /* Soft center glow */
+      radial-gradient(ellipse at 50% 35%, rgba(107, 29, 42, 0.12) 0%, transparent 55%),
+      /* Subtle cross: vertical line */
+      linear-gradient(to bottom, transparent 45%, rgba(212, 168, 67, 0.04) 49%, rgba(212, 168, 67, 0.04) 51%, transparent 55%),
+      /* Subtle cross: horizontal line */
+      linear-gradient(to right, transparent 45%, rgba(212, 168, 67, 0.04) 49%, rgba(212, 168, 67, 0.04) 51%, transparent 55%);
   }
 
-  /* Ethiopian cross pattern — light mode */
+  /* Light auth background — subtle cross pattern */
   .auth-bg-light {
     background-color: #FFFDF7;
     background-image:
-      radial-gradient(ellipse at 50% 40%, rgba(107, 29, 42, 0.04) 0%, transparent 60%),
-      radial-gradient(circle at 50% 50%, rgba(212, 168, 67, 0.03) 0%, transparent 50%),
-      repeating-conic-gradient(from 0deg at 50% 50%, rgba(107, 29, 42, 0.015) 0deg 10deg, transparent 10deg 20deg);
-    background-size: 100% 100%, 100% 100%, 400px 400px;
-    background-position: center, center, center;
+      radial-gradient(ellipse at 50% 35%, rgba(107, 29, 42, 0.03) 0%, transparent 55%),
+      linear-gradient(to bottom, transparent 45%, rgba(107, 29, 42, 0.02) 49%, rgba(107, 29, 42, 0.02) 51%, transparent 55%),
+      linear-gradient(to right, transparent 45%, rgba(107, 29, 42, 0.02) 49%, rgba(107, 29, 42, 0.02) 51%, transparent 55%);
   }
 
   /* Gold top border for cards */

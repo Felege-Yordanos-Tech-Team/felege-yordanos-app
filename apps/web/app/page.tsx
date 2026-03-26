@@ -1,15 +1,20 @@
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 
 export default function LandingPage() {
   return (
     <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
-      {/* Cross ornament */}
-      <div className="mb-8 flex flex-col items-center">
-        <span className="text-5xl text-[#D4A843] leading-none" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
-          ✞
-        </span>
-        <div className="mt-4 h-[1px] w-24 bg-gradient-to-r from-transparent via-[#D4A843] to-transparent" />
+      {/* Sunday School icon */}
+      <div className="mb-6 rounded-full border-2 border-[#D4A843]/30 p-1 shadow-lg shadow-[#D4A843]/10">
+        <Image
+          src="/ss-logo.png"
+          alt="Felege Yordanos Sunday School"
+          width={120}
+          height={120}
+          className="rounded-full"
+          priority
+        />
       </div>
 
       {/* Title */}
