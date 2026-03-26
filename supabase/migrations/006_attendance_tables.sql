@@ -5,6 +5,8 @@ CREATE TABLE IF NOT EXISTS public.events (
   title         text NOT NULL,
   description   text,
   event_date    date NOT NULL,
+  start_time    time,
+  end_time      time,
   department_id bigint REFERENCES public.departments(id),
   created_by    uuid REFERENCES public.profiles(id),
   created_at    timestamptz DEFAULT now()

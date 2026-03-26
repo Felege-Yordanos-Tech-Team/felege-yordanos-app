@@ -54,10 +54,20 @@ export default async function CheckInPage({
         </Link>
       </Button>
 
-      <div className="flex items-center gap-3">
-        <div>
-          <h1 className="text-2xl font-bold">{event.title}</h1>
-          <Badge variant="outline" className="mt-1">{event.event_date}</Badge>
+      <div>
+        <h1 className="text-2xl font-bold">{event.title}</h1>
+        {event.description && (
+          <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
+        )}
+        <div className="mt-2 flex items-center gap-2">
+          <Badge variant="outline">{event.event_date}</Badge>
+          {(event.start_time || event.end_time) && (
+            <Badge variant="secondary">
+              {event.start_time?.slice(0, 5)}
+              {event.start_time && event.end_time && ' – '}
+              {event.end_time?.slice(0, 5)}
+            </Badge>
+          )}
         </div>
       </div>
 

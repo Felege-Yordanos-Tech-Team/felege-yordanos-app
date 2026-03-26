@@ -130,6 +130,8 @@ export type Database = {
           title: string;
           description: string | null;
           event_date: string;
+          start_time: string | null;
+          end_time: string | null;
           department_id: number | null;
           created_by: string | null;
           created_at: string;
@@ -139,6 +141,8 @@ export type Database = {
           title: string;
           description?: string | null;
           event_date: string;
+          start_time?: string | null;
+          end_time?: string | null;
           department_id?: number | null;
           created_by?: string | null;
           created_at?: string;
@@ -148,6 +152,8 @@ export type Database = {
           title?: string;
           description?: string | null;
           event_date?: string;
+          start_time?: string | null;
+          end_time?: string | null;
           department_id?: number | null;
           created_by?: string | null;
           created_at?: string;

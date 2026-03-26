@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
 import { CalendarCheck, DollarSign, Users, Shield } from 'lucide-react';
 import Link from 'next/link';
 
