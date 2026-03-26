@@ -14,23 +14,12 @@ CREATE INDEX IF NOT EXISTS idx_members_auth_user_id
 
 ALTER TABLE public.members ENABLE ROW LEVEL SECURITY;
 
--- SELECT: authenticated users can read their own linked record
-CREATE POLICY "Users can read own linked member"
+-- SELECT: all authenticated users can read members
+-- (needed for claim flow to distinguish "not found" vs "already claimed")
+CREATE POLICY "Authenticated users can read members"
   ON public.members
   FOR SELECT
-  USING (auth_user_id = auth.uid());
-
--- SELECT: authenticated users can read unclaimed records (for claim flow)
-CREATE POLICY "Users can read unclaimed members"
-  ON public.members
-  FOR SELECT
-  USING (auth_user_id IS NULL AND auth.role() = 'authenticated');
-
--- SELECT: admin/super_admin can read all members
-CREATE POLICY "Admins can read all members"
-  ON public.members
-  FOR SELECT
-  USING (public.get_my_role() IN ('admin', 'super_admin'));
+  USING (auth.role() = 'authenticated');
 
 -- UPDATE: authenticated user can claim an unclaimed record
 -- (set auth_user_id = their uid WHERE auth_user_id IS NULL)
