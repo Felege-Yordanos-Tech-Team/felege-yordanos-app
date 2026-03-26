@@ -37,10 +37,12 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen pb-16">
-      <header className="flex items-center justify-between border-b px-4 py-2">
+      <header className="flex items-center justify-between bg-[#6B1D2A] px-4 py-2">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">ፈለገ ዮርዳኖስ</span>
-          <Badge variant="outline" className="text-xs">
+          <span className="text-sm font-bold text-[#D4A843]" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
+            ፈለገ ዮርዳኖስ
+          </span>
+          <Badge className="border-[#D4A843]/40 bg-[#D4A843]/20 text-[#D4A843] text-xs">
             {role.replace('_', ' ')}
           </Badge>
         </div>

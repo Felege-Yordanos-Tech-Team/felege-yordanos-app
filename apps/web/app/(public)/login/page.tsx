@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation';
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from '@/components/ui/card';
@@ -43,15 +42,17 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center px-4">
-      <Card className="w-full max-w-sm">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl">
+    <div className="eth-pattern flex min-h-screen items-center justify-center px-4" style={{ background: 'radial-gradient(ellipse at center, #FFFDF7 0%, #F5F0E6 100%)' }}>
+      <Card className="w-full max-w-sm card-gold shadow-lg">
+        <CardHeader className="text-center space-y-3">
+          <p className="text-[#D4A843] text-lg tracking-widest">✞</p>
+          <div className="mx-auto w-16 h-[2px] bg-[#D4A843]" />
+          <p className="text-sm text-primary font-semibold" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
+            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+          </p>
+          <CardTitle className="text-2xl text-primary">
             {isSignUp ? 'Create Account' : 'Sign In'}
           </CardTitle>
-          <CardDescription>
-            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
-          </CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -101,7 +102,7 @@ export default function LoginPage() {
                     setIsSignUp(false);
                     setError('');
                   }}
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
                 >
                   Sign in
                 </button>
@@ -115,7 +116,7 @@ export default function LoginPage() {
                     setIsSignUp(true);
                     setError('');
                   }}
-                  className="text-primary underline-offset-4 hover:underline"
+                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
                 >
                   Sign up
                 </button>

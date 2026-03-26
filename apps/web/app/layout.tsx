@@ -30,7 +30,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="am">
-      <body className="min-h-screen bg-white font-sans antialiased">
+      <body className="min-h-screen font-sans antialiased">
         {children}
         <Toaster />
       </body>
