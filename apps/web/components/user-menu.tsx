@@ -30,7 +30,7 @@ export function UserMenu({ displayName }: UserMenuProps) {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="ghost" size="sm" className="gap-2">
+        <Button variant="ghost" size="sm" className="gap-2 text-[#FFFDF7]/80 hover:text-[#FFFDF7] hover:bg-[#FFFDF7]/10">
           <User className="h-4 w-4" />
           <span className="max-w-[120px] truncate text-xs">
             {displayName}

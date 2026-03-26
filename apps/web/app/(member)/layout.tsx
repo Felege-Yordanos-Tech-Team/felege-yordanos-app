@@ -30,8 +30,10 @@ export default async function MemberLayout({
 
   return (
     <div className="min-h-screen pb-16">
-      <header className="flex items-center justify-between border-b px-4 py-2">
-        <span className="text-sm font-medium">ፈለገ ዮርዳኖስ</span>
+      <header className="flex items-center justify-between bg-[#6B1D2A] px-4 py-2">
+        <span className="text-sm font-bold text-[#D4A843]" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
+          ፈለገ ዮርዳኖስ
+        </span>
         <UserMenu displayName={displayName} />
       </header>
       {children}
