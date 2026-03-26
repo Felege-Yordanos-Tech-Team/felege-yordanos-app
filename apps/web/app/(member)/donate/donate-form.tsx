@@ -26,6 +26,7 @@ interface DonationRow {
   currency: string;
   payment_method: string | null;
   status: 'pending' | 'verified' | 'rejected';
+  rejection_reason: string | null;
   created_at: string;
   notes: string | null;
 }
@@ -187,19 +188,26 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
               const badge = statusBadge[d.status] ?? statusBadge.pending;
               return (
                 <Card key={d.id}>
-                  <CardContent className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">
-                        {d.amount.toLocaleString()} {d.currency}
-                      </p>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                        <span>{d.payment_method ? methodLabels[d.payment_method] ?? d.payment_method : '—'}</span>
-                        <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                  <CardContent className="py-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium">
+                          {d.amount.toLocaleString()} {d.currency}
+                        </p>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span>{d.payment_method ? methodLabels[d.payment_method] ?? d.payment_method : '—'}</span>
+                          <span>{new Date(d.created_at).toLocaleDateString()}</span>
+                        </div>
                       </div>
+                      <Badge variant={badge.variant} className={badge.className}>
+                        {d.status}
+                      </Badge>
                     </div>
-                    <Badge variant={badge.variant} className={badge.className}>
-                      {d.status}
-                    </Badge>
+                    {d.status === 'rejected' && d.rejection_reason && (
+                      <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
+                        Reason: {d.rejection_reason}
+                      </p>
+                    )}
                   </CardContent>
                 </Card>
               );

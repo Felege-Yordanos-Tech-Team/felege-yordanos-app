@@ -197,6 +197,7 @@ export type Database = {
           status: 'pending' | 'verified' | 'rejected';
           verified_by: string | null;
           verified_at: string | null;
+          rejection_reason: string | null;
           created_at: string;
         };
         Insert: {
@@ -210,6 +211,7 @@ export type Database = {
           status?: 'pending' | 'verified' | 'rejected';
           verified_by?: string | null;
           verified_at?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
         };
         Update: {
@@ -223,6 +225,7 @@ export type Database = {
           status?: 'pending' | 'verified' | 'rejected';
           verified_by?: string | null;
           verified_at?: string | null;
+          rejection_reason?: string | null;
           created_at?: string;
         };
       };

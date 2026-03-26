@@ -11,6 +11,7 @@ CREATE TABLE IF NOT EXISTS public.donations (
   status         text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'verified', 'rejected')),
   verified_by    uuid REFERENCES public.profiles(id),
   verified_at    timestamptz,
+  rejection_reason text,
   created_at     timestamptz DEFAULT now()
 );
 
