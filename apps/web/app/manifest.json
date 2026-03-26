@@ -1,7 +1,7 @@
 {
-  "name": "Felege Yordanos Sunday School",
-  "short_name": "FY Sunday School",
-  "description": "ፈለገ ዮርዳኖስ ሰንበት ት/ቤት App",
+  "name": "ፈለገ ዮርዳኖስ",
+  "short_name": "ፈ.ዮ.",
+  "description": "Felege Yordanos Sunday School App",
   "start_url": "/",
   "icons": [
     {
@@ -17,7 +17,7 @@
       "purpose": "maskable"
     }
   ],
-  "theme_color": "#1e40af",
+  "theme_color": "#1e3a5f",
   "background_color": "#ffffff",
   "orientation": "portrait",
   "display": "standalone"

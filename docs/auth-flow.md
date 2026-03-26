@@ -82,20 +82,58 @@ sequenceDiagram
     end
 ```
 
+## Member Profile Claim Flow
+
+After login, users can link their auth account to their existing Sunday School member record:
+
+```mermaid
+sequenceDiagram
+    participant U as User
+    participant D as /dashboard
+    participant C as /claim (client)
+    participant SB as Supabase
+    participant M as members table
+    participant P as profiles table
+    participant R as Router
+
+    U->>D: Visit dashboard
+    D->>SB: getLinkedMember(authUserId)
+    SB-->>D: null (not linked)
+    D-->>U: Show "Link Now" prompt card
+
+    U->>C: Click "Link Now"
+    U->>C: Enter member ID (e.g. ssu/01/03/05/0002)
+    C->>SB: SELECT from members WHERE member_id = input
+
+    alt Not found
+        SB-->>C: null
+        C-->>U: "Member ID not found"
+    else Already claimed
+        SB-->>C: member with auth_user_id set
+        C-->>U: "Already linked to another account"
+    else Available
+        SB-->>C: unclaimed member record
+        C->>M: UPDATE auth_user_id = current user
+        C->>P: UPDATE display_name = member's full name
+        C-->>U: Toast "Profile linked!"
+        C->>R: Redirect to /dashboard
+    end
+```
+
 ## Logout Flow
 
 ```mermaid
 sequenceDiagram
     participant U as User
-    participant LB as LogoutButton (client)
+    participant UM as UserMenu (client)
     participant SB as Supabase Auth
     participant R as Router
 
-    U->>LB: Click "Sign out"
-    LB->>SB: signOut()
-    SB-->>LB: Session cleared, cookies removed
-    LB->>R: router.push('/login')
-    LB->>R: router.refresh()
+    U->>UM: Click user icon → "Sign out"
+    UM->>SB: signOut()
+    SB-->>UM: Session cleared, cookies removed
+    UM->>R: router.push('/login')
+    UM->>R: router.refresh()
     R-->>U: Show login page
 ```
 
@@ -133,7 +171,7 @@ graph TD
         ANON["Anonymous"] -->|can access| PUB["/(public)/<br/>login only"]
         ANON -->|redirected to /login| BLOCKED["All other routes"]
         MEMBER_R["member"] -->|can access| PUB
-        MEMBER_R -->|can access| MEM["/(member)/<br/>dashboard, songbook,<br/>attendance, donate"]
+        MEMBER_R -->|can access| MEM["/(member)/<br/>dashboard, claim, profile,<br/>songbook, attendance, donate"]
         MEMBER_R -->|redirected to /dashboard| ADM_BLOCKED["/(admin)/ routes"]
         DH["dept_head"] -->|can access| MEM
         DH -->|can access| ADM["/(admin)/<br/>scoped to department"]
@@ -172,11 +210,13 @@ sequenceDiagram
 
 ## RLS Policies on profiles
 
+Uses `get_my_role()` SECURITY DEFINER helper to avoid infinite recursion:
+
 | Policy | Operation | Who | Condition |
 |--------|-----------|-----|-----------|
 | Read own profile | SELECT | Any user | `auth.uid() = id` |
-| Read all profiles | SELECT | admin, super_admin | Role check via subquery |
-| Update own profile (except role) | UPDATE | Any user | `auth.uid() = id` AND role unchanged |
-| Update any profile | UPDATE | super_admin | Role check via subquery |
+| Read all profiles | SELECT | admin, super_admin | `get_my_role() in (...)` |
+| Update own profile | UPDATE | Any user | `auth.uid() = id` |
+| Update any profile | UPDATE | super_admin | `get_my_role() = 'super_admin'` |
 
-> **Note:** Department-level scoping for `dept_head` is planned but not yet enforced at the proxy level. Currently, the proxy only checks that the role is not `member` for `/admin/*` routes. Finer-grained department scoping will be handled via Supabase RLS policies on the database.
+> **Note:** Role protection on profile updates is handled at the application layer (the form only sends `display_name`, never `role`). Department-level scoping for `dept_head` will be handled via Supabase RLS policies on future tables.

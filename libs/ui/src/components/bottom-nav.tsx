@@ -8,6 +8,7 @@ import {
   CalendarCheck,
   Heart,
   Shield,
+  User,
 } from 'lucide-react';
 import type { UserRole } from '@felege-yordanos/db';
 
@@ -18,6 +19,7 @@ const memberLinks = [
   { href: '/donate', icon: Heart, label: 'Donate' },
 ];
 
+const profileLink = { href: '/profile', icon: User, label: 'Profile' };
 const adminLink = { href: '/admin', icon: Shield, label: 'Admin' };
 
 interface BottomNavProps {
@@ -28,7 +30,9 @@ export function BottomNav({ role }: BottomNavProps) {
   const pathname = usePathname();
   const isAdmin =
     role && ['dept_head', 'admin', 'super_admin'].includes(role);
-  const links = isAdmin ? [...memberLinks, adminLink] : memberLinks;
+  const links = isAdmin
+    ? [...memberLinks, adminLink]
+    : [...memberLinks, profileLink];
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t bg-white">

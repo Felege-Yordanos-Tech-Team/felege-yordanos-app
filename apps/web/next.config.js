@@ -14,7 +14,6 @@ const withPWA = withPWAInit({
  * @type {import('@nx/next/plugins/with-nx').WithNxOptions}
  **/
 const nextConfig = {
-  distDir: '../../dist/apps/web',
   nx: {},
 };
 

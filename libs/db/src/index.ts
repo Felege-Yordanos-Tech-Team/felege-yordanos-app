@@ -1,2 +1,3 @@
 export { createClient, createServerComponentClient } from './client';
-export type { Database, UserRole } from './types';
+export { getLinkedMember } from './members';
+export type { Database, UserRole, Member, Department } from './types';

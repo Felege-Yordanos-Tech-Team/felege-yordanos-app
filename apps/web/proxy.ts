@@ -31,15 +31,15 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Logged-in users visiting /login get sent to dashboard
-  if (pathname.startsWith('/login') && user) {
+  // Logged-in users visiting / or /login get sent to dashboard
+  if ((pathname === '/' || pathname.startsWith('/login')) && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
     return NextResponse.redirect(url);
   }
 
   // Public routes — allow everyone
-  if (pathname.startsWith('/login')) {
+  if (pathname === '/' || pathname.startsWith('/login')) {
     return supabaseResponse;
   }
 
