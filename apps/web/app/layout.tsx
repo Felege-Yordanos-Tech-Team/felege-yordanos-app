@@ -4,16 +4,20 @@ import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
   title: 'ፈለገ ዮርዳኖስ ሰንበት ት/ቤት',
-  description: 'Felege Yordanos Sunday School App',
+  description: 'Felege Yordanos Sunday School App — ፈለገ ዮርዳኖስ ሰንበት ት/ቤት',
+  manifest: '/manifest.json',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'default',
-    title: 'ፈለገ ዮርዳኖስ',
+    title: 'ፈ.ዮ.',
+  },
+  icons: {
+    apple: '/icons/icon-192x192.png',
   },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1e3a5f',
+  themeColor: '#6B1D2A',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,

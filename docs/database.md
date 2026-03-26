@@ -2,224 +2,162 @@
 
 ## Overview
 
-The app uses Supabase (PostgreSQL) with Row Level Security (RLS). The database is managed separately via the Supabase dashboard — SQL migrations are stored in `supabase/migrations/` and run manually.
+The app uses Supabase (PostgreSQL + Storage) with Row Level Security (RLS). SQL migrations are stored in `supabase/migrations/` and run manually via the Supabase SQL Editor.
 
 ## Entity Relationship
 
 ```mermaid
 erDiagram
-    AUTH_USERS["auth.users (Supabase managed)"] {
+    AUTH_USERS["auth.users"] {
         uuid id PK
         text email
-        jsonb raw_user_meta_data
-        timestamptz created_at
     }
 
-    PROFILES["public.profiles"] {
-        uuid id PK "FK → auth.users.id"
-        text display_name "email or custom name"
-        text full_name "optional"
-        text role "member | dept_head | admin | super_admin"
-        uuid department_id "FK → departments (future)"
-        timestamptz created_at
+    PROFILES["profiles"] {
+        uuid id PK "FK → auth.users"
+        text display_name
+        text role "member|dept_head|admin|super_admin"
+        bigint department_id "FK → departments"
     }
 
-    MEMBERS["public.members"] {
+    MEMBERS["members"] {
         bigint id PK
         text member_id UK "e.g. ssu/01/03/05/0578"
-        text name "ስም"
-        text father_name "የ አባት ስም"
-        text grandfather_name "የ አያት ስም"
-        text gender "ወንድ | ሴት"
-        text status "Active | Inactive"
-        text address_phone "ስልክ"
-        uuid auth_user_id UK "FK → auth.users.id"
-        timestamptz created_at
+        text name
+        text father_name
+        uuid auth_user_id UK "FK → auth.users"
+        text status "Active|Inactive"
     }
 
-    CATEGORIES["public.categories"] {
+    DEPARTMENTS["departments"] {
+        serial id PK
+        text name_am
+        text name_en
+    }
+
+    CATEGORIES["categories"] {
         uuid id PK
-        text name UK "ምስጋና | ዝማሬ | ተስፋ"
+        text name UK
         text emoji
-        text color
-        integer sort_order
     }
 
-    SONGS["public.songs"] {
+    SONGS["songs"] {
         uuid id PK
         integer number UK
         text title
-        text title_en
         text category "FK → categories.name"
         text lyrics
-        text audio_url
-        timestamptz created_at
     }
 
-    AUTH_USERS ||--|| PROFILES : "trigger creates on signup"
-    AUTH_USERS ||--o| MEMBERS : "linked via claim flow"
-    CATEGORIES ||--o{ SONGS : "categorizes"
+    EVENTS["events"] {
+        uuid id PK
+        text title
+        text description
+        date event_date
+        time start_time
+        time end_time
+        bigint department_id "FK → departments"
+        uuid created_by "FK → profiles"
+    }
+
+    ATTENDANCE["attendance"] {
+        uuid id PK
+        uuid event_id "FK → events"
+        bigint member_id "FK → members"
+        text status "present|absent|late"
+        uuid marked_by "FK → profiles"
+    }
+
+    DONATIONS["donations"] {
+        uuid id PK
+        uuid donor_id "FK → profiles"
+        decimal amount
+        text payment_method
+        text receipt_url "Storage path"
+        text status "pending|verified|rejected"
+        text rejection_reason
+        uuid verified_by "FK → profiles"
+    }
+
+    AUTH_USERS ||--|| PROFILES : "trigger creates"
+    AUTH_USERS ||--o| MEMBERS : "linked via claim"
+    DEPARTMENTS ||--o{ PROFILES : "department_id"
+    DEPARTMENTS ||--o{ EVENTS : "department_id"
+    CATEGORIES ||--o{ SONGS : "category"
+    EVENTS ||--o{ ATTENDANCE : "event_id"
+    MEMBERS ||--o{ ATTENDANCE : "member_id"
+    PROFILES ||--o{ DONATIONS : "donor_id"
+    PROFILES ||--o{ EVENTS : "created_by"
 ```
 
 ## Migrations
 
 ### 001_create_profile_trigger.sql
-
-Creates the `profiles` table and a trigger that auto-creates a profile when a user signs up:
-
-```mermaid
-sequenceDiagram
-    participant U as New User Signs Up
-    participant A as auth.users
-    participant T as handle_new_user()
-    participant P as public.profiles
-
-    U->>A: INSERT (via Supabase Auth)
-    A->>T: AFTER INSERT trigger fires
-    T->>P: INSERT profile
-    Note over T,P: id = new.id<br/>display_name = email<br/>role = 'member'
-```
-
-**Key details:**
-- `id` references `auth.users(id)` with `ON DELETE CASCADE`
-- `role` has a CHECK constraint: must be one of `member`, `dept_head`, `admin`, `super_admin`
-- Function uses `SECURITY DEFINER` with empty `search_path` for safety
-- RLS is enabled on the table
+- Creates `profiles` table with role CHECK constraint
+- `handle_new_user()` trigger: auto-creates profile on signup with `role='member'`
 
 ### 002_profiles_rls.sql
-
-RLS policies for profiles using `get_my_role()` SECURITY DEFINER helper to avoid infinite recursion:
-
-```mermaid
-graph TD
-    subgraph HELPER["get_my_role() — SECURITY DEFINER"]
-        H1["Reads current user's role<br/>bypassing RLS to prevent recursion"]
-    end
-
-    subgraph SELECT["SELECT Policies"]
-        S1["Users can read own profile<br/>auth.uid() = id"]
-        S2["admin + super_admin<br/>can read all (via get_my_role)"]
-    end
-
-    subgraph UPDATE["UPDATE Policies"]
-        U1["Users can update own profile<br/>auth.uid() = id"]
-        U2["super_admin can update any<br/>(via get_my_role)"]
-    end
-
-    style HELPER fill:#3ecf8e,color:#fff
-    style SELECT fill:#eff6ff,stroke:#2563eb
-    style UPDATE fill:#fef2f2,stroke:#dc2626
-```
+- `get_my_role()` SECURITY DEFINER helper (prevents RLS recursion)
+- SELECT: own profile + admins read all
+- UPDATE: own profile + super_admin update any
 
 ### 003_seed_songs.sql
-
-Creates `categories` and `songs` tables with seed data:
-- 3 categories: ምስጋና (Praise), ዝማሬ (Worship), ተስፋ (Hope)
-- 5 sample songs with Amharic lyrics
+- Creates `categories` table (name, emoji, color, sort_order)
+- Creates `songs` table (number, title, title_en, category FK, lyrics)
+- Seeds 3 categories (ምስጋና, ዝማሬ, ተስፋ) and 5 sample songs
 
 ### 004_songs_rls.sql
-
-RLS for songs and categories:
-
-| Table | Operation | Who | Condition |
-|-------|-----------|-----|-----------|
-| categories | SELECT | Authenticated users | `auth.role() = 'authenticated'` |
-| songs | SELECT | Authenticated users | `auth.role() = 'authenticated'` |
-| songs | INSERT/UPDATE/DELETE | admin, super_admin | Role check via profiles subquery |
+- SELECT: authenticated users on both tables
+- INSERT/UPDATE/DELETE on songs: admin/super_admin only
 
 ### 004b_member_auth_link.sql
+- Adds `auth_user_id` column to `members` table
+- SELECT: all authenticated users can read members
+- UPDATE: users can claim unclaimed records, admins update any
 
-Adds `auth_user_id` column to the existing `members` table for linking auth accounts to member records:
+### 005_departments.sql
+- Creates `departments` table, seeds 9 SS departments
+- FK from profiles.department_id to departments.id
+- SELECT: authenticated users; manage: super_admin only
 
-```mermaid
-graph TD
-    subgraph SELECT_P["SELECT Policies"]
-        S1["Users read own linked member<br/>auth_user_id = auth.uid()"]
-        S2["Users read unclaimed members<br/>auth_user_id IS NULL<br/>(needed for claim flow)"]
-        S3["admin + super_admin<br/>read all members"]
-    end
+### 006_attendance_tables.sql
+- Creates `events` table (title, description, date, start_time, end_time, department_id, created_by)
+- Creates `attendance` table (event_id, member_id, status, marked_by, unique constraint)
+- Indexes for fast lookups
 
-    subgraph UPDATE_P["UPDATE Policies"]
-        U1["Users can claim unclaimed<br/>SET auth_user_id WHERE IS NULL"]
-        U2["admin + super_admin<br/>can update any member"]
-    end
+### 007_attendance_rls.sql
+- Events SELECT: all authenticated users
+- Events INSERT: dept_head (own dept) + admin/super_admin
+- Events UPDATE/DELETE: creator + admin/super_admin
+- Attendance SELECT: own records + dept_head/admin/super_admin
+- Attendance INSERT/UPDATE: dept_head (own dept events) + admin/super_admin
 
-    style SELECT_P fill:#eff6ff,stroke:#2563eb
-    style UPDATE_P fill:#fef2f2,stroke:#dc2626
-```
+### 008_donations_table.sql
+- Creates `donations` table (donor_id, amount, currency, payment_method, receipt_url, status, rejection_reason, verified_by/at)
+- Indexes on donor_id and status
 
-## Member Claim Flow (Data)
+### 008b_storage_policies.sql
+- Storage bucket: `receipts` (private, 5MB, JPEG/PNG/PDF)
+- Upload: users to own folder (`receipts/[uid]/*`)
+- Read: own receipts + admin/super_admin + Budget dept head (dept 9)
 
-```mermaid
-sequenceDiagram
-    participant U as auth.users
-    participant M as members
-    participant P as profiles
-
-    Note over U,M: User enters member_id on /claim
-    U->>M: SELECT WHERE member_id = input
-    alt Unclaimed (auth_user_id IS NULL)
-        U->>M: UPDATE SET auth_user_id = uid
-        U->>P: UPDATE SET display_name = member name
-        Note over M,P: Account linked!
-    else Already claimed
-        M-->>U: Error: already linked
-    end
-```
+### 009_donations_rls.sql
+- SELECT: own donations + admin/super_admin + Budget dept head
+- INSERT: authenticated users (own donor_id)
+- UPDATE: admin/super_admin + Budget dept head (for verify/reject)
 
 ## Helper Functions
 
 ### get_my_role() (SQL)
-- `SECURITY DEFINER` function that reads the current user's role bypassing RLS
-- Prevents infinite recursion in RLS policies that need to check the user's role
-- Used by profiles, members, and songs RLS policies
+SECURITY DEFINER function that reads the current user's role bypassing RLS. Used by all policies that check role to prevent infinite recursion.
 
 ### getLinkedMember() (TypeScript)
-- Located in `libs/db/src/members.ts`
-- Queries `members WHERE auth_user_id = authUserId`
-- Returns the full `Member` record or `null`
-- Used by dashboard, profile page, and future modules (attendance, donations)
+`libs/db/src/members.ts` — queries `members WHERE auth_user_id = authUserId`. Used by dashboard, profile, attendance history.
 
-## Future Tables (Planned)
+## Supabase Storage
 
-```mermaid
-erDiagram
-    MEMBERS ||--o{ ATTENDANCE : "records"
-    MEMBERS ||--o{ DONATIONS : "submits"
-    DEPARTMENTS ||--o{ MEMBERS : "belongs to"
-    EVENTS ||--o{ ATTENDANCE : "tracks"
-    DEPARTMENTS ||--o{ EVENTS : "organizes"
+| Bucket | Access | Types | Max Size |
+|--------|--------|-------|----------|
+| `receipts` | Private | JPEG, PNG, PDF | 5MB |
 
-    DEPARTMENTS["departments"] {
-        uuid id PK
-        text name
-        text description
-    }
-
-    EVENTS["events"] {
-        uuid id PK
-        uuid department_id FK
-        text title
-        timestamptz event_date
-    }
-
-    ATTENDANCE["attendance"] {
-        uuid id PK
-        uuid event_id FK
-        bigint member_id FK
-        boolean present
-        timestamptz checked_in_at
-    }
-
-    DONATIONS["donations"] {
-        uuid id PK
-        bigint member_id FK
-        decimal amount
-        text receipt_url
-        text status "pending | verified | rejected"
-        uuid verified_by FK
-        timestamptz created_at
-    }
-```
-
-> **Note:** Future tables will reference `members.id` (not `profiles.id`) for attendance and donations, since these are tied to the Sunday School member record. The `department_id` column on `profiles` exists but has no FK constraint yet — it will reference the `departments` table once created.
+Files stored at `receipts/[user-id]/[timestamp].[ext]`. Signed URLs generated for admin viewing (300s expiry).
