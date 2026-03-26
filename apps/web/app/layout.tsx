@@ -3,12 +3,17 @@ import type { Metadata, Viewport } from 'next';
 import { Toaster } from '@/components/ui/toaster';
 
 export const metadata: Metadata = {
-  title: '\u134D\u1208\u1308 \u12EE\u122D\u12F3\u1296\u1235 \u1230\u1295\u1260\u1275 \u1275/\u1264\u1275',
+  title: 'ፈለገ ዮርዳኖስ ሰንበት ት/ቤት',
   description: 'Felege Yordanos Sunday School App',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'ፈለገ ዮርዳኖስ',
+  },
 };
 
 export const viewport: Viewport = {
-  themeColor: '#1e40af',
+  themeColor: '#1e3a5f',
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
