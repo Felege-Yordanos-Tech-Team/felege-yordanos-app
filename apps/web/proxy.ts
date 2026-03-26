@@ -31,12 +31,15 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
+  // Logged-in users visiting /login get sent to dashboard
+  if (pathname.startsWith('/login') && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = '/dashboard';
+    return NextResponse.redirect(url);
+  }
+
   // Public routes — allow everyone
-  if (
-    pathname.startsWith('/songbook') ||
-    pathname.startsWith('/login') ||
-    pathname === '/'
-  ) {
+  if (pathname.startsWith('/login')) {
     return supabaseResponse;
   }
 
@@ -57,7 +60,7 @@ export async function proxy(request: NextRequest) {
 
     if (!profile || profile.role === 'member') {
       const url = request.nextUrl.clone();
-      url.pathname = '/';
+      url.pathname = '/dashboard';
       return NextResponse.redirect(url);
     }
   }

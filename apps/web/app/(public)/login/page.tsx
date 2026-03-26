@@ -3,12 +3,23 @@
 import { useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import { useRouter } from 'next/navigation';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
 
   async function handleSubmit(e: React.FormEvent) {
@@ -17,66 +28,102 @@ export default function LoginPage() {
     setError('');
 
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
 
-    if (error) {
-      setError(error.message);
+    const { error: authError } = isSignUp
+      ? await supabase.auth.signUp({ email, password })
+      : await supabase.auth.signInWithPassword({ email, password });
+
+    if (authError) {
+      setError(authError.message);
       setLoading(false);
     } else {
-      router.push('/');
+      router.push('/dashboard');
       router.refresh();
     }
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center px-4">
-      <div className="w-full max-w-sm space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-bold">Sign In</h1>
-          <p className="mt-1 text-sm text-gray-600">
-            {'\u134D\u1208\u1308 \u12EE\u122D\u12F3\u1296\u1235 \u1230\u1295\u1260\u1275 \u1275/\u1264\u1275'}
-          </p>
-        </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="email" className="block text-sm font-medium">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
+      <Card className="w-full max-w-sm">
+        <CardHeader className="text-center">
+          <CardTitle className="text-2xl">
+            {isSignUp ? 'Create Account' : 'Sign In'}
+          </CardTitle>
+          <CardDescription>
+            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                placeholder="you@example.com"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                placeholder="Your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                minLength={6}
+              />
+            </div>
+            {error && (
+              <p className="text-sm text-destructive">{error}</p>
+            )}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading
+                ? isSignUp
+                  ? 'Creating account...'
+                  : 'Signing in...'
+                : isSignUp
+                  ? 'Sign Up'
+                  : 'Sign In'}
+            </Button>
+          </form>
+          <div className="mt-4 text-center text-sm">
+            {isSignUp ? (
+              <p>
+                Already have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(false);
+                    setError('');
+                  }}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Sign in
+                </button>
+              </p>
+            ) : (
+              <p>
+                Don&apos;t have an account?{' '}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsSignUp(true);
+                    setError('');
+                  }}
+                  className="text-primary underline-offset-4 hover:underline"
+                >
+                  Sign up
+                </button>
+              </p>
+            )}
           </div>
-          <div>
-            <label htmlFor="password" className="block text-sm font-medium">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              required
-              className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
-            />
-          </div>
-          {error && <p className="text-sm text-red-600">{error}</p>}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-          >
-            {loading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
-      </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }
