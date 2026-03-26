@@ -1,10 +1,13 @@
 import { createBrowserClient, createServerClient } from '@supabase/ssr';
 import type { Database } from './types';
 
-export function createClient() {
+type BrowserClient = ReturnType<typeof createBrowserClient<Database>>;
+type ServerClient = ReturnType<typeof createServerClient<Database>>;
+
+export function createClient(): BrowserClient {
   return createBrowserClient<Database>(
-    process.env['NEXT_PUBLIC_SUPABASE_URL']!,
-    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']!
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? '',
+    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ?? ''
   );
 }
 
@@ -15,10 +18,10 @@ export function createServerComponentClient(cookieStore: {
     value: string,
     options: Record<string, unknown>
   ) => void;
-}) {
+}): ServerClient {
   return createServerClient<Database>(
-    process.env['NEXT_PUBLIC_SUPABASE_URL']!,
-    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY']!,
+    process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? '',
+    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ?? '',
     {
       cookies: {
         getAll() {
