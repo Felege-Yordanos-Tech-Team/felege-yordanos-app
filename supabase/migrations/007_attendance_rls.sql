@@ -4,36 +4,12 @@
 -- EVENTS
 -- ============================================================
 
--- SELECT: authenticated users can see events from their dept,
--- OR all events if admin/super_admin or Programs & Events dept (id=3)
+-- SELECT: all authenticated users can read all events
+-- (department scoping is for write access, not visibility)
 CREATE POLICY "Users can read events"
   ON public.events
   FOR SELECT
-  USING (
-    auth.role() = 'authenticated'
-    AND (
-      -- admin/super_admin see all
-      public.get_my_role() IN ('admin', 'super_admin')
-      -- Programs & Events dept (id=3) sees all
-      OR EXISTS (
-        SELECT 1 FROM public.profiles
-        WHERE id = auth.uid() AND department_id = 3
-      )
-      -- dept_head sees own dept events
-      OR (
-        public.get_my_role() = 'dept_head'
-        AND department_id = (
-          SELECT department_id FROM public.profiles WHERE id = auth.uid()
-        )
-      )
-      -- regular members see events from their dept
-      OR department_id = (
-        SELECT department_id FROM public.profiles WHERE id = auth.uid()
-      )
-      -- events with no department are visible to all
-      OR department_id IS NULL
-    )
-  );
+  USING (auth.role() = 'authenticated');
 
 -- INSERT: dept_head (own dept), admin, super_admin
 CREATE POLICY "Authorized users can create events"
