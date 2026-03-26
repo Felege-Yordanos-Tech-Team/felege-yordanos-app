@@ -5,6 +5,7 @@
 @tailwind utilities;
 
 @layer base {
+  /* Light mode */
   :root {
     --background: 40 60% 98.4%;
     --foreground: 20 35% 13%;
@@ -28,25 +29,26 @@
     --radius: 0.5rem;
   }
 
+  /* Dark mode */
   .dark {
-    --background: 220 40% 13%;
-    --foreground: 40 30% 92%;
-    --card: 220 35% 16%;
-    --card-foreground: 40 30% 92%;
-    --popover: 220 35% 16%;
-    --popover-foreground: 40 30% 92%;
-    --primary: 42 61% 55%;
-    --primary-foreground: 220 40% 13%;
-    --secondary: 220 30% 20%;
-    --secondary-foreground: 40 30% 92%;
-    --muted: 220 30% 20%;
-    --muted-foreground: 33 20% 65%;
-    --accent: 348 57% 26.7%;
-    --accent-foreground: 40 60% 98.4%;
+    --background: 222 35% 10%;
+    --foreground: 40 30% 90%;
+    --card: 222 30% 13%;
+    --card-foreground: 40 30% 90%;
+    --popover: 222 30% 13%;
+    --popover-foreground: 40 30% 90%;
+    --primary: 348 57% 26.7%;
+    --primary-foreground: 40 60% 98.4%;
+    --secondary: 222 25% 18%;
+    --secondary-foreground: 40 30% 90%;
+    --muted: 222 20% 16%;
+    --muted-foreground: 33 15% 55%;
+    --accent: 42 61% 55%;
+    --accent-foreground: 222 35% 10%;
     --destructive: 0 55% 39%;
     --destructive-foreground: 40 60% 98.4%;
-    --border: 220 30% 22%;
-    --input: 220 30% 22%;
+    --border: 222 20% 20%;
+    --input: 222 25% 16%;
     --ring: 42 61% 55%;
   }
 
@@ -66,18 +68,39 @@
 }
 
 @layer components {
-  /* Ethiopian cross pattern for auth pages */
-  .eth-pattern {
+  /* Ethiopian cross mandala pattern — dark mode (inspired by reference) */
+  .auth-bg-dark {
+    background-color: #0F1729;
     background-image:
-      radial-gradient(circle, hsl(348 57% 26.7% / 0.03) 1px, transparent 1px),
-      radial-gradient(circle, hsl(42 61% 55% / 0.02) 1px, transparent 1px);
-    background-size: 24px 24px, 48px 48px;
-    background-position: 0 0, 12px 12px;
+      radial-gradient(ellipse at 50% 40%, rgba(107, 29, 42, 0.15) 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(212, 168, 67, 0.04) 0%, transparent 50%),
+      repeating-conic-gradient(from 0deg at 50% 50%, rgba(212, 168, 67, 0.03) 0deg 10deg, transparent 10deg 20deg);
+    background-size: 100% 100%, 100% 100%, 400px 400px;
+    background-position: center, center, center;
+  }
+
+  /* Ethiopian cross pattern — light mode */
+  .auth-bg-light {
+    background-color: #FFFDF7;
+    background-image:
+      radial-gradient(ellipse at 50% 40%, rgba(107, 29, 42, 0.04) 0%, transparent 60%),
+      radial-gradient(circle at 50% 50%, rgba(212, 168, 67, 0.03) 0%, transparent 50%),
+      repeating-conic-gradient(from 0deg at 50% 50%, rgba(107, 29, 42, 0.015) 0deg 10deg, transparent 10deg 20deg);
+    background-size: 100% 100%, 100% 100%, 400px 400px;
+    background-position: center, center, center;
   }
 
   /* Gold top border for cards */
   .card-gold {
-    border-top: 2px solid hsl(42 61% 55%);
+    border-top: 2px solid #D4A843;
+  }
+
+  /* Gold bordered input (dark mode auth pages) */
+  .input-gold {
+    @apply border-[#D4A843]/40 bg-[#0F1729]/80 text-[#FFFDF7] placeholder:text-[#FFFDF7]/40;
+  }
+  .input-gold:focus {
+    @apply border-[#D4A843] ring-[#D4A843]/30;
   }
 
   /* Table header burgundy */

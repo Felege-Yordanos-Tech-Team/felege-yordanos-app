@@ -3,13 +3,6 @@
 import { useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import { useRouter } from 'next/navigation';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -42,89 +35,121 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="eth-pattern flex min-h-screen items-center justify-center px-4" style={{ background: 'radial-gradient(ellipse at center, #FFFDF7 0%, #F5F0E6 100%)' }}>
-      <Card className="w-full max-w-sm card-gold shadow-lg">
-        <CardHeader className="text-center space-y-3">
-          <p className="text-[#D4A843] text-lg tracking-widest">✞</p>
-          <div className="mx-auto w-16 h-[2px] bg-[#D4A843]" />
-          <p className="text-sm text-primary font-semibold" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
-            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+    <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
+      {/* Cross ornament */}
+      <div className="mb-6 flex flex-col items-center">
+        <span className="text-4xl text-[#D4A843] leading-none" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
+          ✞
+        </span>
+        <div className="mt-3 h-[1px] w-20 bg-gradient-to-r from-transparent via-[#D4A843] to-transparent" />
+      </div>
+
+      {/* Title */}
+      <h1
+        className="text-center text-[#FFFDF7] text-2xl tracking-wide"
+        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
+      >
+        <span className="text-[#D4A843]">Ethiopian </span>
+        <span>Orthodox</span>
+      </h1>
+      <h2
+        className="mt-1 text-center text-[#FFFDF7] text-2xl tracking-wide"
+        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
+      >
+        <span>Sunday </span>
+        <span className="text-[#D4A843]">S</span>
+        <span>chool</span>
+      </h2>
+
+      <p
+        className="mt-2 text-center text-[#D4A843]/70 text-sm"
+        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
+      >
+        ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+      </p>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="mt-10 w-full max-w-sm space-y-5">
+        <div className="space-y-2">
+          <Label className="text-[#D4A843]/80 text-xs uppercase tracking-wider">
+            {isSignUp ? 'Email' : 'Email or Phone'}
+          </Label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={isSignUp ? 'you@example.com' : 'Email or Phone'}
+            required
+            className="w-full rounded-md border border-[#D4A843]/30 bg-[#0A0F1E] px-4 py-3 text-[#FFFDF7] placeholder:text-[#FFFDF7]/30 focus:border-[#D4A843] focus:outline-none focus:ring-1 focus:ring-[#D4A843]/40 transition-colors"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[#D4A843]/80 text-xs uppercase tracking-wider">
+            Password
+          </Label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            required
+            minLength={6}
+            className="w-full rounded-md border border-[#D4A843]/30 bg-[#0A0F1E] px-4 py-3 text-[#FFFDF7] placeholder:text-[#FFFDF7]/30 focus:border-[#D4A843] focus:outline-none focus:ring-1 focus:ring-[#D4A843]/40 transition-colors"
+          />
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-400">{error}</p>
+        )}
+
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-md border border-[#D4A843]/50 bg-[#6B1D2A] py-6 text-base font-semibold text-[#FFFDF7] hover:bg-[#8A2E3D] transition-colors"
+        >
+          {loading
+            ? isSignUp ? 'Creating account...' : 'Logging in...'
+            : isSignUp ? 'Register' : 'Login'}
+        </Button>
+
+        {!isSignUp && (
+          <p className="text-center">
+            <button
+              type="button"
+              className="text-sm text-[#D4A843]/70 hover:text-[#D4A843] transition-colors"
+            >
+              Forgot Password?
+            </button>
           </p>
-          <CardTitle className="text-2xl text-primary">
-            {isSignUp ? 'Create Account' : 'Sign In'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading
-                ? isSignUp
-                  ? 'Creating account...'
-                  : 'Signing in...'
-                : isSignUp
-                  ? 'Sign Up'
-                  : 'Sign In'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            {isSignUp ? (
-              <p>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(false);
-                    setError('');
-                  }}
-                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
-                >
-                  Sign in
-                </button>
-              </p>
-            ) : (
-              <p>
-                Don&apos;t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(true);
-                    setError('');
-                  }}
-                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
-                >
-                  Sign up
-                </button>
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <div className="pt-2 text-center text-sm text-[#FFFDF7]/50">
+          {isSignUp ? (
+            <p>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(false); setError(''); }}
+                className="text-[#D4A843] font-medium hover:underline"
+              >
+                Login
+              </button>
+            </p>
+          ) : (
+            <p>
+              Don&apos;t have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(true); setError(''); }}
+                className="text-[#D4A843] font-medium hover:underline"
+              >
+                Register
+              </button>
+            </p>
+          )}
+        </div>
+      </form>
     </div>
   );
 }
