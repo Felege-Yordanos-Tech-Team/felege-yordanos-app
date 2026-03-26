@@ -1,5 +1,5 @@
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
+import { createServerComponentClient, getLinkedMember } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
 import { ProfileForm } from './profile-form';
 
@@ -20,6 +20,8 @@ export default async function ProfilePage() {
     .single();
 
   const profile = data as Profile | null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const member = await getLinkedMember(supabase as any, user?.id ?? '');
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
@@ -32,6 +34,7 @@ export default async function ProfilePage() {
         email={user?.email ?? ''}
         displayName={profile?.display_name ?? ''}
         role={profile?.role ?? 'member'}
+        member={member}
       />
     </div>
   );

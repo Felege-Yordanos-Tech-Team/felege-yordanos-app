@@ -1,8 +1,10 @@
 import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
+import { createServerComponentClient, getLinkedMember } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Music, CalendarCheck, Heart } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Music, CalendarCheck, Heart, Link2 } from 'lucide-react';
 import Link from 'next/link';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -43,14 +45,48 @@ export default async function MemberDashboard() {
     .single();
 
   const profile = data as Profile | null;
-  const displayName = profile?.display_name || user?.email || 'User';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const member = await getLinkedMember(supabase as any, user?.id ?? '');
+
+  const greetingName = member
+    ? [member.name, member.father_name].filter(Boolean).join(' ')
+    : profile?.display_name || user?.email || 'User';
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-2xl font-bold">ሰላም, {displayName}!</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <div className="flex items-center gap-3">
+        <div>
+          <h1 className="text-2xl font-bold">ሰላም, {greetingName}!</h1>
+          {member && (
+            <Badge variant="outline" className="mt-1">
+              {member.member_id}
+            </Badge>
+          )}
+        </div>
+      </div>
+      <p className="mt-2 text-sm text-muted-foreground">
         Welcome to Felege Yordanos Sunday School
       </p>
+
+      {!member && (
+        <Card className="mt-4 border-primary/20 bg-primary/5">
+          <CardContent className="flex items-center gap-4 py-4">
+            <Link2 className="h-5 w-5 shrink-0 text-primary" />
+            <div className="flex-1">
+              <p className="text-sm font-medium">
+                You haven&apos;t linked your member profile yet
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Link to access attendance and other features
+              </p>
+            </div>
+            <Button size="sm" asChild>
+              <Link href="/claim">Link Now</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       <div className="mt-6 grid grid-cols-2 gap-4 md:grid-cols-3">
         {quickActions.map((action) => {
           const Icon = action.icon;
