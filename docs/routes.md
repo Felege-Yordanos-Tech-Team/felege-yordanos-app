@@ -5,13 +5,13 @@
 ```mermaid
 graph TD
     subgraph PUBLIC["(public) — No auth required"]
-        LOGIN["/login<br/>Email/password sign-in"]
-        SONGBOOK["/songbook<br/>Song list (browse/search)"]
-        SONG_DETAIL["/songbook/[id]<br/>Song lyrics & details"]
+        LOGIN["/login<br/>Sign-in / sign-up form"]
     end
 
     subgraph MEMBER["(member) — Authenticated users"]
         DASHBOARD["/dashboard<br/>Member home + quick links"]
+        SONGBOOK["/songbook<br/>Song list (browse/search)"]
+        SONG_DETAIL["/songbook/[id]<br/>Song lyrics & details"]
         ATTENDANCE["/attendance<br/>Personal attendance history"]
         DONATE["/donate<br/>Submit donation + receipt"]
     end
@@ -24,7 +24,7 @@ graph TD
         ADMIN_DONATIONS["/admin/donations<br/>Verify submitted donations"]
     end
 
-    ROOT["/ (landing)"] -->|redirect| SONGBOOK
+    ROOT["/ (landing)"] -->|redirect| DASHBOARD
 
     ADMIN_ATTENDANCE --> ADMIN_CHECKIN
 
@@ -38,11 +38,11 @@ graph TD
 
 | Route | Auth | Roles | Layout | Status |
 |-------|------|-------|--------|--------|
-| `/` | Public | Any | Root | Redirects to `/songbook` |
-| `/login` | Public | Any | Root > Public | Working (Supabase auth) |
-| `/songbook` | Public | Any | Root > Public | Placeholder |
-| `/songbook/[id]` | Public | Any | Root > Public | Placeholder |
-| `/dashboard` | Protected | All authenticated | Root > Member | Placeholder |
+| `/` | Protected | Any | Root | Redirects to `/dashboard` |
+| `/login` | Public | Any (logged-in users redirected to `/dashboard`) | Root > Public | Working (sign-in + sign-up) |
+| `/dashboard` | Protected | All authenticated | Root > Member | Working (shows user email) |
+| `/songbook` | Protected | All authenticated | Root > Member | Placeholder |
+| `/songbook/[id]` | Protected | All authenticated | Root > Member | Placeholder |
 | `/attendance` | Protected | All authenticated | Root > Member | Placeholder |
 | `/donate` | Protected | All authenticated | Root > Member | Placeholder |
 | `/admin` | Protected | dept_head, admin, super_admin | Root > Admin | Placeholder |
@@ -57,17 +57,17 @@ graph TD
 graph TD
     ROOT_LAYOUT["RootLayout<br/>html lang='am', body, global.css<br/>metadata + viewport"]
 
-    ROOT_LAYOUT --> PUBLIC_LAYOUT["PublicLayout<br/>min-h-screen wrapper<br/>No BottomNav"]
-    ROOT_LAYOUT --> MEMBER_LAYOUT["MemberLayout<br/>min-h-screen pb-16<br/>BottomNav (member links)"]
-    ROOT_LAYOUT --> ADMIN_LAYOUT["AdminLayout<br/>min-h-screen pb-16<br/>BottomNav (member + admin links)"]
+    ROOT_LAYOUT --> PUBLIC_LAYOUT["PublicLayout<br/>min-h-screen wrapper<br/>No header, no BottomNav"]
+    ROOT_LAYOUT --> MEMBER_LAYOUT["MemberLayout<br/>Header (branding + logout)<br/>BottomNav (member links)"]
+    ROOT_LAYOUT --> ADMIN_LAYOUT["AdminLayout<br/>Header (branding + logout)<br/>BottomNav (member + admin links)"]
 
     PUBLIC_LAYOUT --> P1["/login"]
-    PUBLIC_LAYOUT --> P2["/songbook"]
-    PUBLIC_LAYOUT --> P3["/songbook/[id]"]
 
     MEMBER_LAYOUT --> M1["/dashboard"]
-    MEMBER_LAYOUT --> M2["/attendance"]
-    MEMBER_LAYOUT --> M3["/donate"]
+    MEMBER_LAYOUT --> M2["/songbook"]
+    MEMBER_LAYOUT --> M3["/songbook/[id]"]
+    MEMBER_LAYOUT --> M4["/attendance"]
+    MEMBER_LAYOUT --> M5["/donate"]
 
     ADMIN_LAYOUT --> A1["/admin"]
     ADMIN_LAYOUT --> A2["/admin/users"]
