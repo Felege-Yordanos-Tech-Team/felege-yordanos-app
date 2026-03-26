@@ -124,6 +124,61 @@ export type Database = {
           [key: string]: unknown;
         };
       };
+      events: {
+        Row: {
+          id: string;
+          title: string;
+          description: string | null;
+          event_date: string;
+          department_id: number | null;
+          created_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          title: string;
+          description?: string | null;
+          event_date: string;
+          department_id?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          title?: string;
+          description?: string | null;
+          event_date?: string;
+          department_id?: number | null;
+          created_by?: string | null;
+          created_at?: string;
+        };
+      };
+      attendance: {
+        Row: {
+          id: string;
+          event_id: string;
+          member_id: number;
+          status: 'present' | 'absent' | 'late';
+          marked_by: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          event_id: string;
+          member_id: number;
+          status: 'present' | 'absent' | 'late';
+          marked_by?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          event_id?: string;
+          member_id?: number;
+          status?: 'present' | 'absent' | 'late';
+          marked_by?: string | null;
+          created_at?: string;
+        };
+      };
       departments: {
         Row: {
           id: number;
