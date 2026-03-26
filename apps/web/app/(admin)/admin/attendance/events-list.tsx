@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@felege-yordanos/db';
 import type { UserRole, Department } from '@felege-yordanos/db';
-import { Plus, CalendarDays, Users } from 'lucide-react';
+import { Plus, CalendarDays, Users, Pencil } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -26,6 +26,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import {
   Select,
   SelectContent,
@@ -72,10 +79,22 @@ export function EventsList({
   const [endTime, setEndTime] = useState('');
   const [deptId, setDeptId] = useState<string>(userDeptId ? String(userDeptId) : '');
   const [creating, setCreating] = useState(false);
+
+  // Edit state
+  const [editEvent, setEditEvent] = useState<EventRow | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editDate, setEditDate] = useState('');
+  const [editStartTime, setEditStartTime] = useState('');
+  const [editEndTime, setEditEndTime] = useState('');
+  const [editDeptId, setEditDeptId] = useState('');
+  const [saving, setSaving] = useState(false);
+
   const { toast } = useToast();
   const router = useRouter();
 
   const isDeptHead = userRole === 'dept_head';
+  const today = new Date().toISOString().split('T')[0];
 
   function getDeptName(id: number | null): string {
     if (!id) return 'General';
@@ -85,6 +104,20 @@ export function EventsList({
   function formatTime(time: string | null): string {
     if (!time) return '';
     return time.slice(0, 5);
+  }
+
+  function isUpcoming(eventDate: string): boolean {
+    return eventDate >= today;
+  }
+
+  function openEdit(event: EventRow) {
+    setEditEvent(event);
+    setEditTitle(event.title);
+    setEditDescription(event.description ?? '');
+    setEditDate(event.event_date);
+    setEditStartTime(event.start_time?.slice(0, 5) ?? '');
+    setEditEndTime(event.end_time?.slice(0, 5) ?? '');
+    setEditDeptId(event.department_id ? String(event.department_id) : '');
   }
 
   async function handleCreate(e: React.FormEvent) {
@@ -115,6 +148,34 @@ export function EventsList({
       setStartTime('');
       setEndTime('');
       if (!isDeptHead) setDeptId('');
+      router.refresh();
+    }
+  }
+
+  async function handleUpdate() {
+    if (!editEvent) return;
+    setSaving(true);
+
+    const supabase = createClient();
+    const { error } = await supabase
+      .from('events')
+      .update({
+        title: editTitle,
+        description: editDescription || null,
+        event_date: editDate,
+        start_time: editStartTime || null,
+        end_time: editEndTime || null,
+        department_id: editDeptId ? Number(editDeptId) : null,
+      } as never)
+      .eq('id', editEvent.id);
+
+    setSaving(false);
+
+    if (error) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    } else {
+      toast({ title: 'Event updated', description: editTitle });
+      setEditEvent(null);
       router.refresh();
     }
   }
@@ -231,48 +292,146 @@ export function EventsList({
                 </TableCell>
               </TableRow>
             ) : (
-              events.map((event) => (
-                <TableRow key={event.id} className="cursor-pointer">
-                  <TableCell>
-                    <Link href={`/admin/attendance/${event.id}`} className="font-medium hover:underline">
-                      {event.title}
-                    </Link>
-                    {event.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-1">
-                        {event.description}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="text-sm text-muted-foreground">
-                    <div className="flex items-center gap-1">
-                      <CalendarDays className="h-3.5 w-3.5" />
-                      {event.event_date}
-                    </div>
-                    {(event.start_time || event.end_time) && (
-                      <p className="text-xs">
-                        {formatTime(event.start_time)}
-                        {event.start_time && event.end_time && ' – '}
-                        {formatTime(event.end_time)}
-                      </p>
-                    )}
-                  </TableCell>
-                  <TableCell className="hidden sm:table-cell">
-                    <Badge variant="secondary" className="text-xs">
-                      {getDeptName(event.department_id)}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex items-center justify-end gap-1 text-sm">
-                      <Users className="h-3.5 w-3.5 text-muted-foreground" />
-                      {attendanceCounts[event.id] ?? 0}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
+              events.map((event) => {
+                const upcoming = isUpcoming(event.event_date);
+                return (
+                  <TableRow key={event.id}>
+                    <TableCell>
+                      <div className="flex items-center gap-2">
+                        <Link href={`/admin/attendance/${event.id}`} className="font-medium hover:underline">
+                          {event.title}
+                        </Link>
+                        {upcoming && (
+                          <button
+                            onClick={() => openEdit(event)}
+                            className="text-muted-foreground hover:text-foreground"
+                            title="Edit event"
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </div>
+                      {event.description && (
+                        <p className="text-xs text-muted-foreground line-clamp-1">
+                          {event.description}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-sm text-muted-foreground">
+                      <div className="flex items-center gap-1">
+                        <CalendarDays className="h-3.5 w-3.5" />
+                        {event.event_date}
+                      </div>
+                      {(event.start_time || event.end_time) && (
+                        <p className="text-xs">
+                          {formatTime(event.start_time)}
+                          {event.start_time && event.end_time && ' – '}
+                          {formatTime(event.end_time)}
+                        </p>
+                      )}
+                    </TableCell>
+                    <TableCell className="hidden sm:table-cell">
+                      <Badge variant="secondary" className="text-xs">
+                        {getDeptName(event.department_id)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1 text-sm">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground" />
+                        {attendanceCounts[event.id] ?? 0}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
       </div>
+
+      {/* Edit Event Sheet */}
+      <Sheet open={!!editEvent} onOpenChange={(open) => !open && setEditEvent(null)}>
+        <SheetContent>
+          <SheetHeader>
+            <SheetTitle>Edit Event</SheetTitle>
+            <SheetDescription>
+              Update event details before it takes place
+            </SheetDescription>
+          </SheetHeader>
+          <div className="mt-6 space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="edit-title">Title</Label>
+              <Input
+                id="edit-title"
+                value={editTitle}
+                onChange={(e) => setEditTitle(e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-description">Description</Label>
+              <Textarea
+                id="edit-description"
+                value={editDescription}
+                onChange={(e) => setEditDescription(e.target.value)}
+                rows={3}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-date">Date</Label>
+              <Input
+                id="edit-date"
+                type="date"
+                value={editDate}
+                onChange={(e) => setEditDate(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-start">Start Time</Label>
+                <Input
+                  id="edit-start"
+                  type="time"
+                  value={editStartTime}
+                  onChange={(e) => setEditStartTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-end">End Time</Label>
+                <Input
+                  id="edit-end"
+                  type="time"
+                  value={editEndTime}
+                  onChange={(e) => setEditEndTime(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              {isDeptHead ? (
+                <p className="text-sm text-muted-foreground">
+                  {getDeptName(userDeptId)}
+                </p>
+              ) : (
+                <Select value={editDeptId} onValueChange={setEditDeptId}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select department (optional)" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {departments.map((d) => (
+                      <SelectItem key={d.id} value={String(d.id)}>
+                        {d.name_am}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            </div>
+            <Button onClick={handleUpdate} disabled={saving} className="w-full">
+              {saving ? 'Saving...' : 'Save Changes'}
+            </Button>
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }
