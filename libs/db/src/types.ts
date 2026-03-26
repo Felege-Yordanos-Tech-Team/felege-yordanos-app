@@ -124,6 +124,26 @@ export type Database = {
           [key: string]: unknown;
         };
       };
+      departments: {
+        Row: {
+          id: number;
+          name_en: string;
+          name_am: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: number;
+          name_en: string;
+          name_am: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: number;
+          name_en?: string;
+          name_am?: string;
+          created_at?: string;
+        };
+      };
     };
     Views: Record<string, never>;
     Functions: Record<string, never>;
@@ -135,3 +155,4 @@ export type Database = {
 
 export type UserRole = Database['public']['Enums']['role_type'];
 export type Member = Database['public']['Tables']['members']['Row'];
+export type Department = Database['public']['Tables']['departments']['Row'];
