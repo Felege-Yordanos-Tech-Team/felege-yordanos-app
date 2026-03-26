@@ -185,6 +185,47 @@ export type Database = {
           created_at?: string;
         };
       };
+      donations: {
+        Row: {
+          id: string;
+          donor_id: string;
+          amount: number;
+          currency: string;
+          payment_method: 'bank_transfer' | 'telebirr' | 'cash' | 'other' | null;
+          receipt_url: string | null;
+          notes: string | null;
+          status: 'pending' | 'verified' | 'rejected';
+          verified_by: string | null;
+          verified_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          donor_id: string;
+          amount: number;
+          currency?: string;
+          payment_method?: 'bank_transfer' | 'telebirr' | 'cash' | 'other' | null;
+          receipt_url?: string | null;
+          notes?: string | null;
+          status?: 'pending' | 'verified' | 'rejected';
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          donor_id?: string;
+          amount?: number;
+          currency?: string;
+          payment_method?: 'bank_transfer' | 'telebirr' | 'cash' | 'other' | null;
+          receipt_url?: string | null;
+          notes?: string | null;
+          status?: 'pending' | 'verified' | 'rejected';
+          verified_by?: string | null;
+          verified_at?: string | null;
+          created_at?: string;
+        };
+      };
       departments: {
         Row: {
           id: number;
