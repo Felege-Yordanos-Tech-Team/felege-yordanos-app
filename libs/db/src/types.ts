@@ -7,6 +7,7 @@ export type Database = {
       profiles: {
         Row: {
           id: string;
+          display_name: string | null;
           full_name: string | null;
           role: 'member' | 'dept_head' | 'admin' | 'super_admin';
           department_id: string | null;
@@ -14,6 +15,7 @@ export type Database = {
         };
         Insert: {
           id: string;
+          display_name?: string | null;
           full_name?: string | null;
           role?: 'member' | 'dept_head' | 'admin' | 'super_admin';
           department_id?: string | null;
@@ -21,9 +23,65 @@ export type Database = {
         };
         Update: {
           id?: string;
+          display_name?: string | null;
           full_name?: string | null;
           role?: 'member' | 'dept_head' | 'admin' | 'super_admin';
           department_id?: string | null;
+          created_at?: string;
+        };
+      };
+      categories: {
+        Row: {
+          id: string;
+          name: string;
+          emoji: string | null;
+          color: string | null;
+          sort_order: number;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          emoji?: string | null;
+          color?: string | null;
+          sort_order?: number;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          emoji?: string | null;
+          color?: string | null;
+          sort_order?: number;
+        };
+      };
+      songs: {
+        Row: {
+          id: string;
+          number: number;
+          title: string;
+          title_en: string | null;
+          category: string;
+          lyrics: string;
+          audio_url: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          number: number;
+          title: string;
+          title_en?: string | null;
+          category: string;
+          lyrics: string;
+          audio_url?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          number?: number;
+          title?: string;
+          title_en?: string | null;
+          category?: string;
+          lyrics?: string;
+          audio_url?: string | null;
           created_at?: string;
         };
       };
