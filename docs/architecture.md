@@ -13,7 +13,7 @@ graph TD
     APPS --> WEB["web/ — Next.js 16 (App Router, PWA)"]
 
     LIBS --> UI["ui/ — @felege-yordanos/ui<br/>Shared components (BottomNav)"]
-    LIBS --> DB["db/ — @felege-yordanos/db<br/>Supabase client + DB types"]
+    LIBS --> DB["db/ — @felege-yordanos/db<br/>Supabase client + DB types + helpers"]
 
     WEB --> |depends on| UI
     WEB --> |depends on| DB
@@ -34,7 +34,7 @@ graph TD
 | App | Next.js 16 (App Router) |
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS + shadcn/ui |
-| UI Components | shadcn/ui (Card, Button, Input, Label, etc.) |
+| UI Components | shadcn/ui (Card, Button, Input, Label, Badge, DropdownMenu, Toast, etc.) |
 | Backend/DB | Supabase (PostgreSQL) |
 | Auth | Supabase Auth via `@supabase/ssr` |
 | Mobile | PWA (`@ducanh2912/next-pwa`) |
@@ -66,7 +66,7 @@ Roles are stored in the `profiles` table (column: `role`). Department scoping us
 ```
 apps/web/
 ├── app/
-│   ├── layout.tsx              # Root layout (html, body, metadata)
+│   ├── layout.tsx              # Root layout (html, body, metadata, Toaster)
 │   ├── page.tsx                # / — redirects to /dashboard
 │   ├── global.css              # Tailwind + shadcn/ui CSS variables
 │   ├── manifest.json           # PWA web app manifest
@@ -77,15 +77,22 @@ apps/web/
 │   │   ├── layout.tsx
 │   │   └── login/page.tsx      # Sign-in / sign-up form (shadcn/ui)
 │   ├── (member)/               # Authenticated users
-│   │   ├── layout.tsx          # Header (logout) + BottomNav(role="member")
-│   │   ├── dashboard/page.tsx  # Shows user email + quick links
+│   │   ├── layout.tsx          # Fetches profile, UserMenu + BottomNav
+│   │   ├── dashboard/page.tsx  # Greeting, claim prompt, quick links
+│   │   ├── claim/
+│   │   │   ├── page.tsx        # Server wrapper
+│   │   │   └── claim-form.tsx  # Member ID claim form
+│   │   ├── profile/
+│   │   │   ├── page.tsx        # Server wrapper (fetches profile + member)
+│   │   │   └── profile-form.tsx # Editable display name + linked member info
 │   │   ├── attendance/page.tsx
 │   │   ├── donate/page.tsx
 │   │   └── songbook/
-│   │       ├── page.tsx
-│   │       └── [id]/page.tsx
+│   │       ├── page.tsx        # Server: fetches songs + categories
+│   │       ├── song-list.tsx   # Client: search, filter, song cards
+│   │       └── [id]/page.tsx   # Server: single song lyrics
 │   └── (admin)/                # dept_head, admin, super_admin
-│       ├── layout.tsx          # Header (logout) + BottomNav(role="admin")
+│       ├── layout.tsx          # Fetches profile, UserMenu + BottomNav
 │       └── admin/
 │           ├── page.tsx
 │           ├── users/page.tsx
@@ -94,8 +101,9 @@ apps/web/
 │           │   └── [eventId]/page.tsx
 │           └── donations/page.tsx
 ├── components/
-│   ├── ui/                     # shadcn/ui components (button, card, input, etc.)
-│   └── logout-button.tsx       # Sign-out button (client component)
+│   ├── ui/                     # shadcn/ui components (17 components)
+│   ├── user-menu.tsx           # DropdownMenu with Profile + Sign out
+│   └── logout-button.tsx       # Standalone sign-out button (legacy)
 ├── hooks/                      # Custom hooks (use-toast)
 ├── lib/utils.ts                # cn() utility
 ├── proxy.ts                    # Auth proxy (Next.js 16 convention)
@@ -104,7 +112,16 @@ apps/web/
 │   └── web-app-manifest-512x512.png
 └── next.config.js              # withNx + withPWA plugins
 
+libs/db/src/
+├── client.ts                   # createClient(), createServerComponentClient()
+├── members.ts                  # getLinkedMember() helper
+├── types.ts                    # Database types (profiles, members, songs, categories)
+└── index.ts                    # Barrel exports
+
 supabase/migrations/
 ├── 001_create_profile_trigger.sql  # profiles table + auto-create trigger
-└── 002_profiles_rls.sql            # RLS policies for profiles
+├── 002_profiles_rls.sql            # RLS policies + get_my_role() helper
+├── 003_seed_songs.sql              # categories + songs tables + seed data
+├── 004_songs_rls.sql               # RLS for songs/categories
+└── 004b_member_auth_link.sql       # auth_user_id on members + RLS
 ```
