@@ -16,6 +16,14 @@ module.exports = {
       },
     },
     extend: {
+      fontFamily: {
+        headline: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
+        body: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
+        sans: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
+        display: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
+        label: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
+        ethiopic: ['Noto Sans Ethiopic', 'sans-serif'],
+      },
       colors: {
         border: 'hsl(var(--border))',
         input: 'hsl(var(--input))',
@@ -25,10 +33,12 @@ module.exports = {
         primary: {
           DEFAULT: 'hsl(var(--primary))',
           foreground: 'hsl(var(--primary-foreground))',
+          container: 'hsl(var(--primary-container))',
         },
         secondary: {
           DEFAULT: 'hsl(var(--secondary))',
           foreground: 'hsl(var(--secondary-foreground))',
+          container: 'hsl(var(--secondary-container))',
         },
         destructive: {
           DEFAULT: 'hsl(var(--destructive))',
@@ -50,21 +60,27 @@ module.exports = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        'surface-container': 'hsl(var(--surface-container))',
+        'surface-container-low': 'hsl(var(--surface-container-low))',
+        'surface-container-high': 'hsl(var(--surface-container-high))',
+        'outline-variant': 'hsl(var(--outline-variant))',
         gold: {
-          DEFAULT: '#D4A843',
-          dark: '#B8902F',
-          light: '#E8C96A',
+          DEFAULT: '#735c00',
+          light: '#e9c349',
+          bright: '#fed65b',
         },
         burgundy: {
-          DEFAULT: '#6B1D2A',
-          light: '#8A2E3D',
+          DEFAULT: '#430310',
+          light: '#601924',
         },
         navy: '#1A2744',
       },
       borderRadius: {
-        lg: 'var(--radius)',
+        DEFAULT: '0.75rem',
+        lg: '1rem',
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
+        xl: '1.5rem',
       },
       keyframes: {
         'accordion-down': {

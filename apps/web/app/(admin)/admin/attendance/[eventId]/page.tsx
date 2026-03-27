@@ -46,7 +46,7 @@ export default async function CheckInPage({
     .eq('event_id', eventId);
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-6">
+    <div className="mx-auto max-w-4xl px-6 py-6">
       <Button variant="ghost" size="sm" asChild className="mb-4">
         <Link href="/admin/attendance">
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -55,7 +55,7 @@ export default async function CheckInPage({
       </Button>
 
       <div>
-        <h1 className="text-2xl font-bold">{event.title}</h1>
+        <h1 className="font-headline text-2xl text-primary">{event.title}</h1>
         {event.description && (
           <p className="mt-1 text-sm text-muted-foreground">{event.description}</p>
         )}

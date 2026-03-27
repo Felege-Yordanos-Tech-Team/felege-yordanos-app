@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { CalendarCheck, Clock } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 
 interface EventRow {
@@ -44,106 +43,102 @@ export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
 
   return (
     <>
-      {/* Department filter */}
+      {/* Section header */}
       {(upcoming.length > 0 || past.length > 0) && (
-        <div className="mt-6 flex gap-2 overflow-x-auto pb-1">
-          <Badge
-            variant={filterDept === null ? 'default' : 'outline'}
-            className="cursor-pointer shrink-0"
+        <div className="mb-4">
+          <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">ተከታታይ መርሃ ግብሮች</span>
+          <h3 className="font-headline text-3xl">Upcoming Events</h3>
+        </div>
+      )}
+
+      {/* Department filter pills */}
+      {(upcoming.length > 0 || past.length > 0) && (
+        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+          <button
             onClick={() => setFilterDept(null)}
+            className={`shrink-0 rounded-full px-5 py-2 text-xs font-label transition-colors ${
+              filterDept === null
+                ? 'bg-primary-container text-primary-foreground'
+                : 'bg-surface-container-high text-foreground hover:bg-surface-container'
+            }`}
           >
             All
-          </Badge>
+          </button>
           {departments.map((d) => (
-            <Badge
+            <button
               key={d.id}
-              variant={filterDept === d.id ? 'default' : 'outline'}
-              className="cursor-pointer shrink-0"
               onClick={() => setFilterDept(filterDept === d.id ? null : d.id)}
+              className={`shrink-0 rounded-full px-5 py-2 text-xs font-label transition-colors ${
+                filterDept === d.id
+                  ? 'bg-primary-container text-primary-foreground'
+                  : 'bg-surface-container-high text-foreground hover:bg-surface-container'
+              }`}
             >
               {d.name_am}
-            </Badge>
+            </button>
           ))}
         </div>
       )}
 
       {/* Upcoming Events */}
       {filteredUpcoming.length > 0 && (
-        <div className="mt-4">
-          <h2 className="text-lg font-semibold">Upcoming Events</h2>
-          <div className="mt-2 space-y-2">
-            {filteredUpcoming.map((event) => {
-              const deptName = getDeptName(event.department_id);
-              return (
-                <Card key={event.id}>
-                  <CardContent className="py-3">
-                    <div className="flex items-start gap-4">
-                      <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-primary" />
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium">{event.title}</p>
-                        {event.description && (
-                          <p className="text-xs text-muted-foreground line-clamp-1 mt-0.5">
-                            {event.description}
-                          </p>
-                        )}
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                          <span className="text-xs text-muted-foreground">{event.event_date}</span>
-                          {event.start_time && (
-                            <span className="flex items-center gap-1 text-xs text-muted-foreground">
-                              <Clock className="h-3 w-3" />
-                              {event.start_time.slice(0, 5)}
-                              {event.end_time && ` – ${event.end_time.slice(0, 5)}`}
-                            </span>
-                          )}
-                          {deptName && (
-                            <Badge variant="secondary" className="text-xs">
-                              {deptName}
-                            </Badge>
-                          )}
-                        </div>
-                      </div>
+        <div className="space-y-4 mb-8">
+          {filteredUpcoming.map((event) => {
+            const deptName = getDeptName(event.department_id);
+            return (
+              <div key={event.id} className="group relative bg-surface-container-low rounded-xl overflow-hidden flex transition-all duration-300 hover:-translate-y-0.5">
+                <div className="w-1 bg-secondary absolute left-0 h-full" />
+                <div className="p-5 pl-6 flex flex-col gap-3 w-full">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      {deptName && (
+                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block font-label">
+                          {deptName}
+                        </span>
+                      )}
+                      <h4 className="font-headline text-xl">{event.title}</h4>
+                      {event.description && (
+                        <p className="text-muted-foreground text-sm mt-1 line-clamp-1">{event.description}</p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
+                    <div className="text-right shrink-0 ml-4">
+                      <p className="font-headline text-lg leading-none">{event.event_date}</p>
+                      {event.start_time && (
+                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter font-label flex items-center justify-end gap-1 mt-1">
+                          <Clock className="h-3 w-3" />
+                          {event.start_time.slice(0, 5)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
       {/* Past Events */}
       {filteredPast.length > 0 && (
-        <div className="mt-6">
-          <h2 className="text-lg font-semibold">Recent Events</h2>
-          <div className="mt-2 space-y-2">
-            {filteredPast.map((event) => {
-              const deptName = getDeptName(event.department_id);
-              return (
-                <Card key={event.id} className="opacity-75">
-                  <CardContent className="flex items-center gap-4 py-3">
-                    <CalendarCheck className="h-5 w-5 shrink-0 text-muted-foreground" />
-                    <div className="flex-1 min-w-0">
-                      <p className="font-medium truncate">{event.title}</p>
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <span className="text-xs text-muted-foreground">{event.event_date}</span>
-                        {deptName && (
-                          <Badge variant="secondary" className="text-xs">
-                            {deptName}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <Badge variant="secondary" className="shrink-0">Past</Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
+        <div className="mb-8">
+          <h3 className="font-headline text-xl mb-4 text-muted-foreground">Recent</h3>
+          <div className="space-y-3">
+            {filteredPast.map((event) => (
+              <div key={event.id} className="flex items-center gap-4 p-4 rounded-xl bg-surface-container-low/50 opacity-60">
+                <CalendarCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate text-sm">{event.title}</p>
+                  <p className="text-xs text-muted-foreground">{event.event_date}</p>
+                </div>
+                <Badge variant="secondary" className="shrink-0 text-xs">Past</Badge>
+              </div>
+            ))}
           </div>
         </div>
       )}
 
       {filteredUpcoming.length === 0 && filteredPast.length === 0 && (upcoming.length > 0 || past.length > 0) && (
-        <p className="mt-4 text-center text-sm text-muted-foreground">
+        <p className="py-8 text-center text-sm text-muted-foreground">
           No events for this department
         </p>
       )}

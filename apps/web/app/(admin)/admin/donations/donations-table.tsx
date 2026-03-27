@@ -153,7 +153,7 @@ export function DonationsTable({ donations, profileMap, userId }: DonationsTable
         </Select>
       </div>
 
-      <div className="mt-4 rounded-md border">
+      <div className="mt-4 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>

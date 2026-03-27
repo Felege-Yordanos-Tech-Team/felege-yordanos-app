@@ -37,8 +37,8 @@ export default function LoginPage() {
 
   return (
     <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
-      {/* Sunday School icon */}
-      <div className="mb-4 rounded-full border-2 border-[#D4A843]/30 p-1 shadow-lg shadow-[#D4A843]/10">
+      {/* Logo */}
+      <div className="mb-4 rounded-full border-2 border-[#735c00]/30 p-1 shadow-lg shadow-[#735c00]/10">
         <Image
           src="/ss-logo.png"
           alt="Felege Yordanos Sunday School"
@@ -50,31 +50,22 @@ export default function LoginPage() {
       </div>
 
       {/* Title */}
-      <h1
-        className="text-center text-[#FFFDF7] text-xl tracking-wide"
-        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
-      >
-        <span className="text-[#D4A843]">E</span>thiopian{' '}
-        <span className="text-[#D4A843]">O</span>rthodox
+      <h1 className="text-center text-[#fef9ea] text-xl font-headline">
+        <span className="text-[#fed65b]">E</span>thiopian{' '}
+        <span className="text-[#fed65b]">O</span>rthodox
       </h1>
-      <h2
-        className="mt-0.5 text-center text-[#FFFDF7] text-xl tracking-wide"
-        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
-      >
-        Sunday <span className="text-[#D4A843]">S</span>chool
+      <h2 className="mt-0.5 text-center text-[#fef9ea] text-xl font-headline">
+        Sunday <span className="text-[#fed65b]">S</span>chool
       </h2>
 
-      <p
-        className="mt-1 text-center text-[#D4A843]/60 text-xs"
-        style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}
-      >
+      <p className="mt-1 text-center text-[#735c00]/70 text-xs font-ethiopic">
         ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
       </p>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} className="mt-10 w-full max-w-sm space-y-5">
+      <form onSubmit={handleSubmit} className="mt-8 w-full max-w-sm space-y-5">
         <div className="space-y-2">
-          <Label className="text-[#D4A843]/80 text-xs uppercase tracking-wider">
+          <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
             {isSignUp ? 'Email' : 'Email or Phone'}
           </Label>
           <input
@@ -83,12 +74,12 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             placeholder={isSignUp ? 'you@example.com' : 'Email or Phone'}
             required
-            className="w-full rounded-md border border-[#D4A843]/30 bg-[#0A0F1E] px-4 py-3 text-[#FFFDF7] placeholder:text-[#FFFDF7]/30 focus:border-[#D4A843] focus:outline-none focus:ring-1 focus:ring-[#D4A843]/40 transition-colors"
+            className="w-full rounded-xl border border-[#735c00]/20 bg-[#2a2920] px-4 py-3 text-[#fef9ea] placeholder:text-[#fef9ea]/25 focus:border-[#735c00] focus:outline-none focus:ring-1 focus:ring-[#735c00]/30 transition-colors font-body"
           />
         </div>
 
         <div className="space-y-2">
-          <Label className="text-[#D4A843]/80 text-xs uppercase tracking-wider">
+          <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
             Password
           </Label>
           <input
@@ -98,7 +89,7 @@ export default function LoginPage() {
             placeholder="Password"
             required
             minLength={6}
-            className="w-full rounded-md border border-[#D4A843]/30 bg-[#0A0F1E] px-4 py-3 text-[#FFFDF7] placeholder:text-[#FFFDF7]/30 focus:border-[#D4A843] focus:outline-none focus:ring-1 focus:ring-[#D4A843]/40 transition-colors"
+            className="w-full rounded-xl border border-[#735c00]/20 bg-[#2a2920] px-4 py-3 text-[#fef9ea] placeholder:text-[#fef9ea]/25 focus:border-[#735c00] focus:outline-none focus:ring-1 focus:ring-[#735c00]/30 transition-colors font-body"
           />
         </div>
 
@@ -109,7 +100,7 @@ export default function LoginPage() {
         <Button
           type="submit"
           disabled={loading}
-          className="w-full rounded-md border border-[#D4A843]/50 bg-[#6B1D2A] py-6 text-base font-semibold text-[#FFFDF7] hover:bg-[#8A2E3D] transition-colors"
+          className="w-full rounded-xl border border-[#735c00]/30 sacred-gradient py-6 text-base font-semibold text-[#fef9ea] hover:opacity-90 transition-opacity"
         >
           {loading
             ? isSignUp ? 'Creating account...' : 'Logging in...'
@@ -120,21 +111,21 @@ export default function LoginPage() {
           <p className="text-center">
             <button
               type="button"
-              className="text-sm text-[#D4A843]/70 hover:text-[#D4A843] transition-colors"
+              className="text-sm text-[#735c00]/60 hover:text-[#735c00] transition-colors font-label"
             >
               Forgot Password?
             </button>
           </p>
         )}
 
-        <div className="pt-2 text-center text-sm text-[#FFFDF7]/50">
+        <div className="pt-2 text-center text-sm text-[#fef9ea]/40 font-label">
           {isSignUp ? (
             <p>
               Already have an account?{' '}
               <button
                 type="button"
                 onClick={() => { setIsSignUp(false); setError(''); }}
-                className="text-[#D4A843] font-medium hover:underline"
+                className="text-[#fed65b] font-medium hover:underline"
               >
                 Login
               </button>
@@ -145,7 +136,7 @@ export default function LoginPage() {
               <button
                 type="button"
                 onClick={() => { setIsSignUp(true); setError(''); }}
-                className="text-[#D4A843] font-medium hover:underline"
+                className="text-[#fed65b] font-medium hover:underline"
               >
                 Register
               </button>

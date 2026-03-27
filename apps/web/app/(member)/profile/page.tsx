@@ -24,8 +24,9 @@ export default async function ProfilePage() {
   const member = await getLinkedMember(supabase as any, user?.id ?? '');
 
   return (
-    <div className="mx-auto max-w-md px-4 py-8">
-      <h1 className="text-2xl font-bold">Profile</h1>
+    <div className="mx-auto max-w-md px-6 py-6">
+      <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">የግል መረጃ</span>
+      <h1 className="font-headline text-3xl text-primary">Profile</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Manage your account settings
       </p>

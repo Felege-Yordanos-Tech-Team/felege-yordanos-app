@@ -11,7 +11,7 @@ export default async function ClaimPage() {
   } = await supabase.auth.getUser();
 
   return (
-    <div className="mx-auto max-w-md px-4 py-8">
+    <div className="mx-auto max-w-md px-6 py-6">
       <ClaimForm authUserId={user?.id ?? ''} />
     </div>
   );

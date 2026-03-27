@@ -123,7 +123,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
         />
       </div>
 
-      <div className="mt-4 rounded-md border">
+      <div className="mt-4 rounded-xl overflow-hidden">
         <Table>
           <TableHeader>
             <TableRow>
