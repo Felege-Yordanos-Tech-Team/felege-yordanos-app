@@ -14,28 +14,19 @@ export default async function ManageAttendancePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: profileData } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user?.id ?? '')
-    .single();
+  const [
+    { data: profileData },
+    { data: events },
+    { data: departments },
+    { data: attendanceCounts },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user?.id ?? '').single(),
+    supabase.from('events').select('*').order('event_date', { ascending: false }),
+    supabase.from('departments').select('*').order('id'),
+    supabase.from('attendance').select('event_id, status'),
+  ]);
 
   const profile = profileData as Profile | null;
-
-  const { data: events } = await supabase
-    .from('events')
-    .select('*')
-    .order('event_date', { ascending: false });
-
-  const { data: departments } = await supabase
-    .from('departments')
-    .select('*')
-    .order('id');
-
-  // Get attendance counts per event
-  const { data: attendanceCounts } = await supabase
-    .from('attendance')
-    .select('event_id, status');
 
   const countMap: Record<string, number> = {};
   if (attendanceCounts) {

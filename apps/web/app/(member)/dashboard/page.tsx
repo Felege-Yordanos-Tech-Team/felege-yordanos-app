@@ -20,37 +20,24 @@ export default async function MemberDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user?.id ?? '')
-    .single();
-
-  const profile = data as Profile | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const member = await getLinkedMember(supabase as any, user?.id ?? '');
-
   const today = new Date().toISOString().split('T')[0];
 
-  const { data: upcomingData } = await supabase
-    .from('events')
-    .select('*')
-    .gte('event_date', today)
-    .order('event_date', { ascending: true })
-    .limit(10);
+  const [
+    { data },
+    member,
+    { data: upcomingData },
+    { data: pastData },
+    { data: departmentsData },
+  ] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', user?.id ?? '').single(),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    getLinkedMember(supabase as any, user?.id ?? ''),
+    supabase.from('events').select('*').gte('event_date', today).order('event_date', { ascending: true }).limit(10),
+    supabase.from('events').select('*').lt('event_date', today).order('event_date', { ascending: false }).limit(5),
+    supabase.from('departments').select('*').order('id'),
+  ]);
 
-  const { data: pastData } = await supabase
-    .from('events')
-    .select('*')
-    .lt('event_date', today)
-    .order('event_date', { ascending: false })
-    .limit(5);
-
-  const { data: departmentsData } = await supabase
-    .from('departments')
-    .select('*')
-    .order('id');
-
+  const profile = data as Profile | null;
   const upcoming = (upcomingData ?? []) as Event[];
   const past = (pastData ?? []) as Event[];
   const departments = (departmentsData ?? []) as Department[];
