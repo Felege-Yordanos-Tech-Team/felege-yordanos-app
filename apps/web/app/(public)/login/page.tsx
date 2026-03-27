@@ -3,13 +3,7 @@
 import { useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import { useRouter } from 'next/navigation';
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -42,89 +36,114 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="eth-pattern flex min-h-screen items-center justify-center px-4" style={{ background: 'radial-gradient(ellipse at center, #FFFDF7 0%, #F5F0E6 100%)' }}>
-      <Card className="w-full max-w-sm card-gold shadow-lg">
-        <CardHeader className="text-center space-y-3">
-          <p className="text-[#D4A843] text-lg tracking-widest">✞</p>
-          <div className="mx-auto w-16 h-[2px] bg-[#D4A843]" />
-          <p className="text-sm text-primary font-semibold" style={{ fontFamily: "'Noto Serif Ethiopic', serif" }}>
-            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+    <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
+      {/* Logo */}
+      <div className="mb-4 rounded-full border-2 border-[#735c00]/30 p-1 shadow-lg shadow-[#735c00]/10">
+        <Image
+          src="/ss-logo.png"
+          alt="Felege Yordanos Sunday School"
+          width={96}
+          height={96}
+          className="rounded-full"
+          priority
+        />
+      </div>
+
+      {/* Title */}
+      <h1 className="text-center text-[#fef9ea] text-xl font-headline">
+        <span className="text-[#fed65b]">E</span>thiopian{' '}
+        <span className="text-[#fed65b]">O</span>rthodox
+      </h1>
+      <h2 className="mt-0.5 text-center text-[#fef9ea] text-xl font-headline">
+        Sunday <span className="text-[#fed65b]">S</span>chool
+      </h2>
+
+      <p className="mt-1 text-center text-[#735c00]/70 text-xs font-ethiopic">
+        ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+      </p>
+
+      {/* Form */}
+      <form onSubmit={handleSubmit} className="mt-8 w-full max-w-sm space-y-5">
+        <div className="space-y-2">
+          <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
+            {isSignUp ? 'Email' : 'Email or Phone'}
+          </Label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder={isSignUp ? 'you@example.com' : 'Email or Phone'}
+            required
+            className="w-full rounded-xl border border-[#735c00]/20 bg-[#2a2920] px-4 py-3 text-[#fef9ea] placeholder:text-[#fef9ea]/25 focus:border-[#735c00] focus:outline-none focus:ring-1 focus:ring-[#735c00]/30 transition-colors font-body"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
+            Password
+          </Label>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="Password"
+            required
+            minLength={6}
+            className="w-full rounded-xl border border-[#735c00]/20 bg-[#2a2920] px-4 py-3 text-[#fef9ea] placeholder:text-[#fef9ea]/25 focus:border-[#735c00] focus:outline-none focus:ring-1 focus:ring-[#735c00]/30 transition-colors font-body"
+          />
+        </div>
+
+        {error && (
+          <p className="text-sm text-red-400">{error}</p>
+        )}
+
+        <Button
+          type="submit"
+          disabled={loading}
+          className="w-full rounded-xl border border-[#735c00]/30 sacred-gradient py-6 text-base font-semibold text-[#fef9ea] hover:opacity-90 transition-opacity"
+        >
+          {loading
+            ? isSignUp ? 'Creating account...' : 'Logging in...'
+            : isSignUp ? 'Register' : 'Login'}
+        </Button>
+
+        {!isSignUp && (
+          <p className="text-center">
+            <button
+              type="button"
+              className="text-sm text-[#735c00]/60 hover:text-[#735c00] transition-colors font-label"
+            >
+              Forgot Password?
+            </button>
           </p>
-          <CardTitle className="text-2xl text-primary">
-            {isSignUp ? 'Create Account' : 'Sign In'}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="you@example.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="Your password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                minLength={6}
-              />
-            </div>
-            {error && (
-              <p className="text-sm text-destructive">{error}</p>
-            )}
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading
-                ? isSignUp
-                  ? 'Creating account...'
-                  : 'Signing in...'
-                : isSignUp
-                  ? 'Sign Up'
-                  : 'Sign In'}
-            </Button>
-          </form>
-          <div className="mt-4 text-center text-sm">
-            {isSignUp ? (
-              <p>
-                Already have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(false);
-                    setError('');
-                  }}
-                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
-                >
-                  Sign in
-                </button>
-              </p>
-            ) : (
-              <p>
-                Don&apos;t have an account?{' '}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsSignUp(true);
-                    setError('');
-                  }}
-                  className="text-[#D4A843] font-medium underline-offset-4 hover:underline"
-                >
-                  Sign up
-                </button>
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        )}
+
+        <div className="pt-2 text-center text-sm text-[#fef9ea]/40 font-label">
+          {isSignUp ? (
+            <p>
+              Already have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(false); setError(''); }}
+                className="text-[#fed65b] font-medium hover:underline"
+              >
+                Login
+              </button>
+            </p>
+          ) : (
+            <p>
+              Don&apos;t have an account?{' '}
+              <button
+                type="button"
+                onClick={() => { setIsSignUp(true); setError(''); }}
+                className="text-[#fed65b] font-medium hover:underline"
+              >
+                Register
+              </button>
+            </p>
+          )}
+        </div>
+      </form>
     </div>
   );
 }

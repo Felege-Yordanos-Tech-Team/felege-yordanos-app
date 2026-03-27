@@ -20,8 +20,9 @@ export default async function DonatePage() {
     .order('created_at', { ascending: false });
 
   return (
-    <div className="mx-auto max-w-md px-4 py-6">
-      <h1 className="text-2xl font-bold">Make a Donation</h1>
+    <div className="mx-auto max-w-md px-6 py-6">
+      <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">ስጦታ</span>
+      <h1 className="font-headline text-3xl text-primary">Make a Donation</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Submit your donation with receipt for verification
       </p>

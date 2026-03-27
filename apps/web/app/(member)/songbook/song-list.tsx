@@ -2,11 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
+import { Search, ArrowRight } from 'lucide-react';
 import type { Database } from '@felege-yordanos/db';
 
 type Song = Database['public']['Tables']['songs']['Row'];
@@ -35,69 +31,73 @@ export function SongList({ songs, categories }: SongListProps) {
   });
 
   return (
-    <div className="mt-4 space-y-4">
+    <div className="mt-6 space-y-6">
+      {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-        <Input
-          placeholder="Search by title or number..."
+        <Search className="absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          placeholder="Search by title, number, or lyrics..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-9"
+          className="w-full rounded-xl border-none bg-surface-container-high px-4 pl-12 py-3.5 text-sm font-body placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/20"
         />
       </div>
 
+      {/* Category pills */}
       <div className="flex gap-2 overflow-x-auto pb-1">
-        <Badge
-          variant={activeCategory === null ? 'default' : 'outline'}
-          className="cursor-pointer shrink-0"
+        <button
           onClick={() => setActiveCategory(null)}
+          className={`shrink-0 rounded-full px-6 py-2.5 text-xs font-label font-semibold transition-colors ${
+            activeCategory === null
+              ? 'bg-primary text-primary-foreground'
+              : 'bg-surface-container-high text-foreground hover:bg-surface-container'
+          }`}
         >
           All
-        </Badge>
+        </button>
         {categories.map((cat) => (
-          <Badge
+          <button
             key={cat.id}
-            variant={activeCategory === cat.name ? 'default' : 'outline'}
-            className="cursor-pointer shrink-0"
             onClick={() =>
               setActiveCategory(
                 activeCategory === cat.name ? null : cat.name
               )
             }
+            className={`shrink-0 rounded-full px-6 py-2.5 text-xs font-label font-semibold transition-colors ${
+              activeCategory === cat.name
+                ? 'bg-primary text-primary-foreground'
+                : 'bg-surface-container-high text-foreground hover:bg-surface-container'
+            }`}
           >
             {cat.emoji} {cat.name}
-          </Badge>
+          </button>
         ))}
       </div>
 
-      <Separator />
-
+      {/* Song list */}
       {filtered.length === 0 ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">
+        <p className="py-12 text-center text-sm text-muted-foreground">
           No songs found
         </p>
       ) : (
-        <div className="space-y-2">
+        <div className="space-y-1">
           {filtered.map((song) => (
             <Link key={song.id} href={`/songbook/${song.id}`}>
-              <Card className="transition-colors hover:bg-muted/50">
-                <CardContent className="flex items-center gap-4 py-3">
-                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
-                    {song.number}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate font-medium">{song.title}</p>
-                    {song.title_en && (
-                      <p className="truncate text-sm text-muted-foreground">
-                        {song.title_en}
-                      </p>
-                    )}
-                  </div>
-                  <Badge variant="secondary" className="shrink-0 text-xs">
-                    {song.category}
-                  </Badge>
-                </CardContent>
-              </Card>
+              <article className="group flex items-center gap-4 rounded-xl p-4 transition-all hover:bg-surface-container-low tibeb-accent">
+                <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-container-high font-headline text-xl text-primary">
+                  {String(song.number).padStart(2, '0')}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="font-headline text-lg text-primary truncate">{song.title}</p>
+                  {song.title_en && (
+                    <p className="text-xs text-muted-foreground truncate">{song.title_en}</p>
+                  )}
+                </div>
+                <span className="text-[10px] text-muted-foreground uppercase tracking-widest font-label hidden sm:block">
+                  {song.category}
+                </span>
+                <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+              </article>
             </Link>
           ))}
         </div>

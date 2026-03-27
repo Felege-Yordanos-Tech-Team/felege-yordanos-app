@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Serif+Ethiopic:wght@400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@200..800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,48 +6,60 @@
 
 @layer base {
   :root {
-    --background: 40 60% 98.4%;
-    --foreground: 20 35% 13%;
-    --card: 0 0% 100%;
-    --card-foreground: 20 35% 13%;
+    --background: 43 88% 96%;
+    --foreground: 54 22% 9%;
+    --card: 43 44% 91%;
+    --card-foreground: 54 22% 9%;
     --popover: 0 0% 100%;
-    --popover-foreground: 20 35% 13%;
-    --primary: 348 57% 26.7%;
-    --primary-foreground: 40 60% 98.4%;
-    --secondary: 40 30% 92%;
-    --secondary-foreground: 348 57% 26.7%;
-    --muted: 37 33% 93%;
-    --muted-foreground: 25 15% 37%;
-    --accent: 42 61% 55%;
-    --accent-foreground: 220 40% 18%;
-    --destructive: 0 55% 39%;
-    --destructive-foreground: 40 60% 98.4%;
-    --border: 33 30% 85%;
-    --input: 33 30% 85%;
-    --ring: 42 61% 55%;
-    --radius: 0.5rem;
+    --popover-foreground: 54 22% 9%;
+    --primary: 348 95% 14%;
+    --primary-foreground: 43 88% 96%;
+    --primary-container: 348 58% 24%;
+    --secondary: 48 100% 23%;
+    --secondary-foreground: 43 88% 96%;
+    --secondary-container: 45 99% 68%;
+    --muted: 43 36% 89%;
+    --muted-foreground: 25 12% 35%;
+    --accent: 48 100% 23%;
+    --accent-foreground: 43 88% 96%;
+    --destructive: 0 63% 41%;
+    --destructive-foreground: 43 88% 96%;
+    --border: 0 27% 87% / 0.15;
+    --input: 43 36% 89%;
+    --ring: 48 100% 23%;
+    --radius: 0.75rem;
+    --surface-container: 43 44% 91%;
+    --surface-container-low: 43 60% 93%;
+    --surface-container-high: 43 36% 89%;
+    --outline-variant: 0 27% 87%;
   }
 
   .dark {
-    --background: 220 40% 13%;
-    --foreground: 40 30% 92%;
-    --card: 220 35% 16%;
-    --card-foreground: 40 30% 92%;
-    --popover: 220 35% 16%;
-    --popover-foreground: 40 30% 92%;
-    --primary: 42 61% 55%;
-    --primary-foreground: 220 40% 13%;
-    --secondary: 220 30% 20%;
-    --secondary-foreground: 40 30% 92%;
-    --muted: 220 30% 20%;
-    --muted-foreground: 33 20% 65%;
-    --accent: 348 57% 26.7%;
-    --accent-foreground: 40 60% 98.4%;
-    --destructive: 0 55% 39%;
-    --destructive-foreground: 40 60% 98.4%;
-    --border: 220 30% 22%;
-    --input: 220 30% 22%;
-    --ring: 42 61% 55%;
+    --background: 50 9% 17%;
+    --foreground: 43 40% 94%;
+    --card: 50 8% 20%;
+    --card-foreground: 43 40% 94%;
+    --popover: 50 8% 20%;
+    --popover-foreground: 43 40% 94%;
+    --primary: 45 99% 68%;
+    --primary-foreground: 50 9% 17%;
+    --primary-container: 348 58% 24%;
+    --secondary: 48 100% 23%;
+    --secondary-foreground: 43 40% 94%;
+    --secondary-container: 45 99% 68%;
+    --muted: 50 8% 22%;
+    --muted-foreground: 33 15% 60%;
+    --accent: 348 58% 24%;
+    --accent-foreground: 43 40% 94%;
+    --destructive: 0 63% 41%;
+    --destructive-foreground: 43 40% 94%;
+    --border: 50 8% 25% / 0.3;
+    --input: 50 8% 22%;
+    --ring: 45 99% 68%;
+    --surface-container: 50 8% 20%;
+    --surface-container-low: 50 8% 22%;
+    --surface-container-high: 50 8% 25%;
+    --outline-variant: 50 8% 30%;
   }
 
   * {
@@ -56,44 +68,63 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'Noto Serif Ethiopic', sans-serif;
+    font-family: 'Noto Sans Ethiopic', 'Manrope', sans-serif;
   }
 
   h1, h2, h3, h4 {
-    font-family: 'Noto Serif Ethiopic', 'Inter', serif;
+    font-family: 'Noto Sans Ethiopic', 'Manrope', sans-serif;
     font-weight: 700;
   }
 }
 
 @layer components {
-  /* Ethiopian cross pattern for auth pages */
-  .eth-pattern {
+  /* Tibeb diamond pattern — liturgical decorative motif */
+  .tibeb-pattern {
+    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0l20 20-20 20L0 20z' fill='%23735c00' fill-opacity='0.1'/%3E%3C/svg%3E");
+  }
+
+  /* Glass card — frosted overlay */
+  .glass-card {
+    background: rgba(254, 249, 234, 0.7);
+    backdrop-filter: blur(20px);
+  }
+
+  /* Sacred gradient — primary CTA */
+  .sacred-gradient {
+    background: linear-gradient(135deg, #430310, #601924);
+  }
+
+  /* Gold left accent bar */
+  .tibeb-accent {
+    border-left: 4px solid #735c00;
+  }
+
+  /* Auth dark background */
+  .auth-bg-dark {
+    background-color: #323127;
     background-image:
-      radial-gradient(circle, hsl(348 57% 26.7% / 0.03) 1px, transparent 1px),
-      radial-gradient(circle, hsl(42 61% 55% / 0.02) 1px, transparent 1px);
-    background-size: 24px 24px, 48px 48px;
-    background-position: 0 0, 12px 12px;
+      radial-gradient(ellipse at 50% 35%, rgba(96, 25, 36, 0.2) 0%, transparent 55%),
+      linear-gradient(to bottom, transparent 45%, rgba(115, 92, 0, 0.04) 49%, rgba(115, 92, 0, 0.04) 51%, transparent 55%),
+      linear-gradient(to right, transparent 45%, rgba(115, 92, 0, 0.04) 49%, rgba(115, 92, 0, 0.04) 51%, transparent 55%);
   }
 
-  /* Gold top border for cards */
-  .card-gold {
-    border-top: 2px solid hsl(42 61% 55%);
+  /* Auth light background */
+  .auth-bg-light {
+    background-color: #fef9ea;
+    background-image:
+      radial-gradient(ellipse at 50% 35%, rgba(67, 3, 16, 0.03) 0%, transparent 55%),
+      linear-gradient(to bottom, transparent 45%, rgba(67, 3, 16, 0.015) 49%, rgba(67, 3, 16, 0.015) 51%, transparent 55%),
+      linear-gradient(to right, transparent 45%, rgba(67, 3, 16, 0.015) 49%, rgba(67, 3, 16, 0.015) 51%, transparent 55%);
   }
 
-  /* Table header burgundy */
-  .table-header-themed thead tr {
-    background-color: hsl(348 57% 26.7%);
-    color: hsl(40 60% 98.4%);
+  /* Tonal table — no borders */
+  .table-tonal thead tr {
+    background-color: hsl(43 36% 89%);
   }
-  .table-header-themed thead tr th {
-    color: hsl(40 60% 98.4%);
+  .table-tonal tbody tr:nth-child(even) {
+    background-color: hsl(43 60% 93%);
   }
-
-  /* Alternating table rows */
-  .table-striped tbody tr:nth-child(even) {
-    background-color: hsl(37 33% 93%);
-  }
-  .table-striped tbody tr:hover {
-    background-color: hsl(42 61% 55% / 0.08);
+  .table-tonal tbody tr:hover {
+    background-color: hsl(48 100% 23% / 0.06);
   }
 }
