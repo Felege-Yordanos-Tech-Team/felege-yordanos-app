@@ -1,5 +1,10 @@
-import { CalendarCheck, DollarSign, Users } from 'lucide-react';
+import { cookies } from 'next/headers';
+import { createServerComponentClient } from '@felege-yordanos/db';
+import type { Database } from '@felege-yordanos/db';
+import { CalendarCheck, DollarSign, Users, Music } from 'lucide-react';
 import Link from 'next/link';
+
+type Profile = Database['public']['Tables']['profiles']['Row'];
 
 const adminLinks = [
   {
@@ -9,6 +14,16 @@ const adminLinks = [
     subtitle: 'የስብሰባ እና የስብስብ ክትትል',
     description: 'Coordinate liturgical gatherings, manage choir rehearsals, and track member participation.',
     cta: 'Manage Schedules',
+    songsOnly: false,
+  },
+  {
+    href: '/admin/songs',
+    icon: Music,
+    title: 'Songs & Categories',
+    subtitle: 'መዝሙር አስተዳደር',
+    description: 'Add, edit, and organize hymns and song categories for the Sunday School songbook.',
+    cta: 'Manage Songs',
+    songsOnly: true,
   },
   {
     href: '/admin/donations',
@@ -17,6 +32,7 @@ const adminLinks = [
     subtitle: 'ስጦታዎች',
     description: 'Oversee tithes, special contributions, and charitable funds supporting the sanctuary.',
     cta: 'Financial Report',
+    songsOnly: false,
   },
   {
     href: '/admin/users',
@@ -25,10 +41,32 @@ const adminLinks = [
     subtitle: 'የተጠቃሚ አስተዳደር',
     description: 'Assign roles, manage departments, and oversee Sunday School membership.',
     cta: 'View Members',
+    songsOnly: false,
   },
 ];
 
-export default function AdminDashboard() {
+export default async function AdminDashboard() {
+  const cookieStore = await cookies();
+  const supabase = createServerComponentClient(cookieStore);
+
+  const { data: { user } } = await supabase.auth.getUser();
+  const { data: profileData } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user?.id ?? '')
+    .single();
+
+  const profile = profileData as Profile | null;
+  const isSongsDeptHead = profile?.role === 'dept_head' && String(profile?.department_id) === '6';
+  const isFullAdmin = profile?.role === 'admin' || profile?.role === 'super_admin';
+
+  // dept_head of department 6 only sees songs-related links
+  const visibleLinks = adminLinks.filter((link) => {
+    if (isFullAdmin) return true;
+    if (isSongsDeptHead) return link.songsOnly;
+    return !link.songsOnly; // other dept_heads see everything except songs
+  });
+
   return (
     <div className="mx-auto max-w-2xl px-6 py-6">
       <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">የአስተዳዳሪ ክፍል</span>
@@ -38,7 +76,7 @@ export default function AdminDashboard() {
       <div className="h-[2px] w-12 bg-secondary/40 mb-8" />
 
       <div className="flex flex-col gap-6">
-        {adminLinks.map((link, i) => {
+        {visibleLinks.map((link, i) => {
           const Icon = link.icon;
           return (
             <Link key={link.href} href={link.href}>
