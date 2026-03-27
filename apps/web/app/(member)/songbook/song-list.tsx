@@ -80,10 +80,10 @@ export function SongList({ songs, categories }: SongListProps) {
           No songs found
         </p>
       ) : (
-        <div className="space-y-1">
+        <div className="flex flex-col gap-4">
           {filtered.map((song) => (
             <Link key={song.id} href={`/songbook/${song.id}`}>
-              <article className="group flex items-center gap-4 rounded-xl p-4 transition-all hover:bg-surface-container-low tibeb-accent">
+              <article className="flex items-center gap-4 rounded-xl p-4 bg-surface-container-low tibeb-accent">
                 <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-surface-container-high font-headline text-xl text-primary">
                   {String(song.number).padStart(2, '0')}
                 </div>
