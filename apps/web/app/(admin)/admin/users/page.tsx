@@ -42,15 +42,10 @@ export default async function ManageUsersPage() {
     );
   }
 
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('*')
-    .order('created_at', { ascending: true });
-
-  const { data: departments } = await supabase
-    .from('departments')
-    .select('*')
-    .order('id');
+  const [{ data: profiles }, { data: departments }] = await Promise.all([
+    supabase.from('profiles').select('*').order('created_at', { ascending: true }),
+    supabase.from('departments').select('*').order('id'),
+  ]);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-6">

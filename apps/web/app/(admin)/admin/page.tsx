@@ -37,12 +37,12 @@ export default function AdminDashboard() {
       </h1>
       <div className="h-[2px] w-12 bg-secondary/40 mb-8" />
 
-      <div className="space-y-4">
+      <div className="flex flex-col gap-6">
         {adminLinks.map((link, i) => {
           const Icon = link.icon;
           return (
             <Link key={link.href} href={link.href}>
-              <div className={`group rounded-xl p-6 transition-all hover:-translate-y-0.5 relative overflow-hidden ${
+              <div className={`rounded-xl p-6 relative overflow-hidden ${
                 i === 1 ? 'bg-primary-container text-primary-foreground' : 'bg-surface-container-low tibeb-accent'
               }`}>
                 <div className="flex items-start gap-4">

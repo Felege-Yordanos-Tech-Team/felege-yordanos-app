@@ -25,25 +25,14 @@ export default async function CheckInPage({
     data: { user },
   } = await supabase.auth.getUser();
 
-  const { data: eventData } = await supabase
-    .from('events')
-    .select('*')
-    .eq('id', eventId)
-    .single();
+  const [{ data: eventData }, { data: members }, { data: attendance }] = await Promise.all([
+    supabase.from('events').select('*').eq('id', eventId).single(),
+    supabase.from('members').select('*').eq('status', 'Active').order('name'),
+    supabase.from('attendance').select('*').eq('event_id', eventId),
+  ]);
 
   const event = eventData as Event | null;
   if (!event) notFound();
-
-  const { data: members } = await supabase
-    .from('members')
-    .select('*')
-    .eq('status', 'Active')
-    .order('name');
-
-  const { data: attendance } = await supabase
-    .from('attendance')
-    .select('*')
-    .eq('event_id', eventId);
 
   return (
     <div className="mx-auto max-w-4xl px-6 py-6">
