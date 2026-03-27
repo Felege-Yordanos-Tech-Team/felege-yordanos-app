@@ -35,7 +35,7 @@ export function BottomNav({ role }: BottomNavProps) {
     : [...memberLinks, profileLink];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-[#8A2E3D] bg-[#6B1D2A]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#601924] shadow-[0_-2px_12px_rgba(0,0,0,0.15)]">
       <div className="mx-auto flex max-w-md justify-around">
         {links.map((link) => {
           const Icon = link.icon;
@@ -46,10 +46,10 @@ export function BottomNav({ role }: BottomNavProps) {
             <Link
               key={link.href}
               href={link.href}
-              className={`flex flex-1 flex-col items-center gap-1 py-2 text-xs transition-colors ${
+              className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-label transition-colors ${
                 isActive
-                  ? 'text-[#D4A843]'
-                  : 'text-[#FFFDF7]/60 hover:text-[#FFFDF7]/80'
+                  ? 'text-[#fed65b]'
+                  : 'text-[#fef9ea]/50 hover:text-[#fef9ea]/70'
               }`}
             >
               <Icon className="h-5 w-5" />
