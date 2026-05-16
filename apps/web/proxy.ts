@@ -31,7 +31,12 @@ export async function proxy(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname;
 
-  // Logged-in users visiting / or /login get sent to dashboard
+  // /auth/callback must be reachable by anyone (recovery / email-link flow)
+  if (pathname.startsWith('/auth/callback')) {
+    return supabaseResponse;
+  }
+
+  // Authenticated users visiting / or /login (but NOT the password flows) go to dashboard
   if ((pathname === '/' || pathname.startsWith('/login')) && user) {
     const url = request.nextUrl.clone();
     url.pathname = '/dashboard';
@@ -39,8 +44,21 @@ export async function proxy(request: NextRequest) {
   }
 
   // Public routes — allow everyone
-  if (pathname === '/' || pathname.startsWith('/login')) {
+  if (
+    pathname === '/' ||
+    pathname.startsWith('/login') ||
+    pathname.startsWith('/forgot-password')
+  ) {
     return supabaseResponse;
+  }
+
+  // /reset-password requires the temporary session minted by /auth/callback.
+  // If the user has a session, let them through; otherwise bounce to forgot-password.
+  if (pathname.startsWith('/reset-password')) {
+    if (user) return supabaseResponse;
+    const url = request.nextUrl.clone();
+    url.pathname = '/forgot-password';
+    return NextResponse.redirect(url);
   }
 
   // Protected routes — redirect to login if not authenticated

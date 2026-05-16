@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 
@@ -109,12 +110,12 @@ export default function LoginPage() {
 
         {!isSignUp && (
           <p className="text-center">
-            <button
-              type="button"
+            <Link
+              href="/forgot-password"
               className="text-sm text-[#735c00]/60 hover:text-[#735c00] transition-colors font-label"
             >
               Forgot Password?
-            </button>
+            </Link>
           </p>
         )}
 
