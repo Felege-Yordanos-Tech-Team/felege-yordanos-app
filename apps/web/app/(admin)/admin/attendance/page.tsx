@@ -1,6 +1,8 @@
 import { cookies } from 'next/headers';
 import { createServerComponentClient } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
+import { ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import { EventsList } from './events-list';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -38,12 +40,25 @@ export default async function ManageAttendancePage() {
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-6">
-      <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">የስብሰባ ክትትል</span>
-      <h1 className="font-headline text-3xl text-primary">Events & Attendance</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
+    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4">
+      <Link
+        href="/admin"
+        className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-gold-deep transition-colors hover:text-burgundy dark:text-gold dark:hover:text-gold-light"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        Admin panel
+      </Link>
+
+      <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
+        የስብሰባ ክትትል
+      </div>
+      <h1 className="mt-0.5 font-display text-[28px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
+        Events &amp; attendance
+      </h1>
+      <p className="mt-1 text-xs text-muted-foreground">
         Create events and manage attendance records
       </p>
+
       <EventsList
         events={(events as Database['public']['Tables']['events']['Row'][]) ?? []}
         departments={(departments as Department[]) ?? []}

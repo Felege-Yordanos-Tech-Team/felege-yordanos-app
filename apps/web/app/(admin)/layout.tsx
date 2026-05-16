@@ -37,11 +37,11 @@ export default async function AdminLayout({
 
   return (
     <div className="min-h-screen pb-16">
-      <header className="sticky top-0 z-50 flex items-center justify-between bg-[#601924] px-4 py-3 shadow-sm">
+      <header className="sticky top-0 z-50 flex items-center justify-between bg-burgundy px-4 py-3 shadow-sm">
         <div className="flex items-center gap-3">
-          <img src="/ss-logo.png" alt="" className="h-8 w-8 rounded-full border border-[#735c00]/30" />
-          <span className="font-headline text-lg text-[#fef9ea]">ፈለገ ዮርዳኖስ</span>
-          <Badge className="bg-[#735c00]/20 text-[#fed65b] text-xs">
+          <img src="/ss-logo.png" alt="" className="h-8 w-8 rounded-full border border-gold/30" />
+          <span className="font-ethiopic text-lg font-semibold text-cream">ፈለገ ዮርዳኖስ</span>
+          <Badge className="border border-gold/30 bg-gold/15 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold">
             {role.replace('_', ' ')}
           </Badge>
         </div>
