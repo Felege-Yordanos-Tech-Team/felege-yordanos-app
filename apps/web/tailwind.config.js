@@ -17,12 +17,13 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        headline: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
-        body: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
-        sans: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
-        display: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
-        label: ['Noto Sans Ethiopic', 'Manrope', 'sans-serif'],
-        ethiopic: ['Noto Sans Ethiopic', 'sans-serif'],
+        headline: ['Cormorant Garamond', 'Noto Serif Ethiopic', 'serif'],
+        body: ['Inter', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
+        sans: ['Inter', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
+        display: ['Cormorant Garamond', 'Noto Serif Ethiopic', 'serif'],
+        label: ['Inter', 'system-ui', 'sans-serif'],
+        ethiopic: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic', 'serif'],
+        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -64,14 +65,45 @@ module.exports = {
         'surface-container-low': 'hsl(var(--surface-container-low))',
         'surface-container-high': 'hsl(var(--surface-container-high))',
         'outline-variant': 'hsl(var(--outline-variant))',
-        gold: {
-          DEFAULT: '#735c00',
-          light: '#e9c349',
-          bright: '#fed65b',
-        },
+
+        /* Ethiopian Orthodox palette — direct refs for hand-tuned screens */
         burgundy: {
-          DEFAULT: '#430310',
-          light: '#601924',
+          DEFAULT: '#6B1D2A',
+          soft: '#8B2F3F',
+          deep: '#4A0E18',
+          ink: '#2C0810',
+          legacy: '#601924', /* the previous header burgundy — still in use */
+        },
+        gold: {
+          DEFAULT: '#D4A843',
+          deep: '#A47A18', /* AAA contrast on parchment */
+          light: '#E8C77B',
+          faint: '#F4E2A5',
+          legacy: '#735c00', /* the previous gold — still in use */
+          bright: '#fed65b', /* previous accent — still in use */
+        },
+        parchment: {
+          DEFAULT: '#F7EEDA',
+          soft: '#FBF6E4',
+          deep: '#EFE2BE',
+          edge: '#E5D6AC',
+        },
+        cream: {
+          DEFAULT: '#FEF9EA',
+          dim: 'rgba(254, 249, 234, 0.72)',
+        },
+        ink: {
+          DEFAULT: '#2A1F12',
+          muted: '#75664A',
+          faint: '#A89673',
+        },
+        status: {
+          present: '#4F7B3E',
+          'present-bg': '#E4EED9',
+          absent: '#A12831',
+          'absent-bg': '#F2D8DA',
+          late: '#C97B1A',
+          'late-bg': '#F6E3C5',
         },
         navy: '#1A2744',
       },
@@ -81,6 +113,14 @@ module.exports = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
         xl: '1.5rem',
+        '2xl': '1.5rem',
+        arch: '200px 200px 0 0', /* arched top for hero panels */
+      },
+      boxShadow: {
+        'fy-sm': '0 1px 0 rgba(74, 14, 24, 0.04), 0 1px 2px rgba(74, 14, 24, 0.06)',
+        'fy-md': '0 4px 16px -4px rgba(74, 14, 24, 0.10), 0 2px 4px rgba(74, 14, 24, 0.06)',
+        'fy-lg': '0 16px 40px -16px rgba(74, 14, 24, 0.28), 0 4px 8px rgba(74, 14, 24, 0.06)',
+        'fy-gold': '0 6px 20px -6px rgba(212, 168, 67, 0.45)',
       },
       keyframes: {
         'accordion-down': {
