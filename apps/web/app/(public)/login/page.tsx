@@ -87,11 +87,11 @@ export default function LoginPage() {
         <h1 className="text-center font-display text-[28px] font-medium leading-tight text-burgundy-ink dark:text-cream">
           {isSignUp ? (
             <>
-              Create <em className="not-italic text-gold-deep dark:text-gold">account</em>
+              Create <em className="text-gold-deep dark:text-gold">account</em>
             </>
           ) : (
             <>
-              Welcome <em className="not-italic text-gold-deep dark:text-gold">back</em>
+              Welcome <em className="text-gold-deep dark:text-gold">back</em>
             </>
           )}
         </h1>
