@@ -7,6 +7,7 @@ import { Check, List, ScanLine, Search, Zap } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { QRScanner, type ScanResult } from './qr-scanner';
 
 type AttendanceStatus = 'present' | 'absent' | 'late';
 
@@ -71,6 +72,7 @@ function formatTime(d: Date): string {
 }
 
 export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTabsProps) {
+  const [tab, setTab] = useState<'quick' | 'member-list' | 'qr-scan'>('quick');
   const [records, setRecords] = useState<Record<number, AttendanceStatus>>(() => {
     const map: Record<number, AttendanceStatus> = {};
     for (const a of attendance) {
@@ -83,6 +85,12 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
   const [checkInLogs, setCheckInLogs] = useState<CheckInLog[]>([]);
   const quickInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  const membersByMemberId = useMemo(() => {
+    const map = new Map<string, Member>();
+    for (const m of members) map.set(m.member_id, m);
+    return map;
+  }, [members]);
 
   const presentCount = useMemo(
     () =>
@@ -168,11 +176,35 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
 
   const latest = checkInLogs[0];
 
-  return (
-    <Tabs defaultValue="quick" className="w-full">
-      {/* Counter card — only shown in quick mode is impractical with shadcn Tabs, so we render it conditionally outside */}
+  async function handleQRDecoded(decoded: string): Promise<ScanResult> {
+    const code = decoded.trim();
+    const member = membersByMemberId.get(code);
+    if (!member) {
+      return { kind: 'invalid', code };
+    }
+    const fullName = [member.name, member.father_name].filter(Boolean).join(' ');
+    if (records[member.id] === 'present' || records[member.id] === 'late') {
+      return { kind: 'already', name: fullName, memberId: member.member_id };
+    }
+    const ok = await upsertAttendance(member.id, 'present');
+    if (!ok) {
+      return { kind: 'invalid', code };
+    }
+    const time = formatTime(new Date());
+    setCheckInLogs((prev) => [
+      { name: fullName, memberId: member.member_id, time, status: 'present' },
+      ...prev.slice(0, 9),
+    ]);
+    return { kind: 'success', name: fullName, memberId: member.member_id, time };
+  }
 
-      <TabsList className="mb-3.5 grid w-full grid-cols-2 rounded-xl bg-input p-1">
+  return (
+    <Tabs
+      value={tab}
+      onValueChange={(v) => setTab(v as typeof tab)}
+      className="w-full"
+    >
+      <TabsList className="mb-3.5 grid w-full grid-cols-3 rounded-xl bg-input p-1">
         <TabsTrigger
           value="quick"
           className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
@@ -185,7 +217,14 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
           className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
         >
           <List className="h-3.5 w-3.5" />
-          Member list
+          List
+        </TabsTrigger>
+        <TabsTrigger
+          value="qr-scan"
+          className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
+        >
+          <ScanLine className="h-3.5 w-3.5" />
+          QR
         </TabsTrigger>
       </TabsList>
 
@@ -382,6 +421,16 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
             })}
           </div>
         )}
+      </TabsContent>
+
+      {/* QR scan mode */}
+      <TabsContent value="qr-scan" className="mt-0">
+        <QRScanner
+          active={tab === 'qr-scan'}
+          onMemberId={handleQRDecoded}
+          presentCount={presentCount}
+          total={total}
+        />
       </TabsContent>
     </Tabs>
   );
