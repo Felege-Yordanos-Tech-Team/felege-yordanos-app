@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { CalendarCheck, Clock } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
 
 interface EventRow {
   id: string;
@@ -25,123 +24,164 @@ interface EventFeedProps {
   departments: DeptRow[];
 }
 
+// Stable color assignment for department dots — cycles through brand palette.
+const DOT_PALETTE = ['#D4A843', '#8B2F3F', '#4F7B3E', '#A47A18', '#C97B1A', '#6B1D2A'];
+function dotFor(deptId: number) {
+  return DOT_PALETTE[deptId % DOT_PALETTE.length];
+}
+
+function formatDate(d: string): string {
+  try {
+    const date = new Date(d);
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  } catch {
+    return d;
+  }
+}
+
 export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
   const [filterDept, setFilterDept] = useState<number | null>(null);
+
+  const filteredUpcoming = filterDept
+    ? upcoming.filter((e) => e.department_id === filterDept)
+    : upcoming;
+  const filteredPast = filterDept
+    ? past.filter((e) => e.department_id === filterDept)
+    : past;
+
+  const hasAny = upcoming.length > 0 || past.length > 0;
+  if (!hasAny) return null;
 
   function getDeptName(id: number | null): string | null {
     if (!id) return null;
     return departments.find((d) => d.id === id)?.name_am ?? null;
   }
 
-  const filteredUpcoming = filterDept
-    ? upcoming.filter((e) => e.department_id === filterDept)
-    : upcoming;
-
-  const filteredPast = filterDept
-    ? past.filter((e) => e.department_id === filterDept)
-    : past;
-
   return (
-    <>
-      {/* Section header */}
-      {(upcoming.length > 0 || past.length > 0) && (
-        <div className="mb-4">
-          <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">ተከታታይ መርሃ ግብሮች</span>
-          <h3 className="font-headline text-3xl">Upcoming Events</h3>
+    <section className="mt-[22px]">
+      <div className="mb-2.5">
+        <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
+          ተከታታይ መርሃ ግብሮች
         </div>
-      )}
+        <h2 className="font-display text-[22px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
+          Upcoming events
+        </h2>
+      </div>
 
       {/* Department filter pills */}
-      {(upcoming.length > 0 || past.length > 0) && (
-        <div className="mb-6 flex gap-2 overflow-x-auto pb-1">
+      <div className="mb-3.5 flex gap-1.5 overflow-x-auto pb-0.5">
+        <button
+          type="button"
+          onClick={() => setFilterDept(null)}
+          className={`shrink-0 rounded-full px-3 py-1.5 text-[11.5px] transition-colors ${
+            filterDept === null
+              ? 'border-transparent bg-burgundy font-semibold text-cream'
+              : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
+          }`}
+        >
+          All
+        </button>
+        {departments.map((d) => (
           <button
-            onClick={() => setFilterDept(null)}
-            className={`shrink-0 rounded-full px-5 py-2 text-xs font-label transition-colors ${
-              filterDept === null
-                ? 'bg-primary-container text-primary-foreground'
-                : 'bg-surface-container-high text-foreground hover:bg-surface-container'
-            }`}
+            key={d.id}
+            type="button"
+            onClick={() => setFilterDept(filterDept === d.id ? null : d.id)}
+            className={`shrink-0 rounded-full px-3 py-1.5 font-ethiopic text-[11.5px] transition-colors ${
+              filterDept === d.id
+                ? 'border-transparent bg-burgundy font-semibold text-cream'
+                : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
+            } flex items-center gap-1.5`}
           >
-            All
+            <span
+              className="h-1.5 w-1.5 rounded-full"
+              style={{ background: dotFor(d.id) }}
+            />
+            {d.name_am}
           </button>
-          {departments.map((d) => (
-            <button
-              key={d.id}
-              onClick={() => setFilterDept(filterDept === d.id ? null : d.id)}
-              className={`shrink-0 rounded-full px-5 py-2 text-xs font-label transition-colors ${
-                filterDept === d.id
-                  ? 'bg-primary-container text-primary-foreground'
-                  : 'bg-surface-container-high text-foreground hover:bg-surface-container'
-              }`}
-            >
-              {d.name_am}
-            </button>
-          ))}
-        </div>
-      )}
+        ))}
+      </div>
 
-      {/* Upcoming Events */}
+      {/* Upcoming events */}
       {filteredUpcoming.length > 0 && (
-        <div className="space-y-4 mb-8">
+        <div className="space-y-2">
           {filteredUpcoming.map((event) => {
             const deptName = getDeptName(event.department_id);
             return (
-              <div key={event.id} className="group relative bg-surface-container-low rounded-xl overflow-hidden flex transition-all duration-300 hover:-translate-y-0.5">
-                <div className="w-1 bg-secondary absolute left-0 h-full" />
-                <div className="p-5 pl-6 flex flex-col gap-3 w-full">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      {deptName && (
-                        <span className="bg-primary/10 text-primary px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider mb-2 inline-block font-label">
-                          {deptName}
-                        </span>
-                      )}
-                      <h4 className="font-headline text-xl">{event.title}</h4>
-                      {event.description && (
-                        <p className="text-muted-foreground text-sm mt-1 line-clamp-1">{event.description}</p>
-                      )}
+              <article
+                key={event.id}
+                className="gold-accent-l rounded-[14px] border border-border bg-card px-3.5 py-3.5 pl-[18px]"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    {deptName && (
+                      <span className="mb-1 inline-block rounded font-ethiopic text-[10px] font-medium tracking-wider text-gold-deep dark:text-gold"
+                        style={{ background: 'rgba(212,168,67,0.12)', padding: '2px 7px' }}
+                      >
+                        {deptName}
+                      </span>
+                    )}
+                    <h4 className="font-display text-[17px] font-medium leading-tight text-burgundy-ink dark:text-cream">
+                      {event.title}
+                    </h4>
+                    {event.description && (
+                      <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
+                        {event.description}
+                      </p>
+                    )}
+                  </div>
+                  <div className="shrink-0 text-right">
+                    <div className="font-display text-lg font-medium leading-none text-burgundy dark:text-gold-light">
+                      {formatDate(event.event_date)}
                     </div>
-                    <div className="text-right shrink-0 ml-4">
-                      <p className="font-headline text-lg leading-none">{event.event_date}</p>
-                      {event.start_time && (
-                        <p className="text-[10px] text-muted-foreground uppercase font-bold tracking-tighter font-label flex items-center justify-end gap-1 mt-1">
-                          <Clock className="h-3 w-3" />
-                          {event.start_time.slice(0, 5)}
-                        </p>
-                      )}
-                    </div>
+                    {event.start_time && (
+                      <div className="mt-0.5 flex items-center justify-end gap-0.5 font-mono text-[10px] text-muted-foreground">
+                        <Clock className="h-2.5 w-2.5" />
+                        {event.start_time.slice(0, 5)}
+                      </div>
+                    )}
                   </div>
                 </div>
-              </div>
+              </article>
             );
           })}
         </div>
       )}
 
-      {/* Past Events */}
+      {/* Past events */}
       {filteredPast.length > 0 && (
-        <div className="mb-8">
-          <h3 className="font-headline text-xl mb-4 text-muted-foreground">Recent</h3>
-          <div className="space-y-3">
+        <div className="mt-6">
+          <div className="mb-2 font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
+            ቅርብ ጊዜ
+          </div>
+          <h3 className="mb-2.5 font-display text-base font-medium text-muted-foreground">
+            Recent
+          </h3>
+          <div className="space-y-1.5">
             {filteredPast.map((event) => (
-              <div key={event.id} className="flex items-center gap-4 p-4 rounded-xl bg-surface-container-low/50 opacity-60">
-                <CalendarCheck className="h-4 w-4 shrink-0 text-muted-foreground" />
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate text-sm">{event.title}</p>
-                  <p className="text-xs text-muted-foreground">{event.event_date}</p>
+              <div
+                key={event.id}
+                className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 opacity-75"
+              >
+                <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-[13px] font-medium text-foreground">
+                    {event.title}
+                  </p>
+                  <p className="text-[10.5px] text-muted-foreground">
+                    {formatDate(event.event_date)}
+                  </p>
                 </div>
-                <Badge variant="secondary" className="shrink-0 text-xs">Past</Badge>
               </div>
             ))}
           </div>
         </div>
       )}
 
-      {filteredUpcoming.length === 0 && filteredPast.length === 0 && (upcoming.length > 0 || past.length > 0) && (
+      {filteredUpcoming.length === 0 && filteredPast.length === 0 && hasAny && (
         <p className="py-8 text-center text-sm text-muted-foreground">
           No events for this department
         </p>
       )}
-    </>
+    </section>
   );
 }
