@@ -2,9 +2,6 @@ import { cookies } from 'next/headers';
 import { createServerComponentClient } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
 import { redirect } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeft } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { SongForm } from '../song-form';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
@@ -25,19 +22,9 @@ export default async function NewSongPage() {
   const canManage =
     profile?.role === 'admin' ||
     profile?.role === 'super_admin' ||
-    (profile?.role === 'dept_head' && String(profile?.department_id) === '6');
+    (profile?.role === 'dept_head' && profile?.department_id === 6);
 
   if (!canManage) redirect('/admin/songs');
 
-  return (
-    <div className="mx-auto max-w-2xl px-6 py-6">
-      <Button variant="ghost" size="sm" asChild className="mb-6">
-        <Link href="/admin/songs">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to songs
-        </Link>
-      </Button>
-      <SongForm categories={(categories as Category[]) ?? []} />
-    </div>
-  );
+  return <SongForm categories={(categories as Category[]) ?? []} />;
 }

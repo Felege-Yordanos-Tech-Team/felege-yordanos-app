@@ -1,20 +1,30 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Pencil, Trash2, X, Search } from 'lucide-react';
 
 type Song = Database['public']['Tables']['songs']['Row'];
 type Category = Database['public']['Tables']['categories']['Row'];
@@ -23,6 +33,8 @@ interface SongsTableProps {
   songs: Song[];
   categories: Category[];
 }
+
+const FALLBACK_DOTS = ['#D4A843', '#6B1D2A', '#8B2F3F', '#4F7B3E', '#C97B1A', '#A47A18'];
 
 export function SongsTable({ songs, categories }: SongsTableProps) {
   const router = useRouter();
@@ -34,7 +46,6 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   const [deleteTarget, setDeleteTarget] = useState<Song | null>(null);
   const [deleting, setDeleting] = useState(false);
 
-  // Category management state
   const [showAddCategory, setShowAddCategory] = useState(false);
   const [catName, setCatName] = useState('');
   const [catEmoji, setCatEmoji] = useState('');
@@ -47,6 +58,22 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   const [editCatEmoji, setEditCatEmoji] = useState('');
   const [editCatColor, setEditCatColor] = useState('');
   const [updatingCat, setUpdatingCat] = useState(false);
+
+  const colorByCategory = useMemo(() => {
+    const map = new Map<string, string>();
+    categories.forEach((cat, i) => {
+      map.set(cat.name, cat.color || FALLBACK_DOTS[i % FALLBACK_DOTS.length]);
+    });
+    return map;
+  }, [categories]);
+
+  const songCountByCategory = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const s of songs) {
+      map.set(s.category, (map.get(s.category) ?? 0) + 1);
+    }
+    return map;
+  }, [songs]);
 
   const filtered = songs.filter((song) => {
     const matchesSearch =
@@ -64,9 +91,8 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
     const { error } = await supabase.from('songs').delete().eq('id', deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else {
       toast({ title: 'Song deleted' });
       router.refresh();
     }
@@ -82,9 +108,8 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
       sort_order: categories.length + 1,
     } as never);
     setSavingCat(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else {
       toast({ title: 'Category added' });
       setCatName('');
       setCatEmoji('');
@@ -100,9 +125,8 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
     const { error } = await supabase.from('categories').delete().eq('id', deleteCatTarget.id);
     setDeletingCat(false);
     setDeleteCatTarget(null);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else {
       toast({ title: 'Category deleted' });
       router.refresh();
     }
@@ -119,15 +143,17 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
     e.preventDefault();
     if (!editCatTarget) return;
     setUpdatingCat(true);
-    const { error } = await supabase.from('categories').update({
-      name: editCatName,
-      emoji: editCatEmoji || null,
-      color: editCatColor || null,
-    } as never).eq('id', editCatTarget.id);
+    const { error } = await supabase
+      .from('categories')
+      .update({
+        name: editCatName,
+        emoji: editCatEmoji || null,
+        color: editCatColor || null,
+      } as never)
+      .eq('id', editCatTarget.id);
     setUpdatingCat(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
-    } else {
+    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    else {
       toast({ title: 'Category updated' });
       setEditCatTarget(null);
       router.refresh();
@@ -135,130 +161,189 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   }
 
   return (
-    <div className="mt-6 space-y-6">
-      {/* Categories Section */}
-      <Card>
-        <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <p className="text-[10px] font-label font-medium uppercase tracking-widest text-secondary">
+    <div className="mt-4 flex flex-col gap-4">
+      {/* Add song button */}
+      <div className="flex justify-end">
+        <Button
+          asChild
+          size="sm"
+          className="sacred-gradient inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
+        >
+          <Link href="/admin/songs/new">
+            <Plus className="h-3.5 w-3.5 text-gold" />
+            <span>Song</span>
+          </Link>
+        </Button>
+      </div>
+
+      {/* Categories card */}
+      <section className="rounded-2xl border border-border bg-card px-4 py-3.5">
+        <div className="mb-2.5 flex items-center justify-between">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
             Categories
-          </p>
-          <Button size="sm" variant="outline" onClick={() => setShowAddCategory(true)}>
-            <Plus className="mr-1 h-3 w-3" /> Add Category
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setShowAddCategory(true)}
+            className="h-7 gap-1 rounded-lg border-border bg-card px-2.5 text-[11px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+          >
+            <Plus className="h-3 w-3" />
+            Add
           </Button>
-        </CardHeader>
-        <CardContent>
-          <div className="flex flex-wrap gap-2">
+        </div>
+
+        {categories.length === 0 ? (
+          <p className="text-sm text-muted-foreground">No categories yet</p>
+        ) : (
+          <div className="flex flex-wrap gap-1.5">
             {categories.map((cat) => (
-              <Badge key={cat.id} variant="secondary" className="gap-1 pr-1">
-                <button onClick={() => openEditCategory(cat)} className="hover:underline">
-                  {cat.emoji} {cat.name}
-                </button>
+              <span
+                key={cat.id}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-gold/[0.10] py-1 pl-3 pr-1 text-[11px] text-foreground"
+              >
+                <span
+                  className="h-1.5 w-1.5 rounded-full"
+                  style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }}
+                />
                 <button
+                  type="button"
+                  onClick={() => openEditCategory(cat)}
+                  className="hover:underline"
+                >
+                  {cat.emoji ? <span className="mr-1">{cat.emoji}</span> : null}
+                  {cat.name}
+                </button>
+                <span className="rounded bg-background px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
+                  {songCountByCategory.get(cat.name) ?? 0}
+                </span>
+                <button
+                  type="button"
                   onClick={() => setDeleteCatTarget(cat)}
-                  className="ml-1 rounded-full p-0.5 hover:bg-foreground/10"
+                  className="flex h-4 w-4 items-center justify-center rounded-full text-ink-faint hover:text-foreground"
+                  aria-label={`Delete ${cat.name}`}
                 >
                   <X className="h-3 w-3" />
                 </button>
-              </Badge>
+              </span>
             ))}
-            {categories.length === 0 && (
-              <p className="text-sm text-muted-foreground">No categories yet</p>
-            )}
           </div>
-        </CardContent>
-      </Card>
+        )}
+      </section>
 
-      {/* Songs Toolbar */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+      {/* Toolbar */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
           <Input
-            placeholder="Search songs..."
+            placeholder="Search songs…"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-9"
+            className="rounded-[10px] border border-border bg-card pl-[34px] text-[12.5px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
           />
         </div>
         <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="h-10 w-[180px] rounded-[10px] border border-border bg-card text-[12.5px]">
             <SelectValue placeholder="All categories" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All categories</SelectItem>
             {categories.map((cat) => (
               <SelectItem key={cat.id} value={cat.name}>
-                {cat.emoji} {cat.name}
+                {cat.emoji ? `${cat.emoji} ` : ''}
+                {cat.name}
               </SelectItem>
             ))}
           </SelectContent>
         </Select>
-        <Button asChild>
-          <Link href="/admin/songs/new">
-            <Plus className="mr-1 h-4 w-4" /> Add Song
-          </Link>
-        </Button>
       </div>
 
-      {/* Songs Table */}
-      <div className="rounded-xl overflow-hidden">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-16">#</TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>English</TableHead>
-              <TableHead>Category</TableHead>
-              <TableHead className="w-24 text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filtered.length === 0 ? (
-              <TableRow>
-                <TableCell colSpan={5} className="py-8 text-center text-sm text-muted-foreground">
-                  No songs found
-                </TableCell>
-              </TableRow>
-            ) : (
-              filtered.map((song) => (
-                <TableRow key={song.id}>
-                  <TableCell className="font-medium">{song.number}</TableCell>
-                  <TableCell className="font-headline text-primary">{song.title}</TableCell>
-                  <TableCell className="text-muted-foreground">{song.title_en ?? '—'}</TableCell>
-                  <TableCell>
-                    <Badge variant="secondary">{song.category}</Badge>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="sm" asChild>
-                        <Link href={`/admin/songs/${song.id}/edit`}>
-                          <Pencil className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button variant="ghost" size="sm" onClick={() => setDeleteTarget(song)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+      {/* Songs table */}
+      <div className="overflow-hidden rounded-xl border border-border bg-card">
+        <div
+          className="grid items-center gap-2 border-b border-border bg-gold/[0.10] px-3.5 py-2.5 dark:bg-gold/[0.04]"
+          style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
+        >
+          {['#', 'Title', 'Category', ''].map((h, i) => (
+            <span
+              key={i}
+              className={`text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold ${
+                i === 3 ? 'text-right' : ''
+              }`}
+            >
+              {h}
+            </span>
+          ))}
+        </div>
+
+        {filtered.length === 0 ? (
+          <p className="py-8 text-center text-sm text-muted-foreground">No songs found</p>
+        ) : (
+          filtered.map((song, i) => (
+            <div
+              key={song.id}
+              className={`grid items-center gap-2 px-3.5 py-2.5 ${
+                i < filtered.length - 1 ? 'border-b border-border' : ''
+              }`}
+              style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
+            >
+              <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
+                {String(song.number).padStart(2, '0')}
+              </span>
+              <div className="min-w-0">
+                <div className="truncate font-ethiopic text-sm font-semibold leading-tight text-burgundy-ink dark:text-cream">
+                  {song.title}
+                </div>
+                {song.title_en && (
+                  <div className="font-display text-[11px] italic text-muted-foreground">
+                    {song.title_en}
+                  </div>
+                )}
+              </div>
+              <span className="text-[9px] font-semibold uppercase tracking-[0.06em] text-gold-deep dark:text-gold">
+                {song.category}
+              </span>
+              <div className="flex justify-end gap-1">
+                <Button
+                  asChild
+                  variant="ghost"
+                  size="sm"
+                  className="h-[26px] w-[26px] rounded-md border border-border p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Link href={`/admin/songs/${song.id}/edit`} aria-label="Edit song">
+                    <Pencil className="h-3 w-3" />
+                  </Link>
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setDeleteTarget(song)}
+                  className="h-[26px] w-[26px] rounded-md border border-border p-0 text-status-absent hover:bg-status-absent-bg"
+                  aria-label="Delete song"
+                >
+                  <Trash2 className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          ))
+        )}
       </div>
 
       {/* Delete Song Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Song</DialogTitle>
+            <DialogTitle className="font-display text-xl">Delete song</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This action cannot be undone.
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteTarget(null)}>
+              Cancel
+            </Button>
             <Button variant="destructive" onClick={handleDeleteSong} disabled={deleting}>
-              {deleting ? 'Deleting...' : 'Delete'}
+              {deleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -268,15 +353,17 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
       <Dialog open={!!deleteCatTarget} onOpenChange={(open) => !open && setDeleteCatTarget(null)}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Delete Category</DialogTitle>
+            <DialogTitle className="font-display text-xl">Delete category</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &ldquo;{deleteCatTarget?.name}&rdquo;? Songs using this category may be affected.
+              Delete &ldquo;{deleteCatTarget?.name}&rdquo;? Songs using this category may be affected.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDeleteCatTarget(null)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setDeleteCatTarget(null)}>
+              Cancel
+            </Button>
             <Button variant="destructive" onClick={handleDeleteCategory} disabled={deletingCat}>
-              {deletingCat ? 'Deleting...' : 'Delete'}
+              {deletingCat ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -287,45 +374,37 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
         <DialogContent>
           <form onSubmit={handleAddCategory}>
             <DialogHeader>
-              <DialogTitle>Add Category</DialogTitle>
+              <DialogTitle className="font-display text-xl">Add category</DialogTitle>
               <DialogDescription>Create a new song category.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="catName">Name</Label>
-                <Input
-                  id="catName"
-                  required
-                  value={catName}
-                  onChange={(e) => setCatName(e.target.value)}
-                  placeholder="ምስጋና"
-                />
+            <div className="space-y-3.5 py-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="catName" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  Name
+                </Label>
+                <Input id="catName" required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="ምስጋና" />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="catEmoji">Emoji (optional)</Label>
-                  <Input
-                    id="catEmoji"
-                    value={catEmoji}
-                    onChange={(e) => setCatEmoji(e.target.value)}
-                    placeholder="🙏"
-                  />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="catEmoji" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                    Emoji
+                  </Label>
+                  <Input id="catEmoji" value={catEmoji} onChange={(e) => setCatEmoji(e.target.value)} placeholder="🙏" />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="catColor">Color (optional)</Label>
-                  <Input
-                    id="catColor"
-                    value={catColor}
-                    onChange={(e) => setCatColor(e.target.value)}
-                    placeholder="#3B82F6"
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="catColor" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                    Color
+                  </Label>
+                  <Input id="catColor" value={catColor} onChange={(e) => setCatColor(e.target.value)} placeholder="#D4A843" />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowAddCategory(false)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => setShowAddCategory(false)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={savingCat}>
-                {savingCat ? 'Saving...' : 'Add Category'}
+                {savingCat ? 'Saving…' : 'Add category'}
               </Button>
             </DialogFooter>
           </form>
@@ -337,42 +416,37 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
         <DialogContent>
           <form onSubmit={handleUpdateCategory}>
             <DialogHeader>
-              <DialogTitle>Edit Category</DialogTitle>
+              <DialogTitle className="font-display text-xl">Edit category</DialogTitle>
               <DialogDescription>Update the category details.</DialogDescription>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label htmlFor="editCatName">Name</Label>
-                <Input
-                  id="editCatName"
-                  required
-                  value={editCatName}
-                  onChange={(e) => setEditCatName(e.target.value)}
-                />
+            <div className="space-y-3.5 py-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="editCatName" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  Name
+                </Label>
+                <Input id="editCatName" required value={editCatName} onChange={(e) => setEditCatName(e.target.value)} />
               </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="editCatEmoji">Emoji (optional)</Label>
-                  <Input
-                    id="editCatEmoji"
-                    value={editCatEmoji}
-                    onChange={(e) => setEditCatEmoji(e.target.value)}
-                  />
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label htmlFor="editCatEmoji" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                    Emoji
+                  </Label>
+                  <Input id="editCatEmoji" value={editCatEmoji} onChange={(e) => setEditCatEmoji(e.target.value)} />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="editCatColor">Color (optional)</Label>
-                  <Input
-                    id="editCatColor"
-                    value={editCatColor}
-                    onChange={(e) => setEditCatColor(e.target.value)}
-                  />
+                <div className="space-y-1.5">
+                  <Label htmlFor="editCatColor" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                    Color
+                  </Label>
+                  <Input id="editCatColor" value={editCatColor} onChange={(e) => setEditCatColor(e.target.value)} />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditCatTarget(null)}>Cancel</Button>
+              <Button type="button" variant="outline" onClick={() => setEditCatTarget(null)}>
+                Cancel
+              </Button>
               <Button type="submit" disabled={updatingCat}>
-                {updatingCat ? 'Saving...' : 'Update Category'}
+                {updatingCat ? 'Saving…' : 'Update'}
               </Button>
             </DialogFooter>
           </form>
