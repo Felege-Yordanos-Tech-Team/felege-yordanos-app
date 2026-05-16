@@ -38,7 +38,7 @@ interface ProfileRow {
   display_name: string | null;
   full_name: string | null;
   role: UserRole;
-  department_id: string | null;
+  department_id: number | null;
   created_at: string;
 }
 
@@ -70,9 +70,9 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
     return !search || name.includes(search.toLowerCase()) || p.id.includes(search);
   });
 
-  function getDeptName(deptId: string | null): string {
-    if (!deptId) return '—';
-    const dept = departments.find((d) => String(d.id) === String(deptId));
+  function getDeptName(deptId: number | null): string {
+    if (deptId == null) return '—';
+    const dept = departments.find((d) => d.id === deptId);
     return dept?.name_am ?? '—';
   }
 

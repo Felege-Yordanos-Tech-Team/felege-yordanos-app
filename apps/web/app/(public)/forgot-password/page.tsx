@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { createClient } from '@felege-yordanos/db';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function ForgotPasswordPage() {
@@ -76,7 +77,7 @@ export default function ForgotPasswordPage() {
             <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
               Email
             </Label>
-            <input
+            <Input
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
