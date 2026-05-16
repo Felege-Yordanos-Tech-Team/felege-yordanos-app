@@ -10,143 +10,199 @@ export type ScanResult =
 
 interface QRScannerProps {
   active: boolean; // true when the QR tab is selected
-  onMemberId: (memberId: string) => Promise<ScanResult>; // parent decides validation
+  onMemberId: (memberId: string) => Promise<ScanResult>;
   presentCount: number;
   total: number;
 }
 
 const VIDEO_ELEMENT_ID = 'fy-qr-reader';
 
+type Status = 'idle' | 'starting' | 'running' | 'denied' | 'error';
+
+// Loose shape for the bits of Html5Qrcode we touch — keeps us off the lib's types
+type ScannerInstance = {
+  start: (
+    cameraIdOrConfig: { facingMode: string } | string,
+    config: Record<string, unknown>,
+    onSuccess: (decoded: string) => void,
+    onError: (error: string) => void,
+  ) => Promise<void>;
+  stop: () => Promise<void>;
+  clear?: () => void;
+  isScanning?: boolean;
+};
+
 export function QRScanner({ active, onMemberId, presentCount, total }: QRScannerProps) {
-  const scannerRef = useRef<unknown | null>(null);
+  const instanceRef = useRef<ScannerInstance | null>(null);
   const lastValueRef = useRef<string>('');
   const lastAtRef = useRef<number>(0);
-  const [status, setStatus] = useState<'idle' | 'starting' | 'running' | 'denied' | 'error'>(
-    'idle',
-  );
+  const [status, setStatus] = useState<Status>('idle');
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [lastScan, setLastScan] = useState<ScanResult | null>(null);
 
   useEffect(() => {
     if (!active) {
-      // Stop scanner on tab switch / unmount
-      stopScanner();
+      void teardown();
       return;
     }
 
     let cancelled = false;
-    setStatus('starting');
-    setErrorMessage('');
 
     (async () => {
       try {
-        const { Html5Qrcode } = await import('html5-qrcode');
+        // Ensure any previous instance is fully torn down before starting fresh
+        await teardown();
         if (cancelled) return;
 
-        const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, /* verbose */ false);
-        scannerRef.current = instance;
+        setStatus('starting');
+        setErrorMessage('');
+
+        const mod = await import('html5-qrcode');
+        if (cancelled) return;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const Html5Qrcode = (mod as any).Html5Qrcode;
+        const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, false) as ScannerInstance;
+        instanceRef.current = instance;
 
         await instance.start(
           { facingMode: 'environment' },
           {
             fps: 10,
-            qrbox: { width: 220, height: 220 },
-            aspectRatio: 1.0,
+            // NOTE: no `qrbox` — let the library scan the whole frame.
+            // A fixed qrbox restricts decode to a tiny center region that
+            // rarely aligns with the visible viewfinder.
+            disableFlip: false,
           },
           (decoded) => {
-            handleDecode(decoded);
+            void handleDecode(decoded);
           },
-          () => {
-            // Per-frame "no QR detected" — noisy, ignore
-          },
+          // Per-frame "no QR detected" — extremely noisy, ignore
+          () => undefined,
         );
 
         if (cancelled) {
-          instance.stop().catch(() => undefined);
+          await teardown();
           return;
         }
 
         setStatus('running');
       } catch (err) {
         if (cancelled) return;
+        // eslint-disable-next-line no-console
+        console.error('[QR scanner] start failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
         const lower = msg.toLowerCase();
-        if (lower.includes('permission') || lower.includes('notallowed') || lower.includes('denied')) {
+        if (
+          lower.includes('permission') ||
+          lower.includes('notallowed') ||
+          lower.includes('denied')
+        ) {
           setStatus('denied');
+          setErrorMessage('');
         } else {
           setStatus('error');
-          setErrorMessage(msg);
+          setErrorMessage(msg || 'Unknown camera error');
         }
       }
     })();
 
     return () => {
       cancelled = true;
-      stopScanner();
+      void teardown();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
-  function stopScanner() {
-    const inst = scannerRef.current as { stop?: () => Promise<void>; clear?: () => void } | null;
+  async function teardown() {
+    const inst = instanceRef.current;
     if (!inst) return;
-    inst.stop?.()
-      .then(() => inst.clear?.())
-      .catch(() => undefined)
-      .finally(() => {
-        scannerRef.current = null;
-      });
+    instanceRef.current = null;
+    try {
+      if (inst.isScanning) {
+        await inst.stop();
+      }
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.warn('[QR scanner] stop ignored:', err);
+    }
+    try {
+      inst.clear?.();
+    } catch {
+      // ignore
+    }
   }
 
   async function handleDecode(decoded: string) {
-    const now = Date.now();
-    // Debounce: ignore same code within 2s, or any code within 600ms
-    if (now - lastAtRef.current < 600) return;
-    if (decoded === lastValueRef.current && now - lastAtRef.current < 2000) return;
-    lastValueRef.current = decoded;
-    lastAtRef.current = now;
+    try {
+      const now = Date.now();
+      // Debounce: same code ignored within 2s, any code within 600ms
+      if (now - lastAtRef.current < 600) return;
+      if (decoded === lastValueRef.current && now - lastAtRef.current < 2000) return;
+      lastValueRef.current = decoded;
+      lastAtRef.current = now;
 
-    const result = await onMemberId(decoded);
-    setLastScan(result);
+      const result = await onMemberId(decoded);
+      setLastScan(result);
+    } catch (err) {
+      // eslint-disable-next-line no-console
+      console.error('[QR scanner] decode handler failed:', err);
+      setLastScan({ kind: 'invalid', code: decoded });
+    }
   }
 
-  async function retry() {
+  function retry() {
+    // Flip status to force the effect to re-run by clearing transient flags;
+    // the effect deps are on `active` so we re-trigger by toggling state through
+    // a quick teardown + restart. Easier path: just call the same start logic.
     setStatus('idle');
-    // Toggling status via active won't refresh — force re-run by remounting via a hard refresh
-    // Simpler: directly try to (re)start. Since the effect re-runs on `active`, flip it.
-    // The easy path: call start manually here.
-    setStatus('starting');
-    try {
-      const { Html5Qrcode } = await import('html5-qrcode');
-      const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, false);
-      scannerRef.current = instance;
-      await instance.start(
-        { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 220, height: 220 }, aspectRatio: 1.0 },
-        (decoded) => handleDecode(decoded),
-        () => undefined,
-      );
-      setStatus('running');
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      const lower = msg.toLowerCase();
-      if (lower.includes('permission') || lower.includes('notallowed') || lower.includes('denied')) {
-        setStatus('denied');
-      } else {
-        setStatus('error');
-        setErrorMessage(msg);
+    setErrorMessage('');
+    // Kick the effect: since we depend on `active`, and `active` hasn't changed,
+    // the cleanest restart is to clear instance and rely on a manual rerun.
+    void (async () => {
+      try {
+        await teardown();
+        setStatus('starting');
+        const mod = await import('html5-qrcode');
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const Html5Qrcode = (mod as any).Html5Qrcode;
+        const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, false) as ScannerInstance;
+        instanceRef.current = instance;
+        await instance.start(
+          { facingMode: 'environment' },
+          { fps: 10, disableFlip: false },
+          (decoded) => void handleDecode(decoded),
+          () => undefined,
+        );
+        setStatus('running');
+      } catch (err) {
+        // eslint-disable-next-line no-console
+        console.error('[QR scanner] retry failed:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        const lower = msg.toLowerCase();
+        if (
+          lower.includes('permission') ||
+          lower.includes('notallowed') ||
+          lower.includes('denied')
+        ) {
+          setStatus('denied');
+        } else {
+          setStatus('error');
+          setErrorMessage(msg || 'Unknown camera error');
+        }
       }
-    }
+    })();
   }
 
   return (
     <div>
       {/* Camera viewfinder */}
       <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-[#0A0604] to-[#16100A]">
-        {/* Camera mount point — html5-qrcode injects a video element here */}
-        <div id={VIDEO_ELEMENT_ID} className="absolute inset-0 h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover" />
+        <div
+          id={VIDEO_ELEMENT_ID}
+          className="absolute inset-0 h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
+        />
 
-        {/* Dark vignette */}
         <div
           aria-hidden
           className="pointer-events-none absolute inset-0"
@@ -156,7 +212,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
           }}
         />
 
-        {/* Loading / permission / error overlays */}
         {(status === 'idle' || status === 'starting') && (
           <ScannerStateMessage
             icon={<Camera className="h-6 w-6 text-gold" />}
@@ -169,15 +224,7 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
             icon={<Camera className="h-6 w-6 text-status-absent" />}
             title="Camera permission required"
             subtitle="Allow camera in your browser, then retry."
-            action={
-              <button
-                type="button"
-                onClick={retry}
-                className="rounded-lg border border-gold/40 bg-gold/20 px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/30"
-              >
-                Retry
-              </button>
-            }
+            action={<RetryButton onClick={retry} />}
           />
         )}
         {status === 'error' && (
@@ -185,19 +232,10 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
             icon={<X className="h-6 w-6 text-status-absent" />}
             title="Scanner unavailable"
             subtitle={errorMessage || 'Your browser may not support camera access.'}
-            action={
-              <button
-                type="button"
-                onClick={retry}
-                className="rounded-lg border border-gold/40 bg-gold/20 px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/30"
-              >
-                Retry
-              </button>
-            }
+            action={<RetryButton onClick={retry} />}
           />
         )}
 
-        {/* Corner-bracket frame + scanning line (only when running) */}
         {status === 'running' && (
           <>
             <div className="pointer-events-none absolute left-1/2 top-1/2 h-[220px] w-[220px] -translate-x-1/2 -translate-y-1/2">
@@ -217,10 +255,12 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
               />
             </div>
 
-            {/* Live counter overlay top-right */}
             <div
-              className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/30 bg-burgundy/80 px-2.5 py-1 text-cream backdrop-blur-sm"
-              style={{ background: 'linear-gradient(135deg, rgba(107,29,42,0.85), rgba(74,14,24,0.85))' }}
+              className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/30 px-2.5 py-1 text-cream backdrop-blur-sm"
+              style={{
+                background:
+                  'linear-gradient(135deg, rgba(107,29,42,0.85), rgba(74,14,24,0.85))',
+              }}
             >
               <span
                 aria-hidden
@@ -233,10 +273,11 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
               <span className="font-mono text-[12px] font-bold text-gold">
                 {presentCount}
               </span>
-              <span className="font-mono text-[10px] text-gold-light/60">/ {total}</span>
+              <span className="font-mono text-[10px] text-gold-light/60">
+                / {total}
+              </span>
             </div>
 
-            {/* Instruction text below frame */}
             <div className="pointer-events-none absolute bottom-4 left-1/2 w-[80%] -translate-x-1/2 text-center">
               <div className="font-ethiopic text-[13px] tracking-[0.04em] text-gold-light">
                 ኮድ በመስኩ ውስጥ ያስቀምጡ
@@ -249,7 +290,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         )}
       </div>
 
-      {/* Feedback banner */}
       {lastScan ? (
         <ScanFeedbackBanner result={lastScan} />
       ) : status === 'running' ? (
@@ -258,6 +298,18 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         </p>
       ) : null}
     </div>
+  );
+}
+
+function RetryButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-lg border border-gold/40 bg-gold/20 px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/30"
+    >
+      Retry
+    </button>
   );
 }
 
@@ -297,7 +349,7 @@ function ScannerStateMessage({
         {icon}
       </div>
       <div className="font-display text-base font-medium text-cream">{title}</div>
-      <div className="text-[11px] text-cream/60">{subtitle}</div>
+      <div className="break-words text-[11px] text-cream/60">{subtitle}</div>
       {action}
     </div>
   );
@@ -352,7 +404,7 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
           Invalid QR code
         </div>
         <div className="mt-0.5 truncate text-[11px] font-medium text-status-absent">
-          Not a Felege Yordanos member ID
+          Not a Felege Yordanos member ID · {result.code.slice(0, 32)}
         </div>
       </div>
     </div>
