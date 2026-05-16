@@ -20,12 +20,31 @@ export default async function DonatePage() {
     .order('created_at', { ascending: false });
 
   return (
-    <div className="mx-auto max-w-md px-6 py-6">
-      <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">ስጦታ</span>
-      <h1 className="font-headline text-3xl text-primary">Make a Donation</h1>
-      <p className="mt-1 text-sm text-muted-foreground">
-        Submit your donation with receipt for verification
+    <div className="mx-auto max-w-md px-[22px] pb-6 pt-4">
+      {/* Section header */}
+      <div className="mb-1.5">
+        <div className="font-ethiopic text-xs font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
+          ስጦታ
+        </div>
+        <h1 className="font-display text-[28px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
+          Make a donation
+        </h1>
+      </div>
+      <p className="text-[13px] text-muted-foreground">
+        Submit your donation with a receipt — admins will verify it.
       </p>
+
+      {/* Ornament rule */}
+      <div className="my-4 flex items-center gap-2.5">
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge dark:to-ink-muted/40" />
+        <span className="flex items-center gap-1">
+          <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
+          <span className="h-1 w-1 rounded-full bg-gold" />
+          <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
+        </span>
+        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge dark:to-ink-muted/40" />
+      </div>
+
       <DonateForm
         userId={user?.id ?? ''}
         pastDonations={(donations as Donation[]) ?? []}

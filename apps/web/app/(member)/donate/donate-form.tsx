@@ -1,23 +1,18 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@felege-yordanos/db';
-import { Upload } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
+import {
+  Banknote,
+  Building2,
+  MoreHorizontal,
+  Phone,
+  UploadCloud,
+} from 'lucide-react';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
 
 interface DonationRow {
@@ -36,18 +31,46 @@ interface DonateFormProps {
   pastDonations: DonationRow[];
 }
 
-const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destructive'; className: string }> = {
-  pending: { variant: 'secondary', className: 'bg-yellow-100 text-yellow-800' },
-  verified: { variant: 'default', className: 'bg-green-600' },
-  rejected: { variant: 'destructive', className: '' },
-};
+const QUICK_AMOUNTS = ['100', '250', '500', '1000'];
 
-const methodLabels: Record<string, string> = {
+const PAYMENT_METHODS: {
+  value: string;
+  label: string;
+  am: string;
+  Icon: typeof Banknote;
+}[] = [
+  { value: 'bank_transfer', label: 'Bank Transfer', am: 'የባንክ ዝውውር', Icon: Building2 },
+  { value: 'telebirr', label: 'Telebirr', am: 'ቴሌብር', Icon: Phone },
+  { value: 'cash', label: 'Cash', am: 'ጥሬ ገንዘብ', Icon: Banknote },
+  { value: 'other', label: 'Other', am: 'ሌላ', Icon: MoreHorizontal },
+];
+
+const METHOD_LABELS: Record<string, string> = {
   bank_transfer: 'Bank Transfer',
   telebirr: 'Telebirr',
   cash: 'Cash',
   other: 'Other',
 };
+
+const STATUS_STYLES: Record<
+  DonationRow['status'],
+  { label: string; bg: string; text: string }
+> = {
+  pending: { label: 'Pending', bg: 'bg-status-late-bg', text: 'text-status-late' },
+  verified: { label: 'Verified', bg: 'bg-status-present-bg', text: 'text-status-present' },
+  rejected: { label: 'Rejected', bg: 'bg-status-absent-bg', text: 'text-status-absent' },
+};
+
+function formatShortDate(iso: string): string {
+  try {
+    return new Date(iso).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    });
+  } catch {
+    return iso;
+  }
+}
 
 export function DonateForm({ userId, pastDonations }: DonateFormProps) {
   const [amount, setAmount] = useState('');
@@ -66,10 +89,13 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
     const supabase = createClient();
     let receiptUrl: string | null = null;
 
-    // Upload receipt if provided
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
-        toast({ title: 'File too large', description: 'Receipt must be under 5MB.', variant: 'destructive' });
+        toast({
+          title: 'File too large',
+          description: 'Receipt must be under 5MB.',
+          variant: 'destructive',
+        });
         setSubmitting(false);
         return;
       }
@@ -81,7 +107,11 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
         .upload(path, file);
 
       if (uploadError) {
-        toast({ title: 'Upload failed', description: uploadError.message, variant: 'destructive' });
+        toast({
+          title: 'Upload failed',
+          description: uploadError.message,
+          variant: 'destructive',
+        });
         setSubmitting(false);
         return;
       }
@@ -102,7 +132,10 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
     if (error) {
       toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } else {
-      toast({ title: 'Donation submitted', description: 'Your donation is pending verification.' });
+      toast({
+        title: 'Donation submitted',
+        description: 'Your donation is pending verification.',
+      });
       setAmount('');
       setMethod('');
       setNotes('');
@@ -114,112 +147,231 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
 
   return (
     <>
-      <Card className="mt-4">
-        <CardContent className="pt-6">
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="amount">Amount (ETB)</Label>
-              <Input
-                id="amount"
-                type="number"
-                min="1"
-                step="0.01"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.00"
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Payment Method</Label>
-              <Select value={method} onValueChange={setMethod}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select method" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="bank_transfer">Bank Transfer</SelectItem>
-                  <SelectItem value="telebirr">Telebirr</SelectItem>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Any additional details"
-                rows={2}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label>Receipt (optional)</Label>
-              <div className="flex items-center gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => fileRef.current?.click()}
-                >
-                  <Upload className="mr-2 h-4 w-4" />
-                  {file ? file.name : 'Upload receipt'}
-                </Button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,application/pdf"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-                />
-              </div>
-              <p className="text-xs text-muted-foreground">
-                JPEG, PNG, or PDF. Max 5MB.
-              </p>
-            </div>
-            <Button type="submit" className="w-full" disabled={submitting}>
-              {submitting ? 'Submitting...' : 'Submit Donation'}
-            </Button>
-          </form>
-        </CardContent>
-      </Card>
-
-      {pastDonations.length > 0 && (
-        <>
-          <Separator className="my-6" />
-          <h2 className="text-lg font-semibold">Your Donations</h2>
-          <div className="mt-2 space-y-2">
-            {pastDonations.map((d) => {
-              const badge = statusBadge[d.status] ?? statusBadge.pending;
+      <form onSubmit={handleSubmit} className="space-y-3.5">
+        {/* Featured amount card */}
+        <div
+          className="relative overflow-hidden rounded-2xl border-[1.5px] border-border bg-card px-[18px] py-3.5 shadow-[0_0_0_4px_rgba(212,168,67,0.06)]"
+        >
+          <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
+            Amount
+          </div>
+          <div className="flex items-baseline gap-1.5">
+            <input
+              type="number"
+              min="1"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              placeholder="0"
+              required
+              aria-label="Donation amount"
+              className="w-full bg-transparent font-display text-[44px] font-medium leading-none tabular-nums text-burgundy outline-none placeholder:text-ink-faint/60 focus:outline-none dark:text-gold"
+            />
+            <span className="font-mono text-sm font-medium text-muted-foreground">
+              ETB
+            </span>
+          </div>
+          <div className="mt-2.5 flex gap-1.5">
+            {QUICK_AMOUNTS.map((v) => {
+              const active = amount === v;
               return (
-                <Card key={d.id}>
-                  <CardContent className="py-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-medium">
-                          {d.amount.toLocaleString()} {d.currency}
-                        </p>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                          <span>{d.payment_method ? methodLabels[d.payment_method] ?? d.payment_method : '—'}</span>
-                          <span>{new Date(d.created_at).toLocaleDateString()}</span>
-                        </div>
-                      </div>
-                      <Badge variant={badge.variant} className={badge.className}>
-                        {d.status}
-                      </Badge>
-                    </div>
-                    {d.status === 'rejected' && d.rejection_reason && (
-                      <p className="mt-2 rounded-md bg-destructive/10 px-3 py-2 text-xs text-destructive">
-                        Reason: {d.rejection_reason}
-                      </p>
-                    )}
-                  </CardContent>
-                </Card>
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setAmount(v)}
+                  className={`flex-1 rounded-lg py-1.5 font-mono text-[11px] font-semibold transition-colors ${
+                    active
+                      ? 'border border-gold bg-gold/[0.15] text-foreground'
+                      : 'border border-border bg-background text-foreground hover:bg-card'
+                  }`}
+                >
+                  {Number(v).toLocaleString()}
+                </button>
               );
             })}
           </div>
-        </>
+        </div>
+
+        {/* Payment method */}
+        <div>
+          <Label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+            Payment method
+          </Label>
+          <div className="grid grid-cols-2 gap-2">
+            {PAYMENT_METHODS.map((m) => {
+              const active = method === m.value;
+              return (
+                <button
+                  key={m.value}
+                  type="button"
+                  onClick={() => setMethod(m.value)}
+                  className={`flex flex-col items-start gap-1 rounded-xl px-3.5 py-3 text-left transition-colors ${
+                    active
+                      ? 'border-[1.5px] border-burgundy bg-burgundy/[0.08] dark:bg-burgundy/40'
+                      : 'border border-border bg-card hover:bg-card/80'
+                  }`}
+                >
+                  <m.Icon
+                    className={`h-4 w-4 ${
+                      active ? 'text-burgundy dark:text-gold' : 'text-muted-foreground'
+                    }`}
+                    strokeWidth={1.75}
+                  />
+                  <div
+                    className={`mt-1 text-xs font-semibold ${
+                      active ? 'text-burgundy-ink dark:text-cream' : 'text-foreground'
+                    }`}
+                  >
+                    {m.label}
+                  </div>
+                  <div
+                    className={`font-ethiopic text-[10px] ${
+                      active ? 'text-gold-deep dark:text-gold' : 'text-muted-foreground'
+                    }`}
+                  >
+                    {m.am}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Bank details panel — only when bank transfer is selected */}
+        {method === 'bank_transfer' && (
+          <div
+            className="rounded-xl border border-dashed border-gold bg-gold/[0.08] px-3.5 py-3 dark:bg-gold/[0.05]"
+          >
+            <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+              Send to · CBE
+            </div>
+            <div className="font-mono text-sm font-semibold tracking-[0.06em] text-burgundy-ink dark:text-cream">
+              1000-4527-8891-0012
+            </div>
+            <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+              FELEGE YORDANOS SUNDAY SCHOOL
+            </div>
+          </div>
+        )}
+
+        {/* Notes */}
+        <div>
+          <Label
+            htmlFor="notes"
+            className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          >
+            Notes <span className="font-normal text-ink-faint">· optional</span>
+          </Label>
+          <Textarea
+            id="notes"
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            placeholder="For Easter offering"
+            rows={2}
+            className="rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] text-foreground placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-input"
+          />
+        </div>
+
+        {/* Receipt upload */}
+        <div>
+          <Label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+            Receipt <span className="font-normal text-ink-faint">· optional</span>
+          </Label>
+          <button
+            type="button"
+            onClick={() => fileRef.current?.click()}
+            className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border bg-gold/[0.05] px-4 py-3.5 text-left transition-colors hover:bg-gold/[0.08]"
+          >
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gold/[0.18]">
+              <UploadCloud className="h-5 w-5 text-gold" />
+            </div>
+            <div className="flex-1">
+              <div className="text-[12.5px] font-semibold text-foreground">
+                {file ? file.name : 'Tap to upload receipt'}
+              </div>
+              <div className="mt-0.5 text-[10.5px] text-muted-foreground">
+                JPEG, PNG or PDF · max 5MB
+              </div>
+            </div>
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/jpeg,image/png,application/pdf"
+            className="hidden"
+            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+          />
+        </div>
+
+        {/* Submit */}
+        <Button
+          type="submit"
+          disabled={submitting}
+          className="sacred-gradient mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-[15px] text-sm font-semibold tracking-wider text-cream shadow-[0_6px_16px_-6px_rgba(74,14,24,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95 disabled:opacity-70"
+          style={{ border: '1px solid rgba(212,168,67,0.4)' }}
+        >
+          <span className="font-ethiopic text-xs opacity-85">ላክ</span>
+          <span className="h-3.5 w-px bg-gold/40" />
+          <span>{submitting ? 'Submitting…' : 'Submit donation'}</span>
+        </Button>
+      </form>
+
+      {/* Past donations */}
+      {pastDonations.length > 0 && (
+        <section className="mt-[26px]">
+          <div className="mb-2.5">
+            <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
+              ያለፉ ስጦታዎች
+            </div>
+            <h2 className="font-display text-[22px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
+              Your donations
+            </h2>
+          </div>
+
+          <div className="space-y-2">
+            {pastDonations.map((d) => {
+              const s = STATUS_STYLES[d.status] ?? STATUS_STYLES.pending;
+              return (
+                <div
+                  key={d.id}
+                  className="rounded-xl border border-border bg-card px-3.5 py-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="flex items-baseline gap-1 font-display text-xl font-medium leading-none text-burgundy-ink dark:text-cream">
+                        <span className="tabular-nums">
+                          {d.amount.toLocaleString()}
+                        </span>
+                        <span className="font-mono text-[11px] text-muted-foreground">
+                          {d.currency}
+                        </span>
+                      </div>
+                      <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
+                        <span>
+                          {d.payment_method
+                            ? METHOD_LABELS[d.payment_method] ?? d.payment_method
+                            : '—'}
+                        </span>
+                        <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
+                        <span className="font-mono">{formatShortDate(d.created_at)}</span>
+                      </div>
+                    </div>
+                    <span
+                      className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${s.bg} ${s.text}`}
+                    >
+                      {s.label}
+                    </span>
+                  </div>
+                  {d.status === 'rejected' && d.rejection_reason && (
+                    <div className="mt-2 rounded-lg bg-status-absent-bg px-2.5 py-1.5 text-[11px] text-status-absent">
+                      Reason: {d.rejection_reason}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </section>
       )}
     </>
   );
