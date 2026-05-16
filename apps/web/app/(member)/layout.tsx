@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { createServerComponentClient } from '@felege-yordanos/db';
 import type { Database } from '@felege-yordanos/db';
 import { BottomNav } from '@felege-yordanos/ui';
@@ -18,10 +19,14 @@ export default async function MemberLayout({
     data: { user },
   } = await supabase.auth.getUser();
 
+  if (!user) {
+    redirect('/login');
+  }
+
   const { data } = await supabase
     .from('profiles')
     .select('*')
-    .eq('id', user?.id ?? '')
+    .eq('id', user.id)
     .single();
 
   const profile = data as Profile | null;

@@ -68,6 +68,12 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
 
     // Upload receipt if provided
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+        toast({ title: 'File too large', description: 'Receipt must be under 5MB.', variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
+
       const ext = file.name.split('.').pop();
       const path = `${userId}/${Date.now()}.${ext}`;
       const { error: uploadError } = await supabase.storage

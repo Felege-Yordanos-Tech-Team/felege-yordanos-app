@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function LoginPage() {
@@ -69,7 +70,7 @@ export default function LoginPage() {
           <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
             {isSignUp ? 'Email' : 'Email or Phone'}
           </Label>
-          <input
+          <Input
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -83,7 +84,7 @@ export default function LoginPage() {
           <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
             Password
           </Label>
-          <input
+          <Input
             type="password"
             value={password}
             onChange={(e) => setPassword(e.target.value)}

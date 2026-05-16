@@ -6,6 +6,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { createClient } from '@felege-yordanos/db';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 
 export default function ResetPasswordPage() {
@@ -97,7 +98,7 @@ export default function ResetPasswordPage() {
             <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
               New Password
             </Label>
-            <input
+            <Input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -112,7 +113,7 @@ export default function ResetPasswordPage() {
             <Label className="text-[#735c00] text-xs font-label uppercase tracking-wider">
               Confirm Password
             </Label>
-            <input
+            <Input
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
