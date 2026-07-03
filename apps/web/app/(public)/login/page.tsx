@@ -38,16 +38,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="parchment-bg dark:bg-background flex min-h-screen flex-col">
-      {/* Burgundy halo crown panel */}
-      <div
-        className="sacred-gradient relative mx-4 mt-2 h-[280px] overflow-hidden shadow-fy-lg"
-        style={{ borderRadius: '180px 180px 12px 12px' }}
-      >
+    <div className="parchment-bg dark:bg-background flex min-h-screen flex-col md:flex-row">
+      {/* Burgundy halo crown panel — top crown on mobile, full-height left panel on desktop */}
+      <div className="sacred-gradient relative mx-4 mt-2 h-[280px] overflow-hidden rounded-t-[180px] rounded-b-[12px] shadow-fy-lg md:m-0 md:h-auto md:min-h-screen md:w-[44%] md:shrink-0 md:rounded-none lg:w-[42%]">
         <div className="tibeb-gold absolute inset-0 opacity-70" />
         {/* gold halo glow */}
         <div
-          className="absolute left-1/2 top-[14%] h-[220px] w-[220px] -translate-x-1/2"
+          className="absolute left-1/2 top-[14%] h-[220px] w-[220px] -translate-x-1/2 md:top-1/2 md:h-[340px] md:w-[340px] md:-translate-y-1/2"
           style={{
             background:
               'radial-gradient(circle, rgba(212,168,67,0.5) 0%, transparent 60%)',
@@ -83,8 +80,9 @@ export default function LoginPage() {
       </div>
 
       {/* Form */}
-      <div className="flex flex-1 flex-col px-7 pb-4 pt-6">
-        <h1 className="text-center font-display text-[28px] font-medium leading-tight text-burgundy-ink dark:text-cream">
+      <div className="flex flex-1 flex-col px-7 pb-4 pt-6 md:items-center md:justify-center md:px-8">
+        <div className="w-full md:max-w-[380px]">
+        <h1 className="text-center font-display text-[28px] font-medium leading-tight text-burgundy-ink dark:text-cream md:text-[32px]">
           {isSignUp ? (
             <>
               Create <em className="text-gold-deep dark:text-gold">account</em>
@@ -212,6 +210,7 @@ export default function LoginPage() {
             </>
           )}
         </p>
+        </div>
       </div>
     </div>
   );
