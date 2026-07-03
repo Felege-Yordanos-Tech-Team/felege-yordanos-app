@@ -2,6 +2,8 @@
 
 import { useState } from 'react';
 import { CalendarCheck, Clock } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { formatShortDate } from '@/lib/format';
 
 interface EventRow {
   id: string;
@@ -22,6 +24,8 @@ interface EventFeedProps {
   upcoming: EventRow[];
   past: EventRow[];
   departments: DeptRow[];
+  /** Overrides the section's default top margin (e.g. `mt-0` inside a card). */
+  className?: string;
 }
 
 // Stable color assignment for department dots — cycles through brand palette.
@@ -30,16 +34,12 @@ function dotFor(deptId: number) {
   return DOT_PALETTE[deptId % DOT_PALETTE.length];
 }
 
-function formatDate(d: string): string {
-  try {
-    const date = new Date(d);
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  } catch {
-    return d;
-  }
-}
-
-export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
+export function EventFeed({
+  upcoming,
+  past,
+  departments,
+  className,
+}: EventFeedProps) {
   const [filterDept, setFilterDept] = useState<number | null>(null);
 
   const filteredUpcoming = filterDept
@@ -58,7 +58,7 @@ export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
   }
 
   return (
-    <section className="mt-[22px]">
+    <section className={cn('mt-[22px]', className)}>
       <div className="mb-2.5">
         <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
           ተከታታይ መርሃ ግብሮች
@@ -131,7 +131,7 @@ export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="font-display text-lg font-medium leading-none text-burgundy dark:text-gold-light">
-                      {formatDate(event.event_date)}
+                      {formatShortDate(event.event_date)}
                     </div>
                     {event.start_time && (
                       <div className="mt-0.5 flex items-center justify-end gap-0.5 font-mono text-[10px] text-muted-foreground">
@@ -168,7 +168,7 @@ export function EventFeed({ upcoming, past, departments }: EventFeedProps) {
                     {event.title}
                   </p>
                   <p className="text-[10.5px] text-muted-foreground">
-                    {formatDate(event.event_date)}
+                    {formatShortDate(event.event_date)}
                   </p>
                 </div>
               </div>
