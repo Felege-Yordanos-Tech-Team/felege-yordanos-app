@@ -1,8 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { QRCodeCanvas } from 'qrcode.react';
 import { Download, Share2 } from 'lucide-react';
+import { MemberQR } from '@/components/member-qr';
 import { useToast } from '@/hooks/use-toast';
 
 export function MemberQRCard({ memberId }: { memberId: string }) {
@@ -105,36 +105,9 @@ export function MemberQRCard({ memberId }: { memberId: string }) {
         <div className="mb-3.5 flex justify-center">
           <div
             ref={canvasWrapperRef}
-            className="relative rounded-xl border border-gold/40 bg-parchment-soft p-3 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.4)]"
+            className="rounded-xl border border-gold/40 bg-parchment-soft p-3 shadow-[0_8px_20px_-8px_rgba(0,0,0,0.4)]"
           >
-            <QRCodeCanvas
-              value={memberId}
-              size={196}
-              level="H"
-              bgColor="#FBF6E4"
-              fgColor="#2C0810"
-              marginSize={0}
-            />
-            {/* Brand mark in center cutout */}
-            <div
-              className="absolute left-1/2 top-1/2 flex h-9 w-9 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-lg bg-parchment-soft p-[3px] shadow-[0_0_0_3px_#FBF6E4]"
-              aria-hidden
-            >
-              <svg viewBox="0 0 80 80" width={28} height={28}>
-                <circle cx="40" cy="40" r="39" fill="#6B1D2A" stroke="#D4A843" strokeOpacity="0.7" strokeWidth="0.8" />
-                <g fill="#D4A843">
-                  <rect x="37.5" y="14" width="5" height="52" rx="0.5" />
-                  <rect x="14" y="37.5" width="52" height="5" rx="0.5" />
-                  <rect x="34" y="11" width="12" height="3.5" rx="0.5" />
-                  <rect x="34" y="65.5" width="12" height="3.5" rx="0.5" />
-                  <rect x="11" y="34" width="3.5" height="12" rx="0.5" />
-                  <rect x="65.5" y="34" width="3.5" height="12" rx="0.5" />
-                  <circle cx="40" cy="40" r="7" fill="#6B1D2A" />
-                  <circle cx="40" cy="40" r="5.5" fill="none" stroke="#D4A843" strokeWidth="1" />
-                  <circle cx="40" cy="40" r="2" fill="#D4A843" />
-                </g>
-              </svg>
-            </div>
+            <MemberQR value={memberId} size={196} />
           </div>
         </div>
 

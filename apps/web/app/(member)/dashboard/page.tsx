@@ -4,10 +4,18 @@ import type { Database } from '@felege-yordanos/db';
 import { BadgeCheck, Music, CalendarCheck, Heart, Link2, ArrowRight } from 'lucide-react';
 import Link from 'next/link';
 import { EventFeed } from './event-feed';
+import { WelcomeBanner } from './cards/welcome-banner';
+import { MyGivingCard } from './cards/my-giving-card';
+import { ContinueSingingCard } from './cards/continue-singing-card';
+import { CheckInCard } from './cards/check-in-card';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 type Event = Database['public']['Tables']['events']['Row'];
 type Department = Database['public']['Tables']['departments']['Row'];
+type DonationSummary = Pick<
+  Database['public']['Tables']['donations']['Row'],
+  'amount' | 'currency' | 'payment_method' | 'status' | 'created_at'
+>;
 
 export default async function MemberDashboard() {
   const cookieStore = await cookies();
@@ -25,6 +33,7 @@ export default async function MemberDashboard() {
     { data: upcomingData },
     { data: pastData },
     { data: departmentsData },
+    { data: donationsData },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user?.id ?? '').single(),
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -32,12 +41,31 @@ export default async function MemberDashboard() {
     supabase.from('events').select('*').gte('event_date', today).order('event_date', { ascending: true }).limit(10),
     supabase.from('events').select('*').lt('event_date', today).order('event_date', { ascending: false }).limit(5),
     supabase.from('departments').select('*').order('id'),
+    supabase
+      .from('donations')
+      .select('amount, currency, payment_method, status, created_at')
+      .eq('donor_id', user?.id ?? '')
+      .order('created_at', { ascending: false }),
   ]);
 
   const profile = data as Profile | null;
   const upcoming = (upcomingData ?? []) as Event[];
   const past = (pastData ?? []) as Event[];
   const departments = (departmentsData ?? []) as Department[];
+  const donations = (donationsData ?? []) as DonationSummary[];
+
+  // My-giving summary (desktop card): verified total this year + latest verified.
+  const currentYear = new Date().getFullYear();
+  const verifiedThisYear = donations
+    .filter(
+      (d) =>
+        d.status === 'verified' &&
+        new Date(d.created_at).getFullYear() === currentYear,
+    )
+    .reduce((sum, d) => sum + Number(d.amount), 0);
+  const lastVerified = donations.find((d) => d.status === 'verified') ?? null;
+  const givingCurrency = donations[0]?.currency ?? 'ETB';
+  const nextEvent = upcoming[0] ?? null;
 
   const fullName = member
     ? [member.name, member.father_name].filter(Boolean).join(' ')
@@ -49,7 +77,9 @@ export default async function MemberDashboard() {
     : null;
 
   return (
-    <div className="mx-auto max-w-2xl px-[18px] pb-6 pt-[14px]">
+    <>
+    {/* ─── MOBILE (< md) — unchanged single-column stack ─── */}
+    <div className="mx-auto max-w-2xl px-[18px] pb-6 pt-[14px] md:hidden">
       {/* Hero greeting card */}
       <section className="sacred-gradient relative overflow-hidden rounded-[20px] px-5 py-5 text-cream shadow-fy-lg">
         <div className="tibeb-gold absolute inset-0 opacity-50" />
@@ -199,5 +229,66 @@ export default async function MemberDashboard() {
       {/* Events feed */}
       <EventFeed upcoming={upcoming} past={past} departments={departments} />
     </div>
+
+    {/* ─── DESKTOP (md+) — two-column dashboard ─── */}
+    <div className="hidden md:block">
+      <div className="mx-auto max-w-[1180px] px-8 py-7">
+        {!member && (
+          <div className="gold-accent-l mb-6 rounded-2xl border border-border bg-card px-4 py-3 pl-5">
+            <div className="flex items-center gap-3">
+              <div className="rounded-full bg-burgundy/10 p-2.5 dark:bg-gold/10">
+                <Link2 className="h-4 w-4 text-burgundy dark:text-gold" />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-medium text-foreground">
+                  Link your member profile
+                </p>
+                <p className="text-xs text-muted-foreground">
+                  Required for attendance and donation history
+                </p>
+              </div>
+              <Link
+                href="/claim"
+                className="rounded-lg bg-burgundy px-3 py-1.5 text-xs font-semibold text-cream hover:bg-burgundy-soft dark:bg-gold dark:text-burgundy-ink dark:hover:bg-gold-light"
+              >
+                Link
+              </Link>
+            </div>
+          </div>
+        )}
+
+        <div className="grid grid-cols-5 gap-6">
+          {/* Left column (~60%) */}
+          <div className="col-span-3 space-y-6">
+            <WelcomeBanner
+              firstName={firstName}
+              memberId={member?.member_id ?? null}
+              memberDeptName={memberDeptName}
+              nextEvent={nextEvent}
+            />
+            <div className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
+              <EventFeed
+                upcoming={upcoming}
+                past={past}
+                departments={departments}
+                className="mt-0"
+              />
+            </div>
+          </div>
+
+          {/* Right column (~40%) */}
+          <div className="col-span-2 space-y-6">
+            <ContinueSingingCard />
+            <MyGivingCard
+              total={verifiedThisYear}
+              currency={givingCurrency}
+              last={lastVerified}
+            />
+            {member && <CheckInCard memberId={member.member_id} />}
+          </div>
+        </div>
+      </div>
+    </div>
+    </>
   );
 }
