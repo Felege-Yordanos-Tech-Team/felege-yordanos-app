@@ -103,76 +103,100 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
     <>
       {/* ───────────── MOBILE ───────────── */}
       <div className="md:hidden">
-        <div className="mb-3 flex items-center justify-between">
-          {monthTitle}
-          <div className="flex items-center gap-1">
-            <button
-              onClick={goPrev}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
-              aria-label="Previous month"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={goToday}
-              className="rounded-lg border border-border bg-card px-2.5 py-1.5 text-[11px] font-semibold text-foreground"
-            >
-              Today
-            </button>
-            <button
-              onClick={goNext}
-              className="flex h-8 w-8 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
-              aria-label="Next month"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-          </div>
+        <div className="mb-3 flex items-center gap-2">
+          <button
+            onClick={goPrev}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            onClick={goToday}
+            className="flex flex-1 flex-col items-center leading-tight"
+            aria-label="Jump to today"
+          >
+            <span className="font-display text-xl font-medium text-burgundy-ink dark:text-cream">
+              {MONTHS[month]} {year}
+            </span>
+            <span className="font-ethiopic text-[10px] text-gold-deep dark:text-gold">
+              {MONTH_AM[month]}
+            </span>
+          </button>
+          <button
+            onClick={goNext}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg border border-border bg-card text-muted-foreground"
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
         </div>
 
-        <div className="grid grid-cols-7 gap-y-1">
-          {WEEKDAYS.map((w) => (
-            <div
-              key={w}
-              className="pb-1 text-center text-[9px] font-semibold tracking-[0.08em] text-muted-foreground"
-            >
-              {w}
-            </div>
-          ))}
-          {weeks.flat().map((date, i) => {
-            if (!date) return <div key={i} />;
-            const evs = byDate.get(date) ?? [];
-            const isToday = date === today;
-            const isSelected = date === selected;
-            const dayNum = parseYmd(date).getDate();
-            return (
-              <button
-                key={i}
-                onClick={() => setSelected(date)}
-                className={`mx-auto flex h-11 w-full max-w-[44px] flex-col items-center justify-start gap-1 rounded-lg pt-1.5 transition-colors ${
-                  isSelected ? 'bg-gold/[0.14]' : 'hover:bg-card'
-                }`}
+        {/* Bordered month grid */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div className="grid grid-cols-7 border-b border-border/60">
+            {WEEKDAYS.map((w) => (
+              <div
+                key={w}
+                className="py-1.5 text-center text-[9px] font-semibold tracking-[0.06em] text-muted-foreground"
               >
-                <span
-                  className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] tabular-nums ${
-                    isToday
-                      ? 'bg-burgundy font-semibold text-cream dark:bg-gold dark:text-burgundy-ink'
-                      : 'text-foreground'
-                  }`}
+                {w}
+              </div>
+            ))}
+          </div>
+          <div className="grid grid-cols-7">
+            {weeks.flat().map((date, i) => {
+              const col = i % 7;
+              if (!date) {
+                return (
+                  <div
+                    key={i}
+                    className={`min-h-[62px] border-b border-border/60 ${
+                      col < 6 ? 'border-r' : ''
+                    }`}
+                  />
+                );
+              }
+              const evs = byDate.get(date) ?? [];
+              const isToday = date === today;
+              const isSelected = date === selected;
+              const dayNum = parseYmd(date).getDate();
+              const hasRecur = evs.some((e) => e.recurrence_group);
+              return (
+                <button
+                  key={i}
+                  onClick={() => setSelected(date)}
+                  className={`min-h-[62px] border-b border-border/60 p-1 text-left transition-colors ${
+                    col < 6 ? 'border-r' : ''
+                  } ${isSelected ? 'bg-gold/[0.12]' : isToday ? 'bg-gold/[0.04]' : ''}`}
                 >
-                  {dayNum}
-                </span>
-                <span className="flex h-1.5 items-center gap-0.5">
-                  {evs.slice(0, 3).map((e) => (
-                    <span
-                      key={e.id}
-                      className="h-1 w-1 rounded-full"
-                      style={{ background: deptColor(e.department_id) }}
-                    />
-                  ))}
-                </span>
-              </button>
-            );
-          })}
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-[12px] tabular-nums ${
+                      isToday
+                        ? 'bg-burgundy font-semibold text-cream dark:bg-gold dark:text-burgundy-ink'
+                        : 'text-foreground'
+                    }`}
+                  >
+                    {dayNum}
+                  </span>
+                  {evs.length > 0 && (
+                    <span className="mt-1 flex items-center gap-0.5 pl-0.5">
+                      {evs.slice(0, 3).map((e) => (
+                        <span
+                          key={e.id}
+                          className="h-1.5 w-1.5 rounded-full"
+                          style={{ background: deptColor(e.department_id) }}
+                        />
+                      ))}
+                      {hasRecur && (
+                        <Repeat className="h-2.5 w-2.5 text-gold-deep dark:text-gold" />
+                      )}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Selected-day detail card */}
@@ -227,6 +251,26 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
             ))}
           </div>
         </div>
+
+        {/* Department legend */}
+        {legend.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 px-1">
+            {legend.map((id) => (
+              <span key={id ?? 'general'} className="flex items-center gap-1.5">
+                <span
+                  className="h-2 w-2 rounded-full"
+                  style={{ background: deptColor(id) }}
+                />
+                <span className="text-[11px] text-muted-foreground">
+                  {deptShortLabel(id)}
+                </span>
+              </span>
+            ))}
+            <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
+              <Repeat className="h-3 w-3 text-gold-deep dark:text-gold" /> recurring
+            </span>
+          </div>
+        )}
       </div>
 
       {/* ───────────── DESKTOP ───────────── */}

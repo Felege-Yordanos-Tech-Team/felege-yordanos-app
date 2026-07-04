@@ -44,9 +44,21 @@ function splitDate(d: string): { day: string; month: string } {
   };
 }
 
-function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => void }) {
+function ViewToggle({
+  view,
+  onChange,
+  full = false,
+}: {
+  view: View;
+  onChange: (v: View) => void;
+  full?: boolean;
+}) {
   return (
-    <div className="inline-flex items-center rounded-lg border border-border bg-card p-0.5">
+    <div
+      className={`items-center rounded-lg border border-border bg-card p-0.5 ${
+        full ? 'flex w-full' : 'inline-flex'
+      }`}
+    >
       {(['list', 'calendar'] as View[]).map((v) => {
         const active = view === v;
         const Icon = v === 'list' ? List : CalendarDays;
@@ -54,7 +66,9 @@ function ViewToggle({ view, onChange }: { view: View; onChange: (v: View) => voi
           <button
             key={v}
             onClick={() => onChange(v)}
-            className={`inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+            className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
+              full ? 'flex-1' : ''
+            } ${
               active
                 ? 'bg-burgundy text-cream shadow-sm dark:bg-gold dark:text-burgundy-ink'
                 : 'text-muted-foreground hover:text-foreground'
@@ -130,7 +144,7 @@ export function EventsList({
   const newEventBtn = (
     <button
       onClick={() => openCreate()}
-      className="sacred-gradient inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-4 py-2 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95 md:rounded-xl md:text-sm"
+      className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-4 py-2 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95 md:text-sm"
     >
       <Plus className="h-4 w-4 text-gold" />
       <span className="max-md:hidden">New event</span>
@@ -150,11 +164,13 @@ export function EventsList({
           Admin panel
         </Link>
 
-        {titleBlock}
-
-        <div className="mt-3 flex items-center justify-between">
-          <ViewToggle view={view} onChange={setView} />
+        <div className="flex items-start justify-between gap-3">
+          {titleBlock}
           {newEventBtn}
+        </div>
+
+        <div className="mt-3">
+          <ViewToggle view={view} onChange={setView} full />
         </div>
 
         {/* Ornament rule */}
