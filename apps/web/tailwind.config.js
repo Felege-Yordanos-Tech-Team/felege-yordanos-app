@@ -108,12 +108,17 @@ module.exports = {
         navy: '#1A2744',
       },
       borderRadius: {
-        DEFAULT: '0.75rem',
-        lg: '1rem',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)',
-        xl: '1.5rem',
-        '2xl': '1.5rem',
+        /* Reserved, consistent scale — driven by the --radius-* tokens in
+           global.css. Change roundedness there, not per-component. */
+        none: '0px',
+        sm: 'var(--radius-sm)', /* 4px  — tags, chips */
+        DEFAULT: 'var(--radius-md)', /* 8px  — controls */
+        md: 'var(--radius-md)', /* 8px  — buttons, controls */
+        lg: 'var(--radius-lg)', /* 10px — cards, panels */
+        xl: 'var(--radius-xl)', /* 14px — CTAs, larger cards */
+        '2xl': 'var(--radius-2xl)', /* 16px — feature cards */
+        '3xl': 'var(--radius-3xl)', /* 20px — hero banners */
+        full: '9999px',
         arch: '200px 200px 0 0', /* arched top for hero panels */
       },
       boxShadow: {

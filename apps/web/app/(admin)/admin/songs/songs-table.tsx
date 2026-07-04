@@ -167,7 +167,7 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
         <Button
           asChild
           size="sm"
-          className="sacred-gradient inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
+          className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
         >
           <Link href="/admin/songs/new">
             <Plus className="h-3.5 w-3.5 text-gold" />
