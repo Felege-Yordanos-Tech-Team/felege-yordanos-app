@@ -9,7 +9,12 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { Dialog, DialogContent } from '@/components/ui/dialog';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import {
   Select,
   SelectContent,
@@ -356,9 +361,14 @@ export function EventFormDialog({
             <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
               {mode === 'create' ? 'አዲስ ስብሰባ' : 'ስብሰባ አርትዕ'}
             </div>
-            <h2 className="font-display text-2xl font-medium leading-tight text-burgundy-ink dark:text-cream">
+            <DialogTitle className="font-display text-2xl font-medium leading-tight text-burgundy-ink dark:text-cream">
               {mode === 'create' ? 'Create event' : 'Edit event'}
-            </h2>
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {mode === 'create'
+                ? 'Create a new event, optionally recurring.'
+                : 'Edit this event or manage its recurring series.'}
+            </DialogDescription>
           </div>
 
           <form
