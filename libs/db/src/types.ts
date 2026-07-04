@@ -135,6 +135,9 @@ export type Database = {
           department_id: number | null;
           created_by: string | null;
           created_at: string;
+          recurrence_group: string | null;
+          recurrence: 'weekly' | 'biweekly' | 'monthly' | null;
+          recurrence_until: string | null;
         };
         Insert: {
           id?: string;
@@ -146,6 +149,9 @@ export type Database = {
           department_id?: number | null;
           created_by?: string | null;
           created_at?: string;
+          recurrence_group?: string | null;
+          recurrence?: 'weekly' | 'biweekly' | 'monthly' | null;
+          recurrence_until?: string | null;
         };
         Update: {
           id?: string;
@@ -157,6 +163,9 @@ export type Database = {
           department_id?: number | null;
           created_by?: string | null;
           created_at?: string;
+          recurrence_group?: string | null;
+          recurrence?: 'weekly' | 'biweekly' | 'monthly' | null;
+          recurrence_until?: string | null;
         };
       };
       attendance: {
