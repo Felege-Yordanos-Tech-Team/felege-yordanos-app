@@ -55,7 +55,9 @@ export default async function VerifyDonationsPage() {
   const currency = list[0]?.currency || 'ETB';
 
   return (
-    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4">
+    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:max-w-none md:px-7 md:py-7">
+      {/* Mobile header + totals — desktop header lives in the table */}
+      <div className="md:hidden">
       <Link
         href="/admin"
         className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-gold-deep transition-colors hover:text-burgundy dark:text-gold dark:hover:text-gold-light"
@@ -106,6 +108,7 @@ export default async function VerifyDonationsPage() {
             {totals.verifiedDonors} {totals.verifiedDonors === 1 ? 'donor' : 'donors'}
           </div>
         </div>
+      </div>
       </div>
 
       <DonationsTable
