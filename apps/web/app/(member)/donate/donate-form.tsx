@@ -421,7 +421,7 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
 
       {/* ─────────────────────────── DESKTOP (md+) — two-column ─────────────────────────── */}
       <div className="hidden md:block">
-        <div className="mx-auto max-w-[1180px] px-8 py-7">
+        <div className="px-7 py-7">
           {/* Page header */}
           <div className="mb-6">
             <div className="font-ethiopic text-[13px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
@@ -435,7 +435,7 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
             </p>
           </div>
 
-          <div className="grid grid-cols-[minmax(0,400px)_minmax(0,1fr)] items-start gap-6">
+          <div className="grid grid-cols-[minmax(0,420px)_minmax(0,1fr)] items-start gap-4">
             {/* LEFT — donation form card */}
             <form
               onSubmit={handleSubmit}

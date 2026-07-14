@@ -4,6 +4,7 @@ import type { Database } from '@felege-yordanos/db';
 import Link from 'next/link';
 import { Settings } from 'lucide-react';
 import { SongList } from './song-list';
+import { SongbookDesktop } from './songbook-desktop';
 
 type Profile = Database['public']['Tables']['profiles']['Row'];
 
@@ -32,7 +33,9 @@ export default async function SongbookPage() {
   const total = songs?.length ?? 0;
 
   return (
-    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-[18px]">
+    <>
+    {/* ─── MOBILE (< md) — list, taps through to /songbook/[id] ─── */}
+    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-[18px] md:hidden">
       {/* Header */}
       <div className="flex items-end justify-between">
         <div>
@@ -78,5 +81,13 @@ export default async function SongbookPage() {
 
       <SongList songs={songs ?? []} categories={categories ?? []} />
     </div>
+
+    {/* ─── DESKTOP (md+) — master/detail with lyrics ─── */}
+    <SongbookDesktop
+      className="hidden px-7 py-7 md:block"
+      songs={songs ?? []}
+      categories={categories ?? []}
+    />
+    </>
   );
 }

@@ -230,11 +230,11 @@ export default async function MemberDashboard() {
       <EventFeed upcoming={upcoming} past={past} departments={departments} />
     </div>
 
-    {/* ─── DESKTOP (md+) — two-column dashboard ─── */}
+    {/* ─── DESKTOP (md+) — hero band + two-column grid ─── */}
     <div className="hidden md:block">
-      <div className="mx-auto max-w-[1180px] px-8 py-7">
+      <div className="px-7 py-7">
         {!member && (
-          <div className="gold-accent-l mb-6 rounded-2xl border border-border bg-card px-4 py-3 pl-5">
+          <div className="gold-accent-l mb-4 rounded-2xl border border-border bg-card px-4 py-3 pl-5">
             <div className="flex items-center gap-3">
               <div className="rounded-full bg-burgundy/10 p-2.5 dark:bg-gold/10">
                 <Link2 className="h-4 w-4 text-burgundy dark:text-gold" />
@@ -257,27 +257,28 @@ export default async function MemberDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-5 gap-6">
-          {/* Left column (~60%) */}
-          <div className="col-span-3 space-y-6">
-            <WelcomeBanner
-              firstName={firstName}
-              memberId={member?.member_id ?? null}
-              memberDeptName={memberDeptName}
-              nextEvent={nextEvent}
+        {/* Hero band — full width */}
+        <WelcomeBanner
+          firstName={firstName}
+          memberId={member?.member_id ?? null}
+          memberDeptName={memberDeptName}
+          nextEvent={nextEvent}
+        />
+
+        {/* Two-column grid */}
+        <div className="mt-4 grid grid-cols-[1.65fr_1fr] items-start gap-4">
+          {/* Left: upcoming events */}
+          <div className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
+            <EventFeed
+              upcoming={upcoming}
+              past={past}
+              departments={departments}
+              className="mt-0"
             />
-            <div className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-              <EventFeed
-                upcoming={upcoming}
-                past={past}
-                departments={departments}
-                className="mt-0"
-              />
-            </div>
           </div>
 
-          {/* Right column (~40%) */}
-          <div className="col-span-2 space-y-6">
+          {/* Right column stack */}
+          <div className="space-y-4">
             <ContinueSingingCard />
             <MyGivingCard
               total={verifiedThisYear}
