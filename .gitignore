@@ -62,3 +62,8 @@ out
 **/public/swe-worker-*.js
 .vercel
 stitch/
+
+# Playwright / browser-automation artifacts
+.playwright-mcp/
+test-results/
+playwright-report/
