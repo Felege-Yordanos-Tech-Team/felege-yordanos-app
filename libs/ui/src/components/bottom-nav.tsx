@@ -46,6 +46,11 @@ export function BottomNav({ role }: BottomNavProps) {
             <Link
               key={link.href}
               href={link.href}
+              // Full prefetch (data included): mobile has no hover to warm the
+              // route, so pre-fetch the member destinations up front. Combined
+              // with experimental.staleTimes this makes taps land instantly
+              // instead of flashing the loading skeleton.
+              prefetch
               className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-label transition-colors ${
                 isActive
                   ? 'text-[#fed65b]'
