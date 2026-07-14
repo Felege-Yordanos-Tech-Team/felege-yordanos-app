@@ -4,6 +4,8 @@ import type { Database } from '@felege-yordanos/db';
 import {
   ArrowRight,
   CalendarCheck,
+  CalendarClock,
+  DoorOpen,
   Music,
   Users,
   Wallet,
@@ -27,12 +29,22 @@ interface AdminLinkDef {
 const adminLinks: AdminLinkDef[] = [
   {
     href: '/admin/attendance',
-    icon: CalendarCheck,
-    am: 'የስብሰባ ክትትል',
-    en: 'Events & Attendance',
+    icon: CalendarClock,
+    am: 'መርሐ ግብር',
+    en: 'Events',
     description:
-      'Coordinate liturgical gatherings, choir rehearsals, and track member participation.',
-    cta: 'Manage schedules',
+      'Plan liturgical gatherings, choir rehearsals, and recurring programs.',
+    cta: 'Manage events',
+    songsOnly: false,
+  },
+  {
+    href: '/admin/check-in',
+    icon: DoorOpen,
+    am: 'መግቢያ',
+    en: 'Check-in',
+    description:
+      'Scan or mark members present for today’s gatherings.',
+    cta: 'Start check-in',
     songsOnly: false,
   },
   {

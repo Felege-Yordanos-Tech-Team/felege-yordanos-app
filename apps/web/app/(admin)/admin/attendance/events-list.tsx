@@ -6,8 +6,10 @@ import Link from 'next/link';
 import type { Database, UserRole, Department } from '@felege-yordanos/db';
 import {
   ArrowLeft,
+  BookOpen,
   CalendarDays,
   ChevronRight,
+  Church,
   List,
   Pencil,
   Plus,
@@ -298,7 +300,7 @@ export function EventsList({
 
       {/* ───────────── DESKTOP frame ───────────── */}
       <div className="hidden md:block">
-        <div className="mx-auto max-w-[1180px] px-8 py-7">
+        <div className="px-7 py-7">
           <div className="flex items-end justify-between">
             {titleBlock}
             <div className="flex items-center gap-3">
@@ -308,7 +310,36 @@ export function EventsList({
           </div>
 
           {view === 'list' && (
-            <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              {[
+                { am: 'ሳምንታዊ ትምህርት', en: 'Weekly Lesson', Icon: BookOpen, recur: 'Weekly' },
+                { am: 'ወርሃዊ ስብሰባ', en: 'Monthly Meeting', Icon: Users, recur: 'Monthly' },
+                { am: 'የሰንበት አገልግሎት', en: 'Sunday Service', Icon: Church, recur: 'Weekly' },
+              ].map((t) => (
+                <button
+                  key={t.en}
+                  type="button"
+                  onClick={() => openCreate()}
+                  className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-dashed border-parchment-edge bg-card px-3.5 py-3 text-left transition-colors hover:bg-card/70 dark:border-ink-muted/40"
+                >
+                  <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-burgundy/[0.08] dark:bg-gold/[0.12]">
+                    <t.Icon className="h-4 w-4 text-burgundy dark:text-gold" strokeWidth={1.75} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="text-[12.5px] font-semibold text-burgundy-ink dark:text-cream">{t.en}</div>
+                    <div className="font-ethiopic text-[10.5px] text-gold-deep dark:text-gold">{t.am}</div>
+                  </div>
+                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/[0.14] px-2 py-[3px] text-[9.5px] font-semibold text-gold-deep dark:text-gold">
+                    <Repeat className="h-[9px] w-[9px]" />
+                    {t.recur}
+                  </span>
+                </button>
+              ))}
+            </div>
+          )}
+
+          {view === 'list' && (
+            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
               {events.length === 0 ? (
                 <p className="py-16 text-center text-sm text-muted-foreground">
                   No events yet. Create one to get started.
