@@ -2,21 +2,29 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function AdminLoading() {
   return (
-    <div className="mx-auto max-w-2xl px-6 py-6">
-      <Skeleton className="mb-1 h-3 w-24" />
-      <Skeleton className="mb-2 h-10 w-40" />
-      <Skeleton className="mb-8 h-[2px] w-12" />
+    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-[18px]">
+      {/* Header */}
+      <Skeleton className="mb-1 h-3 w-28" />
+      <Skeleton className="h-9 w-44" />
+      <Skeleton className="mb-[22px] mt-3.5 h-0.5 w-12" />
 
-      <div className="space-y-4">
-        {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="rounded-xl bg-surface-container-low p-6">
-            <div className="flex items-start gap-4">
-              <Skeleton className="h-11 w-11 shrink-0 rounded-full" />
+      {/* Today summary strip */}
+      <Skeleton className="mb-[22px] h-[86px] w-full rounded-2xl" />
+
+      {/* Link cards */}
+      <div className="flex flex-col gap-3">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div
+            key={i}
+            className="rounded-2xl border border-border bg-card px-[18px] py-[18px] pl-[22px]"
+          >
+            <div className="flex items-start gap-3.5">
+              <Skeleton className="h-[42px] w-[42px] shrink-0 rounded-xl" />
               <div className="flex-1 space-y-2">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-7 w-48" />
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="mt-2 h-4 w-28" />
+                <Skeleton className="h-2.5 w-24" />
+                <Skeleton className="h-6 w-40" />
+                <Skeleton className="h-3 w-full" />
+                <Skeleton className="mt-1 h-3 w-28" />
               </div>
             </div>
           </div>

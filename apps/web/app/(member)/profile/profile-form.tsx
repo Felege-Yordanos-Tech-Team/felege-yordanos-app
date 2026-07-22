@@ -5,11 +5,12 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { createClient } from '@felege-yordanos/db';
 import type { UserRole, Member } from '@felege-yordanos/db';
-import { Link2, LogOut } from 'lucide-react';
+import { KeyRound, Link2, LogOut, Pencil, Printer } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
+import { MemberQR } from '@/components/member-qr';
 import { MemberQRCard } from './member-qr-card';
 
 interface ProfileFormProps {
@@ -18,6 +19,8 @@ interface ProfileFormProps {
   displayName: string;
   role: UserRole;
   member: Member | null;
+  /** Department display name (Amharic) for the desktop info card. */
+  deptName?: string | null;
 }
 
 const ROLE_STYLES: Record<UserRole, { bg: string; text: string; label: string }> = {
@@ -56,6 +59,7 @@ export function ProfileForm({
   displayName,
   role,
   member,
+  deptName,
 }: ProfileFormProps) {
   const [name, setName] = useState(displayName);
   const [saving, setSaving] = useState(false);
@@ -92,7 +96,9 @@ export function ProfileForm({
   }
 
   return (
-    <div className="mt-3.5 space-y-4">
+    <>
+    {/* ─── MOBILE (< md) — single column ─── */}
+    <div className="mt-3.5 space-y-4 md:hidden">
       {/* Avatar + name */}
       <div className="flex items-center gap-3.5">
         <div
@@ -210,5 +216,168 @@ export function ProfileForm({
         {signingOut ? 'Signing out…' : 'Sign out'}
       </button>
     </div>
+
+    {/* ─── DESKTOP (md+) — two-column: info card + QR card ─── */}
+    <div className="hidden md:block">
+      {/* Page head */}
+      <div className="mb-4">
+        <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
+          መገለጫ
+        </div>
+        <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
+          My profile
+        </h1>
+      </div>
+
+      <div className="grid grid-cols-[1fr_380px] items-start gap-4">
+        {/* Info card */}
+        <div className="rounded-2xl border border-border bg-card p-6 shadow-fy-sm">
+          {/* Avatar + name */}
+          <div className="mb-5 flex items-center gap-4">
+            <div
+              className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full font-display text-[22px] font-bold text-burgundy-deep shadow-fy-gold"
+              style={{ background: 'linear-gradient(135deg, #D4A843, #A47A18)' }}
+              aria-hidden
+            >
+              {initials}
+            </div>
+            <div className="min-w-0">
+              <h3 className="font-display text-2xl font-medium leading-tight text-burgundy-ink dark:text-cream">
+                {fullName}
+              </h3>
+              <div className="mt-1.5 flex items-center gap-2">
+                {member && (
+                  <span className="rounded-full border border-gold/30 bg-gold/[0.14] px-2 py-0.5 font-mono text-[10.5px] font-semibold text-gold-deep dark:text-gold">
+                    {member.member_id}
+                  </span>
+                )}
+                {deptName ? (
+                  <span className="font-ethiopic text-[11px] text-muted-foreground">
+                    {deptName} ክፍል
+                  </span>
+                ) : (
+                  <span className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
+                    {roleStyle.label}
+                  </span>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Ornament rule */}
+          <div className="flex items-center gap-2.5">
+            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge dark:to-ink-muted/40" />
+            <span className="flex items-center gap-1">
+              <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
+              <span className="h-[3px] w-[3px] rounded-full bg-gold" />
+              <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
+            </span>
+            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge dark:to-ink-muted/40" />
+          </div>
+
+          {/* Fields */}
+          <div className="mt-5 grid grid-cols-2 gap-3.5">
+            <div>
+              <Label
+                htmlFor="desk-display-name"
+                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+              >
+                Full name
+              </Label>
+              <Input
+                id="desk-display-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="rounded-[10px] border border-border bg-card text-[13px] text-foreground focus-visible:ring-2 focus-visible:ring-gold/30"
+              />
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                Phone
+              </div>
+              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] font-mono text-[13px] text-foreground">
+                {member?.address_phone || '—'}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                Department
+              </div>
+              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] text-[13px] text-foreground">
+                {deptName || '—'}
+              </div>
+            </div>
+            <div>
+              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                Member since
+              </div>
+              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] font-mono text-[13px] text-foreground">
+                —
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="mt-5 flex gap-2">
+            <Button
+              onClick={handleSave}
+              disabled={saving || name === displayName}
+              className="sacred-gradient inline-flex items-center gap-2 rounded-[10px] border border-gold/40 px-4 py-2.5 text-[13px] font-semibold text-cream shadow-fy-sm transition-opacity hover:opacity-95 disabled:opacity-60"
+            >
+              <Pencil className="h-3.5 w-3.5 text-gold" />
+              {saving ? 'Saving…' : 'Save changes'}
+            </Button>
+            <Button
+              asChild
+              variant="outline"
+              className="inline-flex items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-[13px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+            >
+              <Link href="/forgot-password">
+                <KeyRound className="h-3.5 w-3.5" />
+                Change password
+              </Link>
+            </Button>
+          </div>
+        </div>
+
+        {/* QR card */}
+        <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-fy-sm">
+          <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
+            የመግቢያ ኮድ
+          </div>
+          <h3 className="mt-0.5 font-display text-[22px] font-medium text-burgundy-ink dark:text-cream">
+            Check-in code
+          </h3>
+          {member ? (
+            <>
+              <div className="mx-auto mt-4 w-fit rounded-[14px] border border-border bg-parchment-soft p-3 shadow-[0_8px_20px_-12px_rgba(74,14,24,0.35)]">
+                <MemberQR value={member.member_id} size={168} />
+              </div>
+              <div className="mt-3 font-mono text-[13px] tracking-[0.08em] text-foreground">
+                {member.member_id}
+              </div>
+              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
+                Show this code at the door to check in.
+              </p>
+              <div className="mt-3.5 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-card px-4 py-2 text-[12.5px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+                >
+                  <Printer className="h-3.5 w-3.5" />
+                  Print card
+                </button>
+              </div>
+            </>
+          ) : (
+            <p className="mt-6 text-sm text-muted-foreground">
+              Link your member profile to get a check-in QR code.
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+    </>
   );
 }

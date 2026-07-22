@@ -31,7 +31,7 @@ export function SidebarNav({ role, displayName }: SidebarNavProps) {
   return (
     <aside
       className={cn(
-        'sticky top-0 z-40 hidden h-screen shrink-0 flex-col bg-burgundy text-cream md:flex',
+        'rail-sacred sticky top-0 z-40 hidden h-screen shrink-0 flex-col text-cream md:flex',
         collapsed ? 'w-[72px]' : 'w-[224px]',
       )}
     >

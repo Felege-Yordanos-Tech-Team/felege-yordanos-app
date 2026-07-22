@@ -3,7 +3,15 @@
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { createClient } from '@felege-yordanos/db';
 import type { Member } from '@felege-yordanos/db';
-import { Check, List, ScanLine, Search, Zap } from 'lucide-react';
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  ScanLine,
+  Search,
+  Zap,
+} from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
@@ -71,6 +79,9 @@ function formatTime(d: Date): string {
   return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
+/** Members per page in the desktop member table. */
+const PAGE_SIZE = 12;
+
 export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTabsProps) {
   const [tab, setTab] = useState<'quick' | 'member-list' | 'qr-scan'>('quick');
   const [records, setRecords] = useState<Record<number, AttendanceStatus>>(() => {
@@ -83,8 +94,17 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
   const [search, setSearch] = useState('');
   const [quickInput, setQuickInput] = useState('');
   const [checkInLogs, setCheckInLogs] = useState<CheckInLog[]>([]);
+  const [page, setPage] = useState(0);
+  const [deskEntry, setDeskEntry] = useState<'quick' | 'qr'>('quick');
   const quickInputRef = useRef<HTMLInputElement>(null);
+  const deskQuickRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
+
+  // Refocus whichever quick-entry input is visible (mobile tab vs desktop rail).
+  const focusQuick = useCallback(() => {
+    quickInputRef.current?.focus();
+    deskQuickRef.current?.focus();
+  }, []);
 
   const membersByMemberId = useMemo(() => {
     const map = new Map<string, Member>();
@@ -134,6 +154,14 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
     );
   });
 
+  // Desktop member table pagination.
+  const pageCount = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
+  const safePage = Math.min(page, pageCount - 1);
+  const pageMembers = filteredMembers.slice(
+    safePage * PAGE_SIZE,
+    safePage * PAGE_SIZE + PAGE_SIZE,
+  );
+
   async function handleQuickCheckIn(e: React.FormEvent) {
     e.preventDefault();
     const id = quickInput.trim();
@@ -143,7 +171,7 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
     if (!member) {
       toast({ title: 'Not found', description: 'Member ID not found', variant: 'destructive' });
       setQuickInput('');
-      quickInputRef.current?.focus();
+      focusQuick();
       return;
     }
 
@@ -152,7 +180,7 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
     if (records[member.id] === 'present' || records[member.id] === 'late') {
       toast({ title: fullName, description: 'Already checked in' });
       setQuickInput('');
-      quickInputRef.current?.focus();
+      focusQuick();
       return;
     }
 
@@ -199,10 +227,12 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
   }
 
   return (
+    <>
+    {/* ─────────────── MOBILE (< md) — tabbed ─────────────── */}
     <Tabs
       value={tab}
       onValueChange={(v) => setTab(v as typeof tab)}
-      className="w-full"
+      className="w-full md:hidden"
     >
       <TabsList className="mb-3.5 grid w-full grid-cols-3 rounded-xl bg-input p-1">
         <TabsTrigger
@@ -433,5 +463,273 @@ export function CheckInTabs({ eventId, members, attendance, userId }: CheckInTab
         />
       </TabsContent>
     </Tabs>
+
+    {/* ─────────────── DESKTOP (md+) — two columns ─────────────── */}
+    <div className="hidden md:grid md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start md:gap-6">
+      {/* Left rail: counter + entry + recent */}
+      <div className="space-y-4">
+        {/* Counter */}
+        <section className="sacred-gradient relative overflow-hidden rounded-2xl border border-gold/25 px-5 py-[18px] text-cream shadow-fy-lg">
+          <div className="tibeb-gold absolute inset-0 opacity-40" />
+          <div className="relative">
+            <div className="flex items-baseline justify-between">
+              <div className="font-ethiopic text-[11px] tracking-[0.06em] text-gold-light">
+                አባላት ተገኝተዋል
+              </div>
+              <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-gold-light/70">
+                <span
+                  aria-hidden
+                  className="h-1.5 w-1.5 rounded-full bg-status-present"
+                  style={{ boxShadow: '0 0 6px #4F7B3E' }}
+                />
+                Live
+              </div>
+            </div>
+            <div className="mt-1 flex items-baseline gap-2">
+              <span className="font-display text-[56px] font-medium leading-[0.95] tracking-tight tabular-nums text-gold">
+                {presentCount}
+              </span>
+              <span className="font-display text-[26px] font-normal tabular-nums text-gold-light/50">
+                / {total}
+              </span>
+              <span className="ml-auto text-[11px] text-cream/60">present</span>
+            </div>
+            <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-cream/[0.12]">
+              <div
+                className="h-full rounded-full bg-gradient-to-r from-gold to-gold-light shadow-[0_0_8px_rgba(212,168,67,0.5)] transition-all duration-300"
+                style={{ width: `${progress}%` }}
+              />
+            </div>
+          </div>
+        </section>
+
+        {/* Entry: Quick ID / QR scan */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-fy-sm">
+          <div className="mb-3 flex items-center rounded-lg border border-border bg-input p-0.5">
+            {(['quick', 'qr'] as const).map((mode) => {
+              const active = deskEntry === mode;
+              return (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setDeskEntry(mode)}
+                  className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    active
+                      ? 'bg-card text-burgundy-ink shadow-sm dark:text-cream'
+                      : 'text-muted-foreground hover:text-foreground'
+                  }`}
+                >
+                  {mode === 'quick' ? (
+                    <>
+                      <Zap className="h-3.5 w-3.5" /> Quick ID
+                    </>
+                  ) : (
+                    <>
+                      <ScanLine className="h-3.5 w-3.5" /> QR scan
+                    </>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+
+          {deskEntry === 'quick' ? (
+            <form onSubmit={handleQuickCheckIn} className="space-y-2.5">
+              <div className="flex items-center gap-2.5 rounded-xl border-2 border-gold bg-background px-3 py-2.5 shadow-[0_0_0_4px_rgba(212,168,67,0.12)]">
+                <ScanLine className="h-5 w-5 shrink-0 text-burgundy dark:text-gold" />
+                <Input
+                  ref={deskQuickRef}
+                  value={quickInput}
+                  onChange={(e) => setQuickInput(e.target.value)}
+                  placeholder="Enter member ID…"
+                  className="h-auto border-none bg-transparent p-0 font-mono text-base font-medium tracking-[0.08em] text-foreground shadow-none placeholder:font-mono placeholder:text-sm placeholder:tracking-normal focus-visible:ring-0"
+                />
+              </div>
+              <button
+                type="submit"
+                className="sacred-gradient flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-2.5 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
+              >
+                <Check className="h-4 w-4" /> Check in
+              </button>
+            </form>
+          ) : (
+            <QRScanner
+              active={deskEntry === 'qr'}
+              onMemberId={handleQRDecoded}
+              presentCount={presentCount}
+              total={total}
+            />
+          )}
+        </div>
+
+        {/* Recent */}
+        <div className="rounded-2xl border border-border bg-card p-4 shadow-fy-sm">
+          <div className="mb-2 flex items-baseline justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
+              Recent
+            </div>
+            {checkInLogs.length > 0 && (
+              <span className="font-mono text-[10px] text-muted-foreground">
+                last {Math.min(checkInLogs.length, 10)}
+              </span>
+            )}
+          </div>
+          {checkInLogs.length === 0 ? (
+            <p className="rounded-xl border border-dashed border-border bg-card/40 py-5 text-center text-[12px] text-muted-foreground">
+              No check-ins yet.
+            </p>
+          ) : (
+            <div className="flex flex-col gap-1">
+              {checkInLogs.map((log, i) => (
+                <div
+                  key={`d-${log.memberId}-${i}`}
+                  className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2"
+                >
+                  <span
+                    aria-hidden
+                    className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[log.status]}`}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-display text-[14px] font-medium leading-tight text-burgundy-ink dark:text-cream">
+                      {log.name}
+                    </div>
+                    <div className="font-mono text-[10px] text-muted-foreground">
+                      {log.memberId}
+                    </div>
+                  </div>
+                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
+                    {log.time}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Right: searchable, paginated member table */}
+      <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
+        <div className="flex items-center justify-between gap-3 border-b border-border p-4">
+          <div>
+            <div className="font-ethiopic text-[11px] font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
+              የአባላት ዝርዝር
+            </div>
+            <h3 className="font-display text-xl font-medium leading-tight text-burgundy-ink dark:text-cream">
+              Member list
+            </h3>
+          </div>
+          <div className="relative w-60">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <Input
+              placeholder="Name or ID…"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(0);
+              }}
+              className="rounded-lg border border-border bg-background pl-[34px] text-[13px] focus-visible:ring-2 focus-visible:ring-gold/30"
+            />
+          </div>
+        </div>
+
+        {filteredMembers.length === 0 ? (
+          <p className="py-12 text-center text-sm text-muted-foreground">
+            No members found
+          </p>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr className="border-b border-border">
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  ID
+                </th>
+                <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Member
+                </th>
+                <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
+                  Status
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pageMembers.map((m) => {
+                const current = records[m.id];
+                return (
+                  <tr
+                    key={m.id}
+                    className="border-b border-border/50 transition-colors last:border-0 hover:bg-parchment/40 dark:hover:bg-card/60"
+                  >
+                    <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px] text-muted-foreground">
+                      {m.member_id}
+                    </td>
+                    <td className="px-4 py-2.5 text-[13.5px] font-medium text-burgundy-ink dark:text-cream">
+                      {[m.name, m.father_name].filter(Boolean).join(' ')}
+                    </td>
+                    <td className="px-4 py-2.5">
+                      <div className="flex justify-end gap-1">
+                        {(['present', 'late', 'absent'] as AttendanceStatus[]).map(
+                          (status) => {
+                            const cfg = STATUS_BTN[status];
+                            const active = current === status;
+                            return (
+                              <button
+                                key={status}
+                                type="button"
+                                onClick={() => upsertAttendance(m.id, status)}
+                                aria-label={`${cfg.label} for ${m.name}`}
+                                className={`flex h-8 w-8 items-center justify-center rounded-[9px] text-[13px] font-bold transition-colors ${
+                                  active ? cfg.active : cfg.idle
+                                }`}
+                              >
+                                {cfg.label}
+                              </button>
+                            );
+                          },
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        )}
+
+        {/* Pagination */}
+        {filteredMembers.length > 0 && (
+          <div className="flex items-center justify-between border-t border-border px-4 py-3">
+            <span className="text-[11px] text-muted-foreground">
+              {safePage * PAGE_SIZE + 1}–
+              {Math.min((safePage + 1) * PAGE_SIZE, filteredMembers.length)} of{' '}
+              {filteredMembers.length}
+            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.max(0, p - 1))}
+                disabled={safePage === 0}
+                aria-label="Previous page"
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-40"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </button>
+              <span className="font-mono text-[11px] tabular-nums text-foreground">
+                {safePage + 1} / {pageCount}
+              </span>
+              <button
+                type="button"
+                onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
+                disabled={safePage >= pageCount - 1}
+                aria-label="Next page"
+                className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-40"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+    </>
   );
 }

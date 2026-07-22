@@ -3,6 +3,7 @@ import {
   Music,
   Music2,
   CalendarCheck,
+  CalendarClock,
   DoorOpen,
   Heart,
   User,
@@ -38,11 +39,12 @@ export const MEMBER_NAV: NavItem[] = [
 /**
  * Elevated-role destinations. These all live under /admin, which is hard-gated
  * by proxy.ts — the role filter below is presentation only, NOT the security
- * boundary. "Check-in" is the existing "Events & Attendance" page; events are
- * intentionally not a separate route (see the recurring-events task).
+ * boundary. "Events" is the plan/manage surface (list, calendar, create);
+ * "Check-in" is the focused door-duty surface (pick an event, then mark/scan).
  */
 export const ADMIN_NAV: NavItem[] = [
-  { href: '/admin/attendance', labelEn: 'Check-in', labelAm: 'መግቢያ', icon: DoorOpen, matchNested: true },
+  { href: '/admin/attendance', labelEn: 'Events', labelAm: 'መርሐ ግብር', icon: CalendarClock, matchNested: true },
+  { href: '/admin/check-in', labelEn: 'Check-in', labelAm: 'መግቢያ', icon: DoorOpen, matchNested: true },
   { href: '/admin/songs', labelEn: 'Songs', labelAm: 'መዝሙሮች', icon: Music2, matchNested: true },
   { href: '/admin/donations', labelEn: 'Donations', labelAm: 'ልገሳዎች', icon: Wallet, matchNested: true },
   { href: '/admin/users', labelEn: 'Users', labelAm: 'ተጠቃሚዎች', icon: Users, matchNested: true },

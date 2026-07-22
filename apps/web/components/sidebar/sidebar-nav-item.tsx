@@ -22,12 +22,19 @@ export function SidebarNavItem({ item }: { item: NavItem }) {
         'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
         collapsed && 'justify-center px-0',
         active
-          ? 'bg-gold font-semibold text-burgundy-ink shadow-fy-gold'
+          ? 'bg-gold/[0.13] font-semibold text-gold-light'
           : 'text-cream/70 hover:bg-cream/10 hover:text-cream',
       )}
     >
+      {/* Subtle left indicator on the active row */}
+      {active && !collapsed && (
+        <span
+          aria-hidden
+          className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gold"
+        />
+      )}
       <Icon
-        className="h-[18px] w-[18px] shrink-0"
+        className={cn('h-[18px] w-[18px] shrink-0', active && 'text-gold')}
         strokeWidth={active ? 2.25 : 1.9}
       />
       {!collapsed && (
@@ -36,7 +43,7 @@ export function SidebarNavItem({ item }: { item: NavItem }) {
           <span
             className={cn(
               'font-ethiopic text-[11px]',
-              active ? 'text-burgundy-ink/70' : 'text-cream/40',
+              active ? 'text-gold/70' : 'text-cream/40',
             )}
           >
             {item.labelAm}

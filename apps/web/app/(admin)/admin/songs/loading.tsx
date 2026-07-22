@@ -2,37 +2,71 @@ import { Skeleton } from '@/components/ui/skeleton';
 
 export default function SongsAdminLoading() {
   return (
-    <div className="mx-auto max-w-4xl px-6 py-6">
-      <Skeleton className="mb-1 h-3 w-24" />
-      <Skeleton className="mb-1 h-8 w-44" />
-      <Skeleton className="h-4 w-64" />
+    <div className="mx-auto max-w-4xl px-[22px] pb-6 pt-4">
+      {/* Back link */}
+      <Skeleton className="mb-2.5 h-3 w-24" />
 
-      {/* Categories card */}
-      <div className="mt-6 rounded-xl bg-card p-6">
-        <div className="flex items-center justify-between mb-3">
-          <Skeleton className="h-3 w-20" />
-          <Skeleton className="h-8 w-28 rounded-xl" />
+      {/* Header (eyebrow + title, no subtitle) */}
+      <Skeleton className="mb-1 h-3 w-28" />
+      <Skeleton className="h-8 w-56" />
+
+      <div className="mt-4 flex flex-col gap-4">
+        {/* Add song button */}
+        <div className="flex justify-end">
+          <Skeleton className="h-8 w-20 rounded-xl" />
         </div>
-        <div className="flex gap-2">
-          <Skeleton className="h-6 w-20 rounded-full" />
-          <Skeleton className="h-6 w-16 rounded-full" />
-          <Skeleton className="h-6 w-14 rounded-full" />
+
+        {/* Categories card */}
+        <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
+          <div className="mb-2.5 flex items-center justify-between">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-7 w-16 rounded-lg" />
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-7 w-24 rounded-full" />
+            ))}
+          </div>
         </div>
-      </div>
 
-      {/* Toolbar */}
-      <div className="mt-6 flex items-center gap-3">
-        <Skeleton className="h-10 flex-1 rounded-xl" />
-        <Skeleton className="h-10 w-[180px] rounded-xl" />
-        <Skeleton className="h-10 w-28 rounded-xl" />
-      </div>
+        {/* Toolbar: search + category select */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <Skeleton className="h-10 flex-1 rounded-[10px]" />
+          <Skeleton className="h-10 w-full rounded-[10px] sm:w-[180px]" />
+        </div>
 
-      {/* Table */}
-      <div className="mt-6 rounded-xl overflow-hidden">
-        <Skeleton className="h-10 w-full" />
-        {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="mt-px h-14 w-full rounded-none" />
-        ))}
+        {/* Songs table */}
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          {/* Header */}
+          <div
+            className="grid items-center gap-2 border-b border-border bg-gold/[0.10] px-3.5 py-2.5 dark:bg-gold/[0.04]"
+            style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
+          >
+            <Skeleton className="h-3 w-4" />
+            <Skeleton className="h-3 w-16" />
+            <Skeleton className="h-3 w-14" />
+            <span />
+          </div>
+          {/* Rows */}
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div
+              key={i}
+              className="grid items-center gap-2 border-b border-border px-3.5 py-2.5 last:border-0"
+              style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
+            >
+              <Skeleton className="h-4 w-6" />
+              <div className="min-w-0 space-y-1.5">
+                <Skeleton className="h-4 w-3/4" />
+                <Skeleton className="h-3 w-1/2" />
+              </div>
+              <Skeleton className="h-3 w-12" />
+              <div className="flex justify-end gap-1">
+                <Skeleton className="h-[26px] w-[26px] rounded-md" />
+                <Skeleton className="h-[26px] w-[26px] rounded-md" />
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     </div>
   );

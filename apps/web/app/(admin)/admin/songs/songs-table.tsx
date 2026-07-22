@@ -161,13 +161,15 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   }
 
   return (
-    <div className="mt-4 flex flex-col gap-4">
+    <>
+    {/* ─── MOBILE (< md) — stacked ─── */}
+    <div className="mt-4 flex flex-col gap-4 md:hidden">
       {/* Add song button */}
       <div className="flex justify-end">
         <Button
           asChild
           size="sm"
-          className="sacred-gradient inline-flex items-center gap-1.5 rounded-full border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
+          className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
         >
           <Link href="/admin/songs/new">
             <Plus className="h-3.5 w-3.5 text-gold" />
@@ -328,6 +330,145 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
           ))
         )}
       </div>
+    </div>
+
+    {/* ─── DESKTOP (md+) — header + categories rail + table ─── */}
+    <div className="hidden md:block">
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <div className="font-ethiopic text-xs text-gold-deep dark:text-gold">መዝሙር አስተዳደር</div>
+          <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
+            Songs &amp; categories
+          </h1>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {songs.length} songs across {categories.length} categories
+          </p>
+        </div>
+        <Button
+          asChild
+          className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-4 py-2 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
+        >
+          <Link href="/admin/songs/new">
+            <Plus className="h-4 w-4 text-gold" />
+            New song
+          </Link>
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-[230px_1fr] items-start gap-4">
+        {/* Categories rail */}
+        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-fy-sm">
+          <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
+            Categories
+          </div>
+          <button
+            type="button"
+            onClick={() => setFilterCategory('all')}
+            className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
+              filterCategory === 'all'
+                ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
+                : 'font-medium text-foreground hover:bg-card/80'
+            }`}
+          >
+            <span className="h-[7px] w-[7px] rounded-full bg-ink-faint" />
+            <span className="flex-1">All songs</span>
+            <span className="font-mono text-[10px] text-ink-faint">{songs.length}</span>
+          </button>
+          {categories.map((cat) => {
+            const active = filterCategory === cat.name;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setFilterCategory(cat.name)}
+                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
+                  active
+                    ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
+                    : 'font-medium text-foreground hover:bg-card/80'
+                }`}
+              >
+                <span className="h-[7px] w-[7px] rounded-full" style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }} />
+                <span className="flex-1 truncate">
+                  {cat.emoji ? `${cat.emoji} ` : ''}
+                  {cat.name}
+                </span>
+                <span className="font-mono text-[10px] text-ink-faint">{songCountByCategory.get(cat.name) ?? 0}</span>
+              </button>
+            );
+          })}
+          <button
+            type="button"
+            onClick={() => setShowAddCategory(true)}
+            className="mt-1.5 flex w-full items-center gap-2 border-t border-border px-2.5 pt-2.5 text-[11.5px] font-semibold text-gold-deep dark:text-gold"
+          >
+            <Plus className="h-3 w-3" />
+            Add category
+          </button>
+        </div>
+
+        {/* Songs table */}
+        <div className="rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
+          <div className="mb-3.5 flex w-[280px] items-center gap-2 rounded-[10px] border border-border bg-background px-[11px] py-2">
+            <Search className="h-3 w-3 shrink-0 text-ink-faint" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={`Search${filterCategory !== 'all' ? ` in ${filterCategory}` : ''}…`}
+              className="w-full bg-transparent text-[11.5px] text-foreground outline-none placeholder:text-ink-faint"
+            />
+          </div>
+          <div className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] gap-3 border-b border-parchment-edge px-1 pb-2.5 dark:border-ink-muted/40">
+            {['#', 'Title · Amharic', 'Title · English', 'Category', ''].map((h, i) => (
+              <span key={i} className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                {h}
+              </span>
+            ))}
+          </div>
+          {filtered.length === 0 ? (
+            <p className="py-8 text-center text-sm text-muted-foreground">No songs found</p>
+          ) : (
+            filtered.map((song) => (
+              <div
+                key={song.id}
+                className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] items-center gap-3 border-b border-border px-1 py-3 last:border-0"
+              >
+                <span className="font-display text-[15px] font-semibold text-burgundy dark:text-gold">
+                  {String(song.number).padStart(2, '0')}
+                </span>
+                <span className="truncate font-ethiopic text-[13.5px] font-semibold text-burgundy-ink dark:text-cream">
+                  {song.title}
+                </span>
+                <span className="truncate font-display text-[13px] italic text-muted-foreground">{song.title_en}</span>
+                <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-gold-deep dark:text-gold">
+                  {song.category}
+                </span>
+                <div className="flex justify-end gap-1">
+                  <Button
+                    asChild
+                    variant="ghost"
+                    size="sm"
+                    className="h-[26px] w-[26px] rounded-md border border-border p-0 text-muted-foreground hover:text-foreground"
+                  >
+                    <Link href={`/admin/songs/${song.id}/edit`} aria-label="Edit song">
+                      <Pencil className="h-3 w-3" />
+                    </Link>
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setDeleteTarget(song)}
+                    className="h-[26px] w-[26px] rounded-md border border-border p-0 text-status-absent hover:bg-status-absent-bg"
+                    aria-label="Delete song"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </Button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+    </div>
 
       {/* Delete Song Dialog */}
       <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
@@ -452,6 +593,6 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
           </form>
         </DialogContent>
       </Dialog>
-    </div>
+    </>
   );
 }
