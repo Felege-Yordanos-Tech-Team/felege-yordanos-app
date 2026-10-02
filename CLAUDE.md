@@ -59,8 +59,10 @@ Roles stored in `profiles` table (column: `role`). Department scoping via `depar
 
 ## Library Imports
 
+- DB (new, server only): `import { db, songs } from '@felege-yordanos/db/server'`
+- DB schema/types (safe anywhere): `import type { Role } from '@felege-yordanos/db/schema'`
 - UI components: `import { BottomNav } from '@felege-yordanos/ui'`
-- DB client: `import { createClient, createServerComponentClient } from '@felege-yordanos/db'`
+- Legacy Supabase client (being removed): `import { createClient, createServerComponentClient } from '@felege-yordanos/db'`
 - DB types: `import type { Database, UserRole } from '@felege-yordanos/db'`
 
 ## Package Manager
@@ -71,6 +73,9 @@ pnpm (v10). Workspace packages use `workspace:*` protocol for inter-lib deps.
 
 ```bash
 pnpm install              # Install all dependencies
+pnpm db:setup             # Start local Postgres (Docker), migrate, seed
+pnpm db:generate          # Create a migration after changing libs/db/src/schema
+pnpm db:studio            # Browse the local database
 npx nx serve web          # Start dev server
 npx nx build web          # Production build
 npx nx lint web           # Lint
@@ -84,14 +89,23 @@ NEXT_PUBLIC_SUPABASE_URL=https://uoaigpdabiswykfjyznv.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 ```
 
+## Migration Status
+
+Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Better Auth, Kamal).
+
+- Done: local Postgres + Drizzle schema mirroring the Supabase tables (`libs/db`)
+- Next: replace Supabase Auth, then port features one by one to server actions
+- Authorization rules that lived in RLS must be enforced in server code when a feature is ported
+
 ## Rules
 
-- Do NOT create or modify database schemas — Supabase is managed separately
+- Database schema lives in `libs/db/src/schema/` (Drizzle). Change it there, then run `pnpm db:generate` to create a migration. Never edit applied migration files
+- Supabase is being removed (see Migration Status). Do NOT add new Supabase usage
+- Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
 - Do NOT create multiple apps — there is one app: `apps/web/`
 - Do NOT use `pages/` router — App Router only
 - Do NOT use Turborepo — this is Nx
-- Generate DB types with: `npx supabase gen types typescript --project-id uoaigpdabiswykfjyznv > libs/db/src/types.ts`
 
 ## Terms
 
