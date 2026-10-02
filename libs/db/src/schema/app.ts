@@ -1,28 +1,31 @@
 /**
  * Application tables.
  *
- * Mirrors the Supabase schema built by supabase/migrations/001-012 so that
- * production data can be copied across 1:1 at cutover. Table and column names
- * are kept identical on purpose.
+ * Exact mirror of the live Supabase database (exported 2026-10-02), so that
+ * production data can be copied across 1:1 at cutover. Table names, column
+ * names, types, nullability, defaults and constraints match production.
+ * Tighten things (NOT NULL, new defaults) in later migrations, after the
+ * data has been checked, never in this mirror.
  *
- * Differences from the Supabase migrations (intentional):
- * - No RLS policies. Authorization moves into server code (see Phase 2).
- * - No trigger on auth.users. Profile creation happens in the auth layer.
- * - profiles.department_id is integer (the Supabase migration declared uuid,
- *   but departments.id is serial and the app treats it as a number).
- * - members is defined here; the Supabase migrations only ALTER it.
- *   TODO(schema-dump): reconcile members columns with the live database.
+ * Differences from production (intentional):
+ * - No RLS policies. Authorization is enforced in server code.
+ * - No foreign keys to Supabase's auth.users (profiles.id, members.auth_user_id).
+ *   They are re-pointed to the new auth user table in Phase 0.2.
+ *
+ * Note: the repo's supabase/migrations folder does NOT match production and
+ * must not be used as a reference.
  */
 import { sql } from 'drizzle-orm';
 import {
   bigint,
+  foreignKey,
+  boolean,
   check,
   date,
-  decimal,
   index,
   integer,
+  numeric,
   pgTable,
-  serial,
   text,
   time,
   timestamp,
@@ -31,7 +34,15 @@ import {
 } from 'drizzle-orm/pg-core';
 
 const createdAt = () =>
-  timestamp('created_at', { withTimezone: true }).notNull().defaultNow();
+  timestamp('created_at', { withTimezone: true }).defaultNow();
+const updatedAt = () =>
+  timestamp('updated_at', { withTimezone: true }).defaultNow();
+// Ids in production have no default: they are always set explicitly
+// (departments and members come from the parish register).
+const bigintId = (name = 'id') => bigint(name, { mode: 'number' });
+
+// Foreign keys are declared at table level so their names match production
+// (Drizzle's column-level .references() generates different names).
 
 export const ROLES = ['member', 'dept_head', 'admin', 'super_admin'] as const;
 export type Role = (typeof ROLES)[number];
@@ -39,7 +50,7 @@ export type Role = (typeof ROLES)[number];
 /* ─── Departments ─────────────────────────────────────────── */
 
 export const departments = pgTable('departments', {
-  id: serial('id').primaryKey(),
+  id: bigintId().primaryKey(),
   nameEn: text('name_en').notNull(),
   nameAm: text('name_am').notNull(),
   createdAt: createdAt(),
@@ -50,77 +61,178 @@ export const departments = pgTable('departments', {
 export const profiles = pgTable(
   'profiles',
   {
-    // Same id as the auth user. FK to the auth user table is added in step 0.2.
+    // Same id as the auth user. FK to the auth user table is added in Phase 0.2.
     id: uuid('id').primaryKey(),
-    displayName: text('display_name'),
-    fullName: text('full_name'),
     role: text('role').$type<Role>().notNull().default('member'),
-    departmentId: integer('department_id').references(() => departments.id),
+    departmentId: bigintId('department_id'),
+    displayName: text('display_name'),
     createdAt: createdAt(),
+    updatedAt: updatedAt(),
   },
   (t) => [
     check(
       'profiles_role_check',
-      sql`${t.role} in ('member', 'dept_head', 'admin', 'super_admin')`,
+      sql`${t.role} = ANY (ARRAY['member'::text, 'dept_head'::text, 'admin'::text, 'super_admin'::text])`,
     ),
+    foreignKey({
+      name: 'profiles_department_id_fkey',
+      columns: [t.departmentId],
+      foreignColumns: [departments.id],
+    }),
   ],
 );
 
 /* ─── Members (parish register) ──────────────────────────── */
 
+export const GENDERS = ['ወንድ', 'ሴት'] as const;
+export type Gender = (typeof GENDERS)[number];
+
+export const memberTypes = pgTable('member_types', {
+  id: bigintId().primaryKey(),
+  name: text('name').notNull().unique('member_types_name_key'),
+});
+
 export const members = pgTable(
   'members',
   {
-    id: bigint('id', { mode: 'number' }).primaryKey().generatedByDefaultAsIdentity(),
-    memberId: text('member_id').notNull().unique(),
-    sundaySchoolId: integer('sunday_school_id'),
-    memberTypeId: integer('member_type_id'),
+    id: bigintId().primaryKey(),
+    memberId: text('member_id').notNull().unique('members_member_id_key'),
+    memberTypeId: bigintId('member_type_id'),
+    departmentId: bigintId('department_id'),
     memberState: text('member_state'),
-    status: text('status'),
-    // Kept as text until the live schema is confirmed (dates may be Ethiopian calendar).
-    registrationDate: text('registration_date'),
+    status: text('status').default('Active'),
+    registrationDate: date('registration_date'),
+    documentNumber: text('document_number'),
     title: text('title'),
     name: text('name').notNull(),
-    fatherName: text('father_name'),
+    fatherName: text('father_name').notNull(),
     grandfatherName: text('grandfather_name'),
     motherFullName: text('mother_full_name'),
     godName: text('god_name'),
-    birthDate: text('birth_date'),
-    gender: text('gender'),
+    baptisedChurch: text('baptised_church'),
+    birthDate: date('birth_date'),
+    gender: text('gender').$type<Gender>(),
     maritalStatus: text('marital_status'),
+    addressState: text('address_state'),
     addressCity: text('address_city'),
     addressSubCity: text('address_sub_city'),
+    addressWoreda: text('address_woreda'),
+    addressSefer: text('address_sefer'),
     addressPhone: text('address_phone'),
+    addressPhoneTwo: text('address_phone_two'),
     addressEmail: text('address_email'),
-    // Login account linked through the /claim flow.
-    authUserId: uuid('auth_user_id').unique(),
+    addressHouseNumber: text('address_house_number'),
     createdAt: createdAt(),
-    updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: updatedAt(),
+    // Login account linked through the /claim flow.
+    authUserId: uuid('auth_user_id').unique('members_auth_user_id_key'),
   },
-  (t) => [index('idx_members_auth_user_id').on(t.authUserId)],
+  (t) => [
+    check(
+      'members_gender_check',
+      sql`${t.gender} = ANY (ARRAY['ወንድ'::text, 'ሴት'::text])`,
+    ),
+    index('idx_members_auth_user_id').on(t.authUserId),
+    foreignKey({
+      name: 'members_member_type_id_fkey',
+      columns: [t.memberTypeId],
+      foreignColumns: [memberTypes.id],
+    }),
+    foreignKey({
+      name: 'members_department_id_fkey',
+      columns: [t.departmentId],
+      foreignColumns: [departments.id],
+    }),
+  ],
+);
+
+export const memberJobs = pgTable(
+  'member_jobs',
+  {
+    id: bigintId().primaryKey(),
+    memberId: bigintId('member_id').notNull(),
+    jobType: text('job_type'),
+    company: text('company'),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    tillPresent: boolean('till_present').default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'member_jobs_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+export const memberAcademicEducation = pgTable(
+  'member_academic_education',
+  {
+    id: bigintId().primaryKey(),
+    memberId: bigintId('member_id').notNull(),
+    level: text('level'),
+    fieldOfStudy: text('field_of_study'),
+    institution: text('institution'),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    tillPresent: boolean('till_present').default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'member_academic_education_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+export const memberSpiritualEducation = pgTable(
+  'member_spiritual_education',
+  {
+    id: bigintId().primaryKey(),
+    memberId: bigintId('member_id').notNull(),
+    title: text('title'),
+    college: text('college'),
+    startDate: date('start_date'),
+    endDate: date('end_date'),
+    awardBy: text('award_by'),
+    customAwardGiver: text('custom_award_giver'),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    foreignKey({
+      name: 'member_spiritual_education_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }).onDelete('cascade'),
+  ],
 );
 
 /* ─── Songbook ───────────────────────────────────────────── */
 
 export const categories = pgTable('categories', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull().unique(),
-  emoji: text('emoji'),
-  color: text('color'),
-  sortOrder: integer('sort_order').notNull().default(0),
+  name: text('name').notNull().unique('categories_name_key'),
+  emoji: text('emoji').default('🎵'),
+  color: text('color').default('#0E7490'),
+  sortOrder: integer('sort_order').default(0),
+  createdAt: createdAt(),
 });
 
 export const songs = pgTable('songs', {
   id: uuid('id').primaryKey().defaultRandom(),
-  number: integer('number').notNull().unique(),
+  number: integer('number').unique('songs_number_key'),
   title: text('title').notNull(),
   titleEn: text('title_en'),
-  category: text('category')
-    .notNull()
-    .references(() => categories.name),
+  // Category name. Production has no foreign key here.
+  category: text('category').notNull(),
   lyrics: text('lyrics').notNull(),
   audioUrl: text('audio_url'),
   createdAt: createdAt(),
+  updatedAt: updatedAt(),
 });
 
 /* ─── Events & attendance ────────────────────────────────── */
@@ -135,11 +247,11 @@ export const events = pgTable(
     title: text('title').notNull(),
     description: text('description'),
     eventDate: date('event_date').notNull(),
+    departmentId: bigintId('department_id'),
+    createdBy: uuid('created_by'),
+    createdAt: createdAt(),
     startTime: time('start_time'),
     endTime: time('end_time'),
-    departmentId: integer('department_id').references(() => departments.id),
-    createdBy: uuid('created_by').references(() => profiles.id),
-    createdAt: createdAt(),
     // Shared id linking all occurrences of one recurring series.
     recurrenceGroup: uuid('recurrence_group'),
     recurrence: text('recurrence').$type<Recurrence>(),
@@ -149,13 +261,23 @@ export const events = pgTable(
   (t) => [
     check(
       'events_recurrence_check',
-      sql`${t.recurrence} is null or ${t.recurrence} in ('weekly', 'biweekly', 'monthly')`,
+      sql`(${t.recurrence} IS NULL) OR (${t.recurrence} = ANY (ARRAY['weekly'::text, 'biweekly'::text, 'monthly'::text]))`,
     ),
     index('idx_events_department_id').on(t.departmentId),
-    index('idx_events_date').on(t.eventDate.desc()),
+    index('idx_events_date').on(t.eventDate.desc().nullsFirst()),
     index('idx_events_recurrence_group')
       .on(t.recurrenceGroup)
-      .where(sql`${t.recurrenceGroup} is not null`),
+      .where(sql`${t.recurrenceGroup} IS NOT NULL`),
+    foreignKey({
+      name: 'events_department_id_fkey',
+      columns: [t.departmentId],
+      foreignColumns: [departments.id],
+    }),
+    foreignKey({
+      name: 'events_created_by_fkey',
+      columns: [t.createdBy],
+      foreignColumns: [profiles.id],
+    }),
   ],
 );
 
@@ -166,27 +288,46 @@ export const attendance = pgTable(
   'attendance',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    eventId: uuid('event_id')
-      .notNull()
-      .references(() => events.id, { onDelete: 'cascade' }),
-    memberId: bigint('member_id', { mode: 'number' })
-      .notNull()
-      .references(() => members.id),
+    eventId: uuid('event_id').notNull(),
+    memberId: bigintId('member_id').notNull(),
     status: text('status').$type<AttendanceStatus>().notNull(),
-    markedBy: uuid('marked_by').references(() => profiles.id),
+    markedBy: uuid('marked_by'),
     createdAt: createdAt(),
   },
   (t) => [
     unique('attendance_event_id_member_id_key').on(t.eventId, t.memberId),
-    check('attendance_status_check', sql`${t.status} in ('present', 'absent', 'late')`),
+    check(
+      'attendance_status_check',
+      sql`${t.status} = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text])`,
+    ),
     index('idx_attendance_event_id').on(t.eventId),
     index('idx_attendance_member_id').on(t.memberId),
+    foreignKey({
+      name: 'attendance_event_id_fkey',
+      columns: [t.eventId],
+      foreignColumns: [events.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'attendance_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }),
+    foreignKey({
+      name: 'attendance_marked_by_fkey',
+      columns: [t.markedBy],
+      foreignColumns: [profiles.id],
+    }),
   ],
 );
 
 /* ─── Donations ──────────────────────────────────────────── */
 
-export const PAYMENT_METHODS = ['bank_transfer', 'telebirr', 'cash', 'other'] as const;
+export const PAYMENT_METHODS = [
+  'bank_transfer',
+  'telebirr',
+  'cash',
+  'other',
+] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 export const DONATION_STATUSES = ['pending', 'verified', 'rejected'] as const;
 export type DonationStatus = (typeof DONATION_STATUSES)[number];
@@ -195,29 +336,40 @@ export const donations = pgTable(
   'donations',
   {
     id: uuid('id').primaryKey().defaultRandom(),
-    donorId: uuid('donor_id')
-      .notNull()
-      .references(() => profiles.id),
+    donorId: uuid('donor_id').notNull(),
     // Returned as a string by the driver to avoid floating point errors.
-    amount: decimal('amount', { precision: 10, scale: 2 }).notNull(),
+    amount: numeric('amount').notNull(),
     currency: text('currency').default('ETB'),
     paymentMethod: text('payment_method').$type<PaymentMethod>(),
     // Storage key of the receipt file, e.g. "<user id>/<file name>".
     receiptUrl: text('receipt_url'),
     notes: text('notes'),
     status: text('status').$type<DonationStatus>().notNull().default('pending'),
-    verifiedBy: uuid('verified_by').references(() => profiles.id),
+    verifiedBy: uuid('verified_by'),
     verifiedAt: timestamp('verified_at', { withTimezone: true }),
-    rejectionReason: text('rejection_reason'),
     createdAt: createdAt(),
+    rejectionReason: text('rejection_reason'),
   },
   (t) => [
     check(
       'donations_payment_method_check',
-      sql`${t.paymentMethod} in ('bank_transfer', 'telebirr', 'cash', 'other')`,
+      sql`${t.paymentMethod} = ANY (ARRAY['bank_transfer'::text, 'telebirr'::text, 'cash'::text, 'other'::text])`,
     ),
-    check('donations_status_check', sql`${t.status} in ('pending', 'verified', 'rejected')`),
+    check(
+      'donations_status_check',
+      sql`${t.status} = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])`,
+    ),
     index('idx_donations_donor_id').on(t.donorId),
     index('idx_donations_status').on(t.status),
+    foreignKey({
+      name: 'donations_donor_id_fkey',
+      columns: [t.donorId],
+      foreignColumns: [profiles.id],
+    }),
+    foreignKey({
+      name: 'donations_verified_by_fkey',
+      columns: [t.verifiedBy],
+      foreignColumns: [profiles.id],
+    }),
   ],
 );

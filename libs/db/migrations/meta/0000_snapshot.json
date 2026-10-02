@@ -1,5 +1,5 @@
 {
-  "id": "7efb29bc-f5cd-46f4-8054-fa8400f60572",
+  "id": "debcb7ae-0d4b-42d4-a880-2224b24e6703",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -43,7 +43,7 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
         }
       },
@@ -80,8 +80,8 @@
         }
       },
       "foreignKeys": {
-        "attendance_event_id_events_id_fk": {
-          "name": "attendance_event_id_events_id_fk",
+        "attendance_event_id_fkey": {
+          "name": "attendance_event_id_fkey",
           "tableFrom": "attendance",
           "tableTo": "events",
           "columnsFrom": [
@@ -93,8 +93,8 @@
           "onDelete": "cascade",
           "onUpdate": "no action"
         },
-        "attendance_member_id_members_id_fk": {
-          "name": "attendance_member_id_members_id_fk",
+        "attendance_member_id_fkey": {
+          "name": "attendance_member_id_fkey",
           "tableFrom": "attendance",
           "tableTo": "members",
           "columnsFrom": [
@@ -106,8 +106,8 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "attendance_marked_by_profiles_id_fk": {
-          "name": "attendance_marked_by_profiles_id_fk",
+        "attendance_marked_by_fkey": {
+          "name": "attendance_marked_by_fkey",
           "tableFrom": "attendance",
           "tableTo": "profiles",
           "columnsFrom": [
@@ -135,7 +135,7 @@
       "checkConstraints": {
         "attendance_status_check": {
           "name": "attendance_status_check",
-          "value": "\"attendance\".\"status\" in ('present', 'absent', 'late')"
+          "value": "\"attendance\".\"status\" = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text])"
         }
       },
       "isRLSEnabled": false
@@ -161,28 +161,37 @@
           "name": "emoji",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'🎵'"
         },
         "color": {
           "name": "color",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'#0E7490'"
         },
         "sort_order": {
           "name": "sort_order",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": 0
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "categories_name_unique": {
-          "name": "categories_name_unique",
+        "categories_name_key": {
+          "name": "categories_name_key",
           "nullsNotDistinct": false,
           "columns": [
             "name"
@@ -199,7 +208,7 @@
       "columns": {
         "id": {
           "name": "id",
-          "type": "serial",
+          "type": "bigint",
           "primaryKey": true,
           "notNull": true
         },
@@ -219,7 +228,7 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
         }
       },
@@ -250,7 +259,7 @@
         },
         "amount": {
           "name": "amount",
-          "type": "numeric(10, 2)",
+          "type": "numeric",
           "primaryKey": false,
           "notNull": true
         },
@@ -298,18 +307,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        },
         "rejection_reason": {
           "name": "rejection_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
         }
       },
       "indexes": {
@@ -345,8 +354,8 @@
         }
       },
       "foreignKeys": {
-        "donations_donor_id_profiles_id_fk": {
-          "name": "donations_donor_id_profiles_id_fk",
+        "donations_donor_id_fkey": {
+          "name": "donations_donor_id_fkey",
           "tableFrom": "donations",
           "tableTo": "profiles",
           "columnsFrom": [
@@ -358,8 +367,8 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "donations_verified_by_profiles_id_fk": {
-          "name": "donations_verified_by_profiles_id_fk",
+        "donations_verified_by_fkey": {
+          "name": "donations_verified_by_fkey",
           "tableFrom": "donations",
           "tableTo": "profiles",
           "columnsFrom": [
@@ -378,11 +387,11 @@
       "checkConstraints": {
         "donations_payment_method_check": {
           "name": "donations_payment_method_check",
-          "value": "\"donations\".\"payment_method\" in ('bank_transfer', 'telebirr', 'cash', 'other')"
+          "value": "\"donations\".\"payment_method\" = ANY (ARRAY['bank_transfer'::text, 'telebirr'::text, 'cash'::text, 'other'::text])"
         },
         "donations_status_check": {
           "name": "donations_status_check",
-          "value": "\"donations\".\"status\" in ('pending', 'verified', 'rejected')"
+          "value": "\"donations\".\"status\" = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])"
         }
       },
       "isRLSEnabled": false
@@ -416,21 +425,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "start_time": {
-          "name": "start_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "end_time": {
-          "name": "end_time",
-          "type": "time",
-          "primaryKey": false,
-          "notNull": false
-        },
         "department_id": {
           "name": "department_id",
-          "type": "integer",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
@@ -444,8 +441,20 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
+        },
+        "start_time": {
+          "name": "start_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_time": {
+          "name": "end_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": false
         },
         "recurrence_group": {
           "name": "recurrence_group",
@@ -489,7 +498,7 @@
               "expression": "event_date",
               "isExpression": false,
               "asc": false,
-              "nulls": "last"
+              "nulls": "first"
             }
           ],
           "isUnique": false,
@@ -508,15 +517,15 @@
             }
           ],
           "isUnique": false,
-          "where": "\"events\".\"recurrence_group\" is not null",
+          "where": "\"events\".\"recurrence_group\" IS NOT NULL",
           "concurrently": false,
           "method": "btree",
           "with": {}
         }
       },
       "foreignKeys": {
-        "events_department_id_departments_id_fk": {
-          "name": "events_department_id_departments_id_fk",
+        "events_department_id_fkey": {
+          "name": "events_department_id_fkey",
           "tableFrom": "events",
           "tableTo": "departments",
           "columnsFrom": [
@@ -528,8 +537,8 @@
           "onDelete": "no action",
           "onUpdate": "no action"
         },
-        "events_created_by_profiles_id_fk": {
-          "name": "events_created_by_profiles_id_fk",
+        "events_created_by_fkey": {
+          "name": "events_created_by_fkey",
           "tableFrom": "events",
           "tableTo": "profiles",
           "columnsFrom": [
@@ -548,9 +557,284 @@
       "checkConstraints": {
         "events_recurrence_check": {
           "name": "events_recurrence_check",
-          "value": "\"events\".\"recurrence\" is null or \"events\".\"recurrence\" in ('weekly', 'biweekly', 'monthly')"
+          "value": "(\"events\".\"recurrence\" IS NULL) OR (\"events\".\"recurrence\" = ANY (ARRAY['weekly'::text, 'biweekly'::text, 'monthly'::text]))"
         }
       },
+      "isRLSEnabled": false
+    },
+    "public.member_academic_education": {
+      "name": "member_academic_education",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "level": {
+          "name": "level",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "field_of_study": {
+          "name": "field_of_study",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "institution": {
+          "name": "institution",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "till_present": {
+          "name": "till_present",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_academic_education_member_id_fkey": {
+          "name": "member_academic_education_member_id_fkey",
+          "tableFrom": "member_academic_education",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.member_jobs": {
+      "name": "member_jobs",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "job_type": {
+          "name": "job_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "company": {
+          "name": "company",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "till_present": {
+          "name": "till_present",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": false,
+          "default": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_jobs_member_id_fkey": {
+          "name": "member_jobs_member_id_fkey",
+          "tableFrom": "member_jobs",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.member_spiritual_education": {
+      "name": "member_spiritual_education",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "title": {
+          "name": "title",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "college": {
+          "name": "college",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "start_date": {
+          "name": "start_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "end_date": {
+          "name": "end_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "award_by": {
+          "name": "award_by",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "custom_award_giver": {
+          "name": "custom_award_giver",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
+          "default": "now()"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "member_spiritual_education_member_id_fkey": {
+          "name": "member_spiritual_education_member_id_fkey",
+          "tableFrom": "member_spiritual_education",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.member_types": {
+      "name": "member_types",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "member_types_name_key": {
+          "name": "member_types_name_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "name"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
       "isRLSEnabled": false
     },
     "public.members": {
@@ -561,18 +845,7 @@
           "name": "id",
           "type": "bigint",
           "primaryKey": true,
-          "notNull": true,
-          "identity": {
-            "type": "byDefault",
-            "name": "members_id_seq",
-            "schema": "public",
-            "increment": "1",
-            "startWith": "1",
-            "minValue": "1",
-            "maxValue": "9223372036854775807",
-            "cache": "1",
-            "cycle": false
-          }
+          "notNull": true
         },
         "member_id": {
           "name": "member_id",
@@ -580,15 +853,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "sunday_school_id": {
-          "name": "sunday_school_id",
-          "type": "integer",
+        "member_type_id": {
+          "name": "member_type_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
-        "member_type_id": {
-          "name": "member_type_id",
-          "type": "integer",
+        "department_id": {
+          "name": "department_id",
+          "type": "bigint",
           "primaryKey": false,
           "notNull": false
         },
@@ -602,10 +875,17 @@
           "name": "status",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": false,
+          "default": "'Active'"
         },
         "registration_date": {
           "name": "registration_date",
+          "type": "date",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "document_number": {
+          "name": "document_number",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -626,7 +906,7 @@
           "name": "father_name",
           "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         },
         "grandfather_name": {
           "name": "grandfather_name",
@@ -646,9 +926,15 @@
           "primaryKey": false,
           "notNull": false
         },
+        "baptised_church": {
+          "name": "baptised_church",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "birth_date": {
           "name": "birth_date",
-          "type": "text",
+          "type": "date",
           "primaryKey": false,
           "notNull": false
         },
@@ -660,6 +946,12 @@
         },
         "marital_status": {
           "name": "marital_status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_state": {
+          "name": "address_state",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -676,8 +968,26 @@
           "primaryKey": false,
           "notNull": false
         },
+        "address_woreda": {
+          "name": "address_woreda",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_sefer": {
+          "name": "address_sefer",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "address_phone": {
           "name": "address_phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "address_phone_two": {
+          "name": "address_phone_two",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -688,9 +998,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "auth_user_id": {
-          "name": "auth_user_id",
-          "type": "uuid",
+        "address_house_number": {
+          "name": "address_house_number",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -698,15 +1008,21 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
         },
         "updated_at": {
           "name": "updated_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
           "default": "now()"
+        },
+        "auth_user_id": {
+          "name": "auth_user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -726,18 +1042,45 @@
           "with": {}
         }
       },
-      "foreignKeys": {},
+      "foreignKeys": {
+        "members_member_type_id_fkey": {
+          "name": "members_member_type_id_fkey",
+          "tableFrom": "members",
+          "tableTo": "member_types",
+          "columnsFrom": [
+            "member_type_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "members_department_id_fkey": {
+          "name": "members_department_id_fkey",
+          "tableFrom": "members",
+          "tableTo": "departments",
+          "columnsFrom": [
+            "department_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "members_member_id_unique": {
-          "name": "members_member_id_unique",
+        "members_member_id_key": {
+          "name": "members_member_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "member_id"
           ]
         },
-        "members_auth_user_id_unique": {
-          "name": "members_auth_user_id_unique",
+        "members_auth_user_id_key": {
+          "name": "members_auth_user_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "auth_user_id"
@@ -745,7 +1088,12 @@
         }
       },
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "members_gender_check": {
+          "name": "members_gender_check",
+          "value": "\"members\".\"gender\" = ANY (ARRAY['ወንድ'::text, 'ሴት'::text])"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.profiles": {
@@ -758,18 +1106,6 @@
           "primaryKey": true,
           "notNull": true
         },
-        "display_name": {
-          "name": "display_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "full_name": {
-          "name": "full_name",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
-        },
         "role": {
           "name": "role",
           "type": "text",
@@ -779,7 +1115,13 @@
         },
         "department_id": {
           "name": "department_id",
-          "type": "integer",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "display_name": {
+          "name": "display_name",
+          "type": "text",
           "primaryKey": false,
           "notNull": false
         },
@@ -787,14 +1129,21 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
           "default": "now()"
         }
       },
       "indexes": {},
       "foreignKeys": {
-        "profiles_department_id_departments_id_fk": {
-          "name": "profiles_department_id_departments_id_fk",
+        "profiles_department_id_fkey": {
+          "name": "profiles_department_id_fkey",
           "tableFrom": "profiles",
           "tableTo": "departments",
           "columnsFrom": [
@@ -813,7 +1162,7 @@
       "checkConstraints": {
         "profiles_role_check": {
           "name": "profiles_role_check",
-          "value": "\"profiles\".\"role\" in ('member', 'dept_head', 'admin', 'super_admin')"
+          "value": "\"profiles\".\"role\" = ANY (ARRAY['member'::text, 'dept_head'::text, 'admin'::text, 'super_admin'::text])"
         }
       },
       "isRLSEnabled": false
@@ -833,7 +1182,7 @@
           "name": "number",
           "type": "integer",
           "primaryKey": false,
-          "notNull": true
+          "notNull": false
         },
         "title": {
           "name": "title",
@@ -869,30 +1218,23 @@
           "name": "created_at",
           "type": "timestamp with time zone",
           "primaryKey": false,
-          "notNull": true,
+          "notNull": false,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false,
           "default": "now()"
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "songs_category_categories_name_fk": {
-          "name": "songs_category_categories_name_fk",
-          "tableFrom": "songs",
-          "tableTo": "categories",
-          "columnsFrom": [
-            "category"
-          ],
-          "columnsTo": [
-            "name"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "songs_number_unique": {
-          "name": "songs_number_unique",
+        "songs_number_key": {
+          "name": "songs_number_key",
           "nullsNotDistinct": false,
           "columns": [
             "number"

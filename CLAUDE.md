@@ -93,7 +93,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
 
 Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Better Auth, Kamal).
 
-- Done: local Postgres + Drizzle schema mirroring the Supabase tables (`libs/db`)
+- Done: local Postgres + Drizzle schema matching the live Supabase database exactly (12 tables, verified 2026-10-02)
 - Next: replace Supabase Auth, then port features one by one to server actions
 - Authorization rules that lived in RLS must be enforced in server code when a feature is ported
 
@@ -101,6 +101,7 @@ Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Bett
 
 - Database schema lives in `libs/db/src/schema/` (Drizzle). Change it there, then run `pnpm db:generate` to create a migration. Never edit applied migration files
 - Supabase is being removed (see Migration Status). Do NOT add new Supabase usage
+- `supabase/migrations/` is historical and does NOT match production. Until the production cutover, the Drizzle schema must stay an exact mirror of the live database: do not loosen or rename anything in it
 - Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
 - Do NOT create multiple apps — there is one app: `apps/web/`
