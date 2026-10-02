@@ -1,0 +1,25 @@
+# Local development services.
+# Start:  docker compose up -d
+# Stop:   docker compose down        (keeps data)
+# Reset:  docker compose down -v     (deletes all local data)
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: felege-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: felege
+      POSTGRES_PASSWORD: felege
+      POSTGRES_DB: felege
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - felege-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U felege -d felege']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  felege-pgdata:

@@ -17,22 +17,22 @@ Single consolidated Sunday School app for Felege Yordanos (Songbook, Attendance,
 
 ## Getting Started
 
+Requirements: Node 22+, pnpm 10 (`corepack enable`), Docker Desktop.
+
 ```bash
-# Install dependencies
-pnpm install
+pnpm install                  # Install dependencies
+cp .env.example .env.local    # Local settings (defaults work with Docker)
+pnpm db:setup                 # Start Postgres, create tables, load sample data
+pnpm dev                      # Start the app at http://localhost:3000
+```
 
-# Copy environment variables
-cp .env.example .env.local
-# Edit .env.local with your Supabase keys
+Useful database commands:
 
-# Start dev server
-npx nx serve web
-
-# Production build
-npx nx build web
-
-# Lint
-npx nx lint web
+```bash
+pnpm db:studio                # Browse the local database in the browser
+pnpm db:generate              # After editing libs/db/src/schema, create a migration
+pnpm db:migrate               # Apply migrations
+docker compose down -v        # Wipe the local database (then run pnpm db:setup)
 ```
 
 ## Project Structure
