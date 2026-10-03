@@ -2,7 +2,6 @@
 
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@felege-yordanos/db';
 import {
   Banknote,
   Building2,
@@ -15,20 +14,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/hooks/use-toast';
+import type { DonationStatus, PaymentMethod } from '@felege-yordanos/db/schema';
+import { createDonation } from './actions';
 
-interface DonationRow {
+export interface DonationRow {
   id: string;
-  amount: number;
+  /** numeric column, returned as a string */
+  amount: string;
   currency: string;
-  payment_method: string | null;
-  status: 'pending' | 'verified' | 'rejected';
-  rejection_reason: string | null;
-  created_at: string;
+  paymentMethod: PaymentMethod | null;
+  status: DonationStatus;
+  rejectionReason: string | null;
+  /** ISO timestamp */
+  createdAt: string;
   notes: string | null;
 }
 
 interface DonateFormProps {
-  userId: string;
   pastDonations: DonationRow[];
 }
 
@@ -41,7 +43,12 @@ const PAYMENT_METHODS: {
   Icon: typeof Banknote;
 }[] = [
   { value: 'telebirr', label: 'Telebirr', am: 'ቴሌብር', Icon: Phone },
-  { value: 'bank_transfer', label: 'Bank Transfer', am: 'የባንክ ዝውውር', Icon: Building2 },
+  {
+    value: 'bank_transfer',
+    label: 'Bank Transfer',
+    am: 'የባንክ ዝውውር',
+    Icon: Building2,
+  },
   { value: 'cash', label: 'Cash', am: 'ጥሬ ገንዘብ', Icon: Banknote },
   { value: 'other', label: 'Other', am: 'ሌላ', Icon: MoreHorizontal },
 ];
@@ -57,9 +64,21 @@ const STATUS_STYLES: Record<
   DonationRow['status'],
   { label: string; bg: string; text: string }
 > = {
-  pending: { label: 'Pending', bg: 'bg-status-late-bg', text: 'text-status-late' },
-  verified: { label: 'Verified', bg: 'bg-status-present-bg', text: 'text-status-present' },
-  rejected: { label: 'Rejected', bg: 'bg-status-absent-bg', text: 'text-status-absent' },
+  pending: {
+    label: 'Pending',
+    bg: 'bg-status-late-bg',
+    text: 'text-status-late',
+  },
+  verified: {
+    label: 'Verified',
+    bg: 'bg-status-present-bg',
+    text: 'text-status-present',
+  },
+  rejected: {
+    label: 'Rejected',
+    bg: 'bg-status-absent-bg',
+    text: 'text-status-absent',
+  },
 };
 
 function formatShortDate(iso: string): string {
@@ -73,7 +92,7 @@ function formatShortDate(iso: string): string {
   }
 }
 
-export function DonateForm({ userId, pastDonations }: DonateFormProps) {
+export function DonateForm({ pastDonations }: DonateFormProps) {
   const [amount, setAmount] = useState('');
   const [method, setMethod] = useState('');
   const [notes, setNotes] = useState('');
@@ -91,7 +110,7 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
     .filter(
       (d) =>
         d.status === 'verified' &&
-        new Date(d.created_at).getFullYear() === currentYear,
+        new Date(d.createdAt).getFullYear() === currentYear,
     )
     .reduce((sum, d) => sum + Number(d.amount), 0);
   const historyCurrency = pastDonations[0]?.currency ?? 'ETB';
@@ -100,8 +119,10 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
     e.preventDefault();
     setSubmitting(true);
 
-    const supabase = createClient();
-    let receiptUrl: string | null = null;
+    const formData = new FormData();
+    formData.append('amount', amount);
+    if (method) formData.append('paymentMethod', method);
+    if (notes) formData.append('notes', notes);
 
     if (file) {
       if (file.size > 5 * 1024 * 1024) {
@@ -114,37 +135,23 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
         return;
       }
 
-      const ext = file.name.split('.').pop();
-      const path = `${userId}/${Date.now()}.${ext}`;
-      const { error: uploadError } = await supabase.storage
-        .from('receipts')
-        .upload(path, file);
-
-      if (uploadError) {
-        toast({
-          title: 'Upload failed',
-          description: uploadError.message,
-          variant: 'destructive',
-        });
-        setSubmitting(false);
-        return;
-      }
-
-      receiptUrl = path;
+      formData.append('receipt', file);
     }
 
-    const { error } = await supabase.from('donations').insert({
-      donor_id: userId,
-      amount: Number(amount),
-      payment_method: method || null,
-      receipt_url: receiptUrl,
-      notes: notes || null,
-    } as never);
+    let res: Awaited<ReturnType<typeof createDonation>>;
+    try {
+      res = await createDonation(formData);
+    } catch {
+      res = {
+        ok: false,
+        error: 'Could not submit your donation. Please try again.',
+      };
+    }
 
     setSubmitting(false);
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     } else {
       toast({
         title: 'Donation submitted',
@@ -259,20 +266,26 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                   >
                     <m.Icon
                       className={`h-4 w-4 ${
-                        active ? 'text-burgundy dark:text-gold' : 'text-muted-foreground'
+                        active
+                          ? 'text-burgundy dark:text-gold'
+                          : 'text-muted-foreground'
                       }`}
                       strokeWidth={1.75}
                     />
                     <div
                       className={`mt-1 text-xs font-semibold ${
-                        active ? 'text-burgundy-ink dark:text-cream' : 'text-foreground'
+                        active
+                          ? 'text-burgundy-ink dark:text-cream'
+                          : 'text-foreground'
                       }`}
                     >
                       {m.label}
                     </div>
                     <div
                       className={`font-ethiopic text-[10px] ${
-                        active ? 'text-gold-deep dark:text-gold' : 'text-muted-foreground'
+                        active
+                          ? 'text-gold-deep dark:text-gold'
+                          : 'text-muted-foreground'
                       }`}
                     >
                       {m.am}
@@ -304,7 +317,8 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
               htmlFor="notes"
               className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
             >
-              Notes <span className="font-normal text-ink-faint">· optional</span>
+              Notes{' '}
+              <span className="font-normal text-ink-faint">· optional</span>
             </Label>
             <Textarea
               id="notes"
@@ -319,7 +333,8 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
           {/* Receipt upload */}
           <div>
             <Label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-              Receipt <span className="font-normal text-ink-faint">· optional</span>
+              Receipt{' '}
+              <span className="font-normal text-ink-faint">· optional</span>
             </Label>
             <button
               type="button"
@@ -384,7 +399,7 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                       <div>
                         <div className="flex items-baseline gap-1 font-display text-xl font-medium leading-none text-burgundy-ink dark:text-cream">
                           <span className="tabular-nums">
-                            {d.amount.toLocaleString()}
+                            {Number(d.amount).toLocaleString()}
                           </span>
                           <span className="font-mono text-[11px] text-muted-foreground">
                             {d.currency}
@@ -392,12 +407,15 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                         </div>
                         <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
                           <span>
-                            {d.payment_method
-                              ? METHOD_LABELS[d.payment_method] ?? d.payment_method
+                            {d.paymentMethod
+                              ? (METHOD_LABELS[d.paymentMethod] ??
+                                d.paymentMethod)
                               : '—'}
                           </span>
                           <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
-                          <span className="font-mono">{formatShortDate(d.created_at)}</span>
+                          <span className="font-mono">
+                            {formatShortDate(d.createdAt)}
+                          </span>
                         </div>
                       </div>
                       <span
@@ -406,9 +424,9 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                         {s.label}
                       </span>
                     </div>
-                    {d.status === 'rejected' && d.rejection_reason && (
+                    {d.status === 'rejected' && d.rejectionReason && (
                       <div className="mt-2 rounded-lg bg-status-absent-bg px-2.5 py-1.5 text-[11px] text-status-absent">
-                        Reason: {d.rejection_reason}
+                        Reason: {d.rejectionReason}
                       </div>
                     )}
                   </div>
@@ -506,13 +524,17 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                       >
                         <m.Icon
                           className={`h-[18px] w-[18px] shrink-0 ${
-                            active ? 'text-gold-deep dark:text-gold' : 'text-muted-foreground'
+                            active
+                              ? 'text-gold-deep dark:text-gold'
+                              : 'text-muted-foreground'
                           }`}
                           strokeWidth={1.75}
                         />
                         <span
                           className={`flex-1 text-[13px] font-semibold ${
-                            active ? 'text-burgundy-ink dark:text-cream' : 'text-foreground'
+                            active
+                              ? 'text-burgundy-ink dark:text-cream'
+                              : 'text-foreground'
                           }`}
                         >
                           {m.label}
@@ -576,7 +598,9 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                   />
                   <div className="text-[13px] text-muted-foreground">
                     {file ? (
-                      <span className="font-semibold text-foreground">{file.name}</span>
+                      <span className="font-semibold text-foreground">
+                        {file.name}
+                      </span>
                     ) : (
                       <>
                         Drop receipt image, or{' '}
@@ -654,21 +678,23 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                     </thead>
                     <tbody>
                       {pastDonations.map((d) => {
-                        const s = STATUS_STYLES[d.status] ?? STATUS_STYLES.pending;
+                        const s =
+                          STATUS_STYLES[d.status] ?? STATUS_STYLES.pending;
                         return (
                           <tr
                             key={d.id}
                             className="border-b border-border/60 last:border-0"
                           >
                             <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-xs text-muted-foreground">
-                              {formatShortDate(d.created_at)}
+                              {formatShortDate(d.createdAt)}
                             </td>
                             <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-[13px] font-semibold text-burgundy-ink dark:text-cream">
-                              {d.currency} {d.amount.toLocaleString()}
+                              {d.currency} {Number(d.amount).toLocaleString()}
                             </td>
                             <td className="py-3.5 pr-4 text-[13px] text-foreground">
-                              {d.payment_method
-                                ? METHOD_LABELS[d.payment_method] ?? d.payment_method
+                              {d.paymentMethod
+                                ? (METHOD_LABELS[d.paymentMethod] ??
+                                  d.paymentMethod)
                                 : '—'}
                             </td>
                             <td className="py-3.5 text-right align-top">
@@ -678,9 +704,9 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
                                 <span className="h-1.5 w-1.5 rounded-full bg-current" />
                                 {s.label.toLowerCase()}
                               </span>
-                              {d.status === 'rejected' && d.rejection_reason && (
+                              {d.status === 'rejected' && d.rejectionReason && (
                                 <div className="mt-1 text-[10.5px] text-status-absent">
-                                  {d.rejection_reason}
+                                  {d.rejectionReason}
                                 </div>
                               )}
                             </td>
@@ -698,8 +724,8 @@ export function DonateForm({ userId, pastDonations }: DonateFormProps) {
 
               {/* Footer note */}
               <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
-                Verification usually takes 1–2 days. You&apos;ll see the status update
-                here once reviewed.
+                Verification usually takes 1–2 days. You&apos;ll see the status
+                update here once reviewed.
               </p>
             </div>
           </div>

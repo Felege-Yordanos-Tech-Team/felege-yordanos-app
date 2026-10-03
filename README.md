@@ -10,10 +10,10 @@ Single consolidated Sunday School app for Felege Yordanos (Songbook, Attendance,
 | App | Next.js (App Router) |
 | Language | TypeScript (strict) |
 | Styling | Tailwind CSS + shadcn/ui |
-| Backend/DB | Supabase (PostgreSQL) |
-| Auth | Supabase Auth |
+| Backend/DB | PostgreSQL 17 + Drizzle ORM |
+| Auth | Better Auth |
 | Mobile | PWA |
-| Hosting | Vercel |
+| Hosting | Own server with Docker + Kamal (in progress); production still on Vercel |
 
 ## Getting Started
 
@@ -59,7 +59,7 @@ felege-yordanos-app/
       (admin)/       # Admin/dept_head required (manage events, donations, users)
   libs/
     ui/              # Shared UI components (BottomNav)
-    db/              # Supabase client + types
+    db/              # Drizzle schema, migrations, seed, db client
 ```
 
 ## Role System

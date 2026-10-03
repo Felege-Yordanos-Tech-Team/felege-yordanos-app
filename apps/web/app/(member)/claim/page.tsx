@@ -1,6 +1,12 @@
-import { NotMigrated } from '@/components/not-migrated';
+import { requireUser } from '@/lib/session';
+import { ClaimForm } from './claim-form';
 
-// Not yet moved off Supabase. Old version: ./page.legacy.tsx
-export default function Page() {
-  return <NotMigrated feature="Link your member record" legacyFile="app/(member)/claim/page.legacy.tsx" />;
+export default async function ClaimPage() {
+  await requireUser();
+
+  return (
+    <div className="mx-auto max-w-md px-6 py-6">
+      <ClaimForm />
+    </div>
+  );
 }

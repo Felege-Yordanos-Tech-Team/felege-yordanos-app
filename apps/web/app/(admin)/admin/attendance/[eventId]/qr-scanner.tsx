@@ -32,7 +32,12 @@ type ScannerInstance = {
   isScanning?: boolean;
 };
 
-export function QRScanner({ active, onMemberId, presentCount, total }: QRScannerProps) {
+export function QRScanner({
+  active,
+  onMemberId,
+  presentCount,
+  total,
+}: QRScannerProps) {
   const instanceRef = useRef<ScannerInstance | null>(null);
   const lastValueRef = useRef<string>('');
   const lastAtRef = useRef<number>(0);
@@ -62,7 +67,10 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const Html5Qrcode = (mod as any).Html5Qrcode;
-        const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, false) as ScannerInstance;
+        const instance = new Html5Qrcode(
+          VIDEO_ELEMENT_ID,
+          false,
+        ) as ScannerInstance;
         instanceRef.current = instance;
 
         await instance.start(
@@ -89,7 +97,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         setStatus('running');
       } catch (err) {
         if (cancelled) return;
-        // eslint-disable-next-line no-console
         console.error('[QR scanner] start failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
         const lower = msg.toLowerCase();
@@ -111,7 +118,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
       cancelled = true;
       void teardown();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [active]);
 
   async function teardown() {
@@ -123,7 +129,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         await inst.stop();
       }
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.warn('[QR scanner] stop ignored:', err);
     }
     try {
@@ -138,14 +143,14 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
       const now = Date.now();
       // Debounce: same code ignored within 2s, any code within 600ms
       if (now - lastAtRef.current < 600) return;
-      if (decoded === lastValueRef.current && now - lastAtRef.current < 2000) return;
+      if (decoded === lastValueRef.current && now - lastAtRef.current < 2000)
+        return;
       lastValueRef.current = decoded;
       lastAtRef.current = now;
 
       const result = await onMemberId(decoded);
       setLastScan(result);
     } catch (err) {
-      // eslint-disable-next-line no-console
       console.error('[QR scanner] decode handler failed:', err);
       setLastScan({ kind: 'invalid', code: decoded });
     }
@@ -166,7 +171,10 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         const mod = await import('html5-qrcode');
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const Html5Qrcode = (mod as any).Html5Qrcode;
-        const instance = new Html5Qrcode(VIDEO_ELEMENT_ID, false) as ScannerInstance;
+        const instance = new Html5Qrcode(
+          VIDEO_ELEMENT_ID,
+          false,
+        ) as ScannerInstance;
         instanceRef.current = instance;
         await instance.start(
           { facingMode: 'environment' },
@@ -176,7 +184,6 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
         );
         setStatus('running');
       } catch (err) {
-        // eslint-disable-next-line no-console
         console.error('[QR scanner] retry failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
         const lower = msg.toLowerCase();
@@ -231,7 +238,9 @@ export function QRScanner({ active, onMemberId, presentCount, total }: QRScanner
           <ScannerStateMessage
             icon={<X className="h-6 w-6 text-status-absent" />}
             title="Scanner unavailable"
-            subtitle={errorMessage || 'Your browser may not support camera access.'}
+            subtitle={
+              errorMessage || 'Your browser may not support camera access.'
+            }
             action={<RetryButton onClick={retry} />}
           />
         )}
@@ -348,7 +357,9 @@ function ScannerStateMessage({
       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/30 bg-cream/[0.08]">
         {icon}
       </div>
-      <div className="font-display text-base font-medium text-cream">{title}</div>
+      <div className="font-display text-base font-medium text-cream">
+        {title}
+      </div>
       <div className="break-words text-[11px] text-cream/60">{subtitle}</div>
       {action}
     </div>

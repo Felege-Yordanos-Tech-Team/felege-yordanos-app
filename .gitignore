@@ -67,3 +67,5 @@ stitch/
 .playwright-mcp/
 test-results/
 playwright-report/
+# Local file uploads (receipts)
+.data/

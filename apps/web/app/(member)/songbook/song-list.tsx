@@ -4,17 +4,27 @@ import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
 import { Input } from '@/components/ui/input';
-import type { Database } from '@felege-yordanos/db';
+import type {
+  categories as categoriesTable,
+  songs as songsTable,
+} from '@felege-yordanos/db/schema';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Category = Database['public']['Tables']['categories']['Row'];
+type Song = typeof songsTable.$inferSelect;
+type Category = typeof categoriesTable.$inferSelect;
 
 interface SongListProps {
   songs: Song[];
   categories: Category[];
 }
 
-const FALLBACK_DOTS = ['#D4A843', '#6B1D2A', '#8B2F3F', '#4F7B3E', '#C97B1A', '#A47A18'];
+const FALLBACK_DOTS = [
+  '#D4A843',
+  '#6B1D2A',
+  '#8B2F3F',
+  '#4F7B3E',
+  '#C97B1A',
+  '#A47A18',
+];
 
 export function SongList({ songs, categories }: SongListProps) {
   const [search, setSearch] = useState('');
@@ -32,11 +42,10 @@ export function SongList({ songs, categories }: SongListProps) {
     const matchesSearch =
       !search ||
       song.title.toLowerCase().includes(search.toLowerCase()) ||
-      song.title_en?.toLowerCase().includes(search.toLowerCase()) ||
-      song.number.toString() === search;
+      song.titleEn?.toLowerCase().includes(search.toLowerCase()) ||
+      song.number?.toString() === search;
 
-    const matchesCategory =
-      !activeCategory || song.category === activeCategory;
+    const matchesCategory = !activeCategory || song.category === activeCategory;
 
     return matchesSearch && matchesCategory;
   });
@@ -82,7 +91,9 @@ export function SongList({ songs, categories }: SongListProps) {
             >
               <span
                 className="h-1.5 w-1.5 rounded-full"
-                style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }}
+                style={{
+                  background: colorByCategory.get(cat.name) ?? '#D4A843',
+                }}
               />
               {cat.name}
             </button>
@@ -105,16 +116,18 @@ export function SongList({ songs, categories }: SongListProps) {
             >
               <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-gradient-to-br from-parchment-soft to-parchment-deep dark:from-[#2D1B0E] dark:to-[#1A0F08]">
                 <span className="font-display text-[18px] font-semibold tabular-nums text-burgundy dark:text-gold">
-                  {String(song.number).padStart(2, '0')}
+                  {song.number != null
+                    ? String(song.number).padStart(2, '0')
+                    : ''}
                 </span>
               </div>
               <div className="min-w-0 flex-1">
                 <div className="truncate font-ethiopic text-[16px] font-semibold leading-tight text-burgundy-ink dark:text-cream">
                   {song.title}
                 </div>
-                {song.title_en && (
+                {song.titleEn && (
                   <div className="font-display text-[12.5px] italic text-muted-foreground">
-                    {song.title_en}
+                    {song.titleEn}
                   </div>
                 )}
               </div>

@@ -2,8 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@felege-yordanos/db';
-import type { Database, UserRole, Department } from '@felege-yordanos/db';
+import type { departments, events, Role } from '@felege-yordanos/db/schema';
 import { CalendarClock, Repeat, Trash2, TriangleAlert } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -32,8 +31,15 @@ import {
   toYmd,
   todayYmd,
 } from '@/lib/events';
+import {
+  createEvent,
+  deleteEvent,
+  updateEvent,
+  updateSeriesEnd,
+} from './actions';
 
-type EventRow = Database['public']['Tables']['events']['Row'];
+type EventRow = typeof events.$inferSelect;
+type Department = typeof departments.$inferSelect;
 
 type RepeatChoice = 'none' | Recurrence;
 
@@ -51,9 +57,8 @@ interface EventFormDialogProps {
   event: EventRow | null;
   defaultDate?: string | null;
   departments: Department[];
-  userRole: UserRole;
+  userRole: Role;
   userDeptId: number | null;
-  userId: string;
   /** All occurrences sharing the edited event's recurrence_group. */
   seriesEvents: EventRow[];
   /** Event ids that already have attendance — never delete/regenerate these. */
@@ -68,7 +73,13 @@ function addMonths(ymd: string, months: number): string {
   const d = parseYmd(ymd);
   const first = new Date(d.getFullYear(), d.getMonth() + months, 1);
   const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  return toYmd(new Date(first.getFullYear(), first.getMonth(), Math.min(d.getDate(), days)));
+  return toYmd(
+    new Date(
+      first.getFullYear(),
+      first.getMonth(),
+      Math.min(d.getDate(), days),
+    ),
+  );
 }
 
 function formatLong(ymd: string): string {
@@ -92,7 +103,6 @@ export function EventFormDialog({
   departments,
   userRole,
   userDeptId,
-  userId,
   seriesEvents,
   attendedIds,
 }: EventFormDialogProps) {
@@ -111,7 +121,7 @@ export function EventFormDialog({
   const [seriesUntil, setSeriesUntil] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const inSeries = mode === 'edit' && !!event?.recurrence_group;
+  const inSeries = mode === 'edit' && !!event?.recurrenceGroup;
 
   // Reset the form whenever the dialog opens for a new target.
   useEffect(() => {
@@ -119,13 +129,13 @@ export function EventFormDialog({
     if (mode === 'edit' && event) {
       setTitle(event.title);
       setDescription(event.description ?? '');
-      setEventDate(event.event_date);
-      setStartTime(event.start_time?.slice(0, 5) ?? '');
-      setEndTime(event.end_time?.slice(0, 5) ?? '');
-      setDeptId(event.department_id ? String(event.department_id) : '');
+      setEventDate(event.eventDate);
+      setStartTime(event.startTime?.slice(0, 5) ?? '');
+      setEndTime(event.endTime?.slice(0, 5) ?? '');
+      setDeptId(event.departmentId ? String(event.departmentId) : '');
       setRepeat('none');
       setUntil('');
-      setSeriesUntil(event.recurrence_until ?? '');
+      setSeriesUntil(event.recurrenceUntil ?? '');
     } else {
       setTitle('');
       setDescription('');
@@ -141,7 +151,7 @@ export function EventFormDialog({
 
   function getDeptName(id: number | null): string {
     if (!id) return 'General';
-    return departments.find((d) => d.id === id)?.name_am ?? 'Unknown';
+    return departments.find((d) => d.id === id)?.nameAm ?? 'Unknown';
   }
 
   // ── Create: live recurrence preview ─────────────────────────────────────────
@@ -160,7 +170,11 @@ export function EventFormDialog({
     if (next !== 'none' && eventDate && !until) {
       // Sensible default: 3 months out, clamped to the 12-month cap.
       const def = addMonths(eventDate, 3);
-      setUntil(def > maxRecurrenceUntil(eventDate) ? maxRecurrenceUntil(eventDate) : def);
+      setUntil(
+        def > maxRecurrenceUntil(eventDate)
+          ? maxRecurrenceUntil(eventDate)
+          : def,
+      );
     }
   }
 
@@ -168,44 +182,24 @@ export function EventFormDialog({
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const supabase = createClient();
-
-    const base = {
+    const res = await createEvent({
       title,
       description: description || null,
-      start_time: startTime || null,
-      end_time: endTime || null,
-      department_id: deptId ? Number(deptId) : null,
-      created_by: userId,
-    };
-
-    let error;
-    if (!recurring) {
-      ({ error } = await supabase
-        .from('events')
-        .insert({ ...base, event_date: eventDate } as never));
-    } else {
-      const group =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      const rows = occurrences.map((date) => ({
-        ...base,
-        event_date: date,
-        recurrence_group: group,
-        recurrence: repeat,
-        recurrence_until: cappedUntil,
-      }));
-      ({ error } = await supabase.from('events').insert(rows as never));
-    }
+      eventDate,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      departmentId: deptId ? Number(deptId) : null,
+      recurrence: recurring ? (repeat as Recurrence) : null,
+      until: recurring ? cappedUntil || null : null,
+    });
 
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
       return;
     }
     toast({
-      title: recurring ? `${occCount} events created` : 'Event created',
+      title: recurring ? `${res.data.count} events created` : 'Event created',
       description: title,
     });
     onOpenChange(false);
@@ -216,21 +210,17 @@ export function EventFormDialog({
   async function handleUpdate() {
     if (!event) return;
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('events')
-      .update({
-        title,
-        description: description || null,
-        event_date: eventDate,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        department_id: deptId ? Number(deptId) : null,
-      } as never)
-      .eq('id', event.id);
+    const res = await updateEvent(event.id, {
+      title,
+      description: description || null,
+      eventDate,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      departmentId: deptId ? Number(deptId) : null,
+    });
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
       return;
     }
     toast({ title: 'Event updated', description: title });
@@ -240,86 +230,30 @@ export function EventFormDialog({
 
   // ── Series: extend / shorten the end date ───────────────────────────────────
   async function handleSeriesEnd() {
-    if (!event?.recurrence_group || !event.recurrence) return;
-    const group = event.recurrence_group;
-    const cadence = event.recurrence as Recurrence;
+    if (!event?.recurrenceGroup || !event.recurrence) return;
     const newUntil = seriesUntil;
     if (!newUntil) return;
 
-    const start = seriesEvents
-      .map((e) => e.event_date)
-      .reduce((min, d) => (d < min ? d : min), seriesEvents[0]?.event_date ?? event.event_date);
-    const cap = maxRecurrenceUntil(start);
-    const boundedUntil = newUntil > cap ? cap : newUntil;
+    setBusy(true);
+    const res = await updateSeriesEnd({ eventId: event.id, until: newUntil });
+    setBusy(false);
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
+      return;
+    }
 
-    const existing = new Set(seriesEvents.map((e) => e.event_date));
-    const desired = generateOccurrences(start, cadence, boundedUntil);
-    const toInsert = desired.filter((d) => !existing.has(d));
-    // Shorten: drop occurrences past the new end that carry no attendance.
-    const toDelete = seriesEvents.filter(
-      (e) => e.event_date > boundedUntil && !attendedIds.has(e.id),
-    );
-    const blocked = seriesEvents.filter(
-      (e) => e.event_date > boundedUntil && attendedIds.has(e.id),
-    );
-
-    if (toInsert.length === 0 && toDelete.length === 0) {
+    const { added, removed, kept } = res.data;
+    if (added === 0 && removed === 0) {
       toast({ title: 'No change', description: 'Series already ends there.' });
       return;
     }
 
-    setBusy(true);
-    const supabase = createClient();
-
-    if (toInsert.length > 0) {
-      const rows = toInsert.map((date) => ({
-        title: event.title,
-        description: event.description,
-        event_date: date,
-        start_time: event.start_time,
-        end_time: event.end_time,
-        department_id: event.department_id,
-        created_by: userId,
-        recurrence_group: group,
-        recurrence: cadence,
-        recurrence_until: boundedUntil,
-      }));
-      const { error } = await supabase.from('events').insert(rows as never);
-      if (error) {
-        setBusy(false);
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
-    }
-
-    if (toDelete.length > 0) {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .in(
-          'id',
-          toDelete.map((e) => e.id),
-        );
-      if (error) {
-        setBusy(false);
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
-    }
-
-    // Keep the recorded end in sync across the surviving series rows.
-    await supabase
-      .from('events')
-      .update({ recurrence_until: boundedUntil } as never)
-      .eq('recurrence_group', group);
-
-    setBusy(false);
     toast({
       title: 'Series updated',
       description:
-        (toInsert.length ? `+${toInsert.length} added. ` : '') +
-        (toDelete.length ? `${toDelete.length} removed. ` : '') +
-        (blocked.length ? `${blocked.length} kept (has attendance).` : ''),
+        (added ? `+${added} added. ` : '') +
+        (removed ? `${removed} removed. ` : '') +
+        (kept ? `${kept} kept (has attendance).` : ''),
     });
     onOpenChange(false);
     router.refresh();
@@ -337,11 +271,10 @@ export function EventFormDialog({
       return;
     }
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase.from('events').delete().eq('id', event.id);
+    const res = await deleteEvent(event.id);
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
       return;
     }
     toast({ title: 'Event deleted', description: event.title });
@@ -435,7 +368,9 @@ export function EventFormDialog({
             <div className="space-y-1.5">
               <Label className={labelCls}>Department</Label>
               {isDeptHead ? (
-                <p className="text-sm text-muted-foreground">{getDeptName(userDeptId)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {getDeptName(userDeptId)}
+                </p>
               ) : (
                 <Select value={deptId} onValueChange={setDeptId}>
                   <SelectTrigger>
@@ -444,7 +379,7 @@ export function EventFormDialog({
                   <SelectContent>
                     {departments.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name_am}
+                        {d.nameAm}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -455,7 +390,8 @@ export function EventFormDialog({
             {/* Description */}
             <div className="space-y-1.5">
               <Label htmlFor="ev-desc" className={labelCls}>
-                Description <span className="font-normal text-ink-faint">· optional</span>
+                Description{' '}
+                <span className="font-normal text-ink-faint">· optional</span>
               </Label>
               <Textarea
                 id="ev-desc"
@@ -515,9 +451,12 @@ export function EventFormDialog({
                         <CalendarClock className="mt-px h-3.5 w-3.5 shrink-0 text-gold-deep dark:text-gold" />
                         <span>
                           Will create{' '}
-                          <strong className="font-semibold">{occCount} events</strong>{' '}
+                          <strong className="font-semibold">
+                            {occCount} events
+                          </strong>{' '}
                           {cadencePhrase(repeat as Recurrence, eventDate)} from{' '}
-                          {formatLong(eventDate)} until {formatLong(cappedUntil)}.
+                          {formatLong(eventDate)} until{' '}
+                          {formatLong(cappedUntil)}.
                           {isCapped && (
                             <span className="mt-0.5 block text-[10.5px] text-status-late">
                               Capped at 12 months from the start date.
@@ -538,9 +477,10 @@ export function EventFormDialog({
                   <Repeat className="h-3 w-3" /> Recurring series
                 </div>
                 <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
-                  This is one of {seriesEvents.length} occurrences. Editing above
-                  changes only this one. To move where the series ends, set a new
-                  end date — past and attended events are never touched.
+                  This is one of {seriesEvents.length} occurrences. Editing
+                  above changes only this one. To move where the series ends,
+                  set a new end date — past and attended events are never
+                  touched.
                 </p>
                 <Label htmlFor="ev-series-until" className={labelCls}>
                   Series ends
@@ -603,7 +543,8 @@ export function EventFormDialog({
             {mode === 'edit' && attendedIds.has(event?.id ?? '') && (
               <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
                 <TriangleAlert className="h-3 w-3 text-status-late" />
-                This event has attendance recorded and is protected from deletion.
+                This event has attendance recorded and is protected from
+                deletion.
               </p>
             )}
           </form>

@@ -10,7 +10,7 @@ import {
   Shield,
   User,
 } from 'lucide-react';
-import type { UserRole } from '@felege-yordanos/db';
+import type { Role as UserRole } from '@felege-yordanos/db';
 
 const memberLinks = [
   { href: '/dashboard', icon: Home, label: 'Home' },

@@ -16,10 +16,11 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School. Email: leykungiza
 | App        | Next.js (App Router) — single app at `apps/web/`                   |
 | Language   | TypeScript (strict)                                                |
 | Styling    | Tailwind CSS + shadcn/ui                                           |
-| Backend/DB | PostgreSQL + Drizzle (`libs/db`). Production still on Supabase until cutover |
-| Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres                   |
+| Backend/DB | PostgreSQL 17 + Drizzle (`libs/db`)                                |
+| Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres         |
+| Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
-| Hosting    | Vercel (free tier)                                                 |
+| Hosting    | Target: own VPS (Docker + Kamal). `main` still deploys the old Vercel + Supabase version |
 | GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (private) |
 
 ## Project Structure
@@ -30,11 +31,15 @@ apps/web/              # Single Next.js app (PWA)
     (public)/          # No auth: songbook, login
     (member)/          # Any authenticated user
     (admin)/           # dept_head, admin, super_admin only
-  proxy.ts             # Role-based route protection (Next.js 16 "proxy" convention)
-  lib/utils.ts         # cn() utility for Tailwind class merging
+  proxy.ts             # Fast session-cookie check only (NOT the security boundary)
+  lib/session.ts       # requireUser / requireRole / getCurrentUser (server)
+  lib/permissions.ts   # ALL authorization rules
+  lib/action-result.ts # ActionResult type for server actions
+  lib/storage.ts       # file uploads on disk (receipts)
+  lib/auth.ts          # Better Auth config; lib/auth-client.ts for the browser
 libs/
   ui/                  # Shared UI components (BottomNav)
-  db/                  # Supabase client (browser + server) + DB types
+  db/                  # Drizzle schema, migrations, seed, server-only db client
 ```
 
 ## Role System (Four Tiers)
@@ -64,8 +69,8 @@ Roles stored in `profiles` table (column: `role`). Department scoping via `depar
 - Auth in client components: `import { authClient } from '@/lib/auth-client'`
 - DB schema/types (safe anywhere): `import type { Role } from '@felege-yordanos/db/schema'`
 - UI components: `import { BottomNav } from '@felege-yordanos/ui'`
-- Legacy Supabase client (being removed): `import { createClient, createServerComponentClient } from '@felege-yordanos/db'`
-- DB types: `import type { Database, UserRole } from '@felege-yordanos/db'`
+- Permissions: `import { canManageSongs, ... } from '@/lib/permissions'`
+- Server action results: `import { ok, fail, NOT_ALLOWED, type ActionResult } from '@/lib/action-result'`
 
 ## Package Manager
 
@@ -86,26 +91,25 @@ npx nx graph              # View project dependency graph
 
 ## Environment Variables
 
-See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `EMAIL_TRANSPORT`. Supabase variables are no longer needed locally.
+See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `EMAIL_TRANSPORT`, optional `UPLOAD_DIR`.
 
 Dev emails (password reset links) are printed in the terminal running the app.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
 
-## Migration Status
+## How Features Are Built
 
-Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Better Auth, Kamal).
-
-- Done: local Postgres + Drizzle schema matching the live Supabase database exactly (12 tables, verified 2026-10-02)
-- Done: Better Auth (sign up, sign in, sign out, password reset). Supabase bcrypt password hashes are accepted so existing users keep their passwords at cutover
-- Unported screens render `<NotMigrated />`. Their old Supabase code is kept beside them as `page.legacy.tsx` (not routed by Next.js) for reference
-- Porting a screen: rewrite `page.tsx` with server-side data access (`@felege-yordanos/db/server` + `lib/session.ts`, mutations as server actions), enforce the old RLS rule in code, then delete `page.legacy.tsx` and any child components only it used
-- Authorization rules that lived in RLS must be enforced in server code when a feature is ported. `proxy.ts` is only a fast cookie check, never the security boundary
+- Pages are async server components: `requireUser()`, permission check from `lib/permissions.ts`, then read with Drizzle
+- Mutations are server actions in an `actions.ts` next to the page: `requireUser()` -> zod validation -> permission check on rows re-loaded from the DB -> write -> `revalidatePath` -> return `ok()` / `fail()`
+- Never trust ids, roles or user ids sent from the client
+- Client components keep UI only; they call server actions and show `res.error` in a toast
+- Reference implementation: songbook (`app/(member)/songbook`, `app/(admin)/admin/songs`)
 
 ## Rules
 
 - Database schema lives in `libs/db/src/schema/` (Drizzle). Change it there, then run `pnpm db:generate` to create a migration. Never edit applied migration files
-- Supabase is being removed (see Migration Status). Do NOT add new Supabase usage
-- `supabase/migrations/` is historical and does NOT match production. Until the production cutover, the Drizzle schema must stay an exact mirror of the live database: do not loosen or rename anything in it
+- Supabase has been removed. Do NOT add Supabase or any other hosted backend SDK
+- Every page and server action must enforce the matching rule in `lib/permissions.ts`. Add new rules there, not inline
+- Do not merge `dev` into `main` until the new server is live (main still deploys the old Vercel + Supabase version)
 - Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
 - Do NOT create multiple apps — there is one app: `apps/web/`
@@ -117,7 +121,6 @@ Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Bett
 | Term        | Meaning                                 |
 | ----------- | --------------------------------------- |
 | SS          | Sunday School                           |
-| RLS         | Row Level Security (Supabase)           |
 | PWA         | Progressive Web App                     |
 | dept_head   | Role for department leaders + delegates |
 | admin       | Role for tech team members (~8 people)  |

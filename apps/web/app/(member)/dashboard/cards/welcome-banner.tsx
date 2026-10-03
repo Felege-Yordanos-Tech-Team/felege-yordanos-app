@@ -3,8 +3,8 @@ import { formatShortDate } from '@/lib/format';
 
 interface NextEvent {
   title: string;
-  event_date: string;
-  start_time: string | null;
+  eventDate: string;
+  startTime: string | null;
 }
 
 interface WelcomeBannerProps {
@@ -65,8 +65,8 @@ export function WelcomeBanner({
               {nextEvent.title}
             </div>
             <div className="mt-1 font-mono text-[11px] text-cream/60">
-              {formatShortDate(nextEvent.event_date)}
-              {nextEvent.start_time && ` · ${nextEvent.start_time.slice(0, 5)}`}
+              {formatShortDate(nextEvent.eventDate)}
+              {nextEvent.startTime && ` · ${nextEvent.startTime.slice(0, 5)}`}
             </div>
           </div>
         )}

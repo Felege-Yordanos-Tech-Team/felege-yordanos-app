@@ -3,8 +3,10 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
+import type {
+  categories as categoriesTable,
+  songs as songsTable,
+} from '@felege-yordanos/db/schema';
 import { ArrowLeft } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -18,9 +20,10 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { createSong, updateSong } from './actions';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Category = Database['public']['Tables']['categories']['Row'];
+type Song = typeof songsTable.$inferSelect;
+type Category = typeof categoriesTable.$inferSelect;
 
 interface SongFormProps {
   categories: Category[];
@@ -36,34 +39,26 @@ export function SongForm({ categories, song }: SongFormProps) {
 
   const [number, setNumber] = useState(song?.number?.toString() ?? '');
   const [title, setTitle] = useState(song?.title ?? '');
-  const [titleEn, setTitleEn] = useState(song?.title_en ?? '');
+  const [titleEn, setTitleEn] = useState(song?.titleEn ?? '');
   const [category, setCategory] = useState(song?.category ?? '');
   const [lyrics, setLyrics] = useState(song?.lyrics ?? '');
-  const [audioUrl, setAudioUrl] = useState(song?.audio_url ?? '');
+  const [audioUrl, setAudioUrl] = useState(song?.audioUrl ?? '');
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
 
-    const supabase = createClient();
-    const payload = {
-      number: parseInt(number, 10),
-      title,
-      title_en: titleEn || null,
-      category,
-      lyrics,
-      audio_url: audioUrl || null,
-    };
+    const payload = { number, title, titleEn, category, lyrics, audioUrl };
 
-    const { error } = isEdit
-      ? await supabase.from('songs').update(payload as never).eq('id', song!.id)
-      : await supabase.from('songs').insert(payload as never);
+    const res = song
+      ? await updateSong(song.id, payload)
+      : await createSong(payload);
 
     setLoading(false);
 
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     } else {
       toast({ title: isEdit ? 'Song updated' : 'Song created' });
       router.push('/admin/songs');
@@ -101,9 +96,15 @@ export function SongForm({ categories, song }: SongFormProps) {
 
       <form onSubmit={handleSubmit} className="space-y-3.5">
         {/* Number + Category */}
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: '100px 1fr' }}>
+        <div
+          className="grid gap-2.5"
+          style={{ gridTemplateColumns: '100px 1fr' }}
+        >
           <div className="space-y-1.5">
-            <Label htmlFor="number" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+            <Label
+              htmlFor="number"
+              className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+            >
               Number
             </Label>
             <Input
@@ -144,7 +145,10 @@ export function SongForm({ categories, song }: SongFormProps) {
 
         {/* Amharic title */}
         <div className="space-y-1.5">
-          <Label htmlFor="title" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+          <Label
+            htmlFor="title"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          >
             Title · ርዕስ (Amharic)
           </Label>
           <Input
@@ -159,7 +163,10 @@ export function SongForm({ categories, song }: SongFormProps) {
 
         {/* English title */}
         <div className="space-y-1.5">
-          <Label htmlFor="titleEn" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+          <Label
+            htmlFor="titleEn"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          >
             Title · English (optional)
           </Label>
           <Input
@@ -173,7 +180,10 @@ export function SongForm({ categories, song }: SongFormProps) {
 
         {/* Lyrics */}
         <div className="space-y-1.5">
-          <Label htmlFor="lyrics" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+          <Label
+            htmlFor="lyrics"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          >
             Lyrics · ግጥም
           </Label>
           <Textarea
@@ -195,8 +205,14 @@ export function SongForm({ categories, song }: SongFormProps) {
 
         {/* Audio URL */}
         <div className="space-y-1.5">
-          <Label htmlFor="audioUrl" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-            Audio URL <span className="font-normal normal-case tracking-normal text-ink-faint">· optional</span>
+          <Label
+            htmlFor="audioUrl"
+            className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          >
+            Audio URL{' '}
+            <span className="font-normal normal-case tracking-normal text-ink-faint">
+              · optional
+            </span>
           </Label>
           <Input
             id="audioUrl"
