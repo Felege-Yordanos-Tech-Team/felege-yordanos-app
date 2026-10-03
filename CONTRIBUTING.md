@@ -15,7 +15,9 @@ pick an issue  ->  branch from dev  ->  small commits  ->  pull request into dev
 ```
 
 1. **Pick an issue** on GitHub and assign yourself, so two people don't do the same work. New to the project? Start with an issue labeled `good first issue`.
-2. **Create a branch from the latest `dev`:**
+2. **Create a branch from the latest `dev`** (`dev` is the default branch).
+   Members of the GitHub organization push branches to this repo directly.
+   Everyone else forks the repo and opens the pull request from their fork:
    ```bash
    git checkout dev
    git pull
@@ -40,6 +42,8 @@ pick an issue  ->  branch from dev  ->  small commits  ->  pull request into dev
 | `feat/*`, `fix/*`, ... | your work in progress |
 | `dev` | integration branch, deploys to **staging** |
 | `main` | **production**; only maintainers merge `dev` into `main` after testing on staging |
+
+`dev` and `main` are locked: nobody can push to them directly. Every change arrives through a pull request that passes CI and has one approving review. Only maintainers can merge into `main`.
 
 ## 3. Rules that keep the app safe
 

@@ -6,7 +6,7 @@ Single consolidated app for Felege Yordanos Sunday School (Songbook, Attendance,
 
 ## Owner
 
-Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School. Email: leykungizaw@gmail.com
+Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 
 ## Tech Stack
 
