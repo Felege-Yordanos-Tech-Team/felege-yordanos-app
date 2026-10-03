@@ -8,8 +8,8 @@ import { formatShortDate } from '@/lib/format';
 export interface PickerEvent {
   id: string;
   title: string;
-  event_date: string;
-  start_time: string | null;
+  eventDate: string;
+  startTime: string | null;
 }
 
 interface CheckInEventPickerProps {
@@ -42,8 +42,8 @@ export function CheckInEventPicker({
     return events.filter(
       (e) =>
         e.title.toLowerCase().includes(q) ||
-        e.event_date.includes(q) ||
-        formatShortDate(e.event_date).toLowerCase().includes(q),
+        e.eventDate.includes(q) ||
+        formatShortDate(e.eventDate).toLowerCase().includes(q),
     );
   }, [events, query]);
 
@@ -75,13 +75,13 @@ export function CheckInEventPicker({
                   }`}
                 >
                   {e.title}
-                  {e.start_time && (
+                  {e.startTime && (
                     <span
                       className={`font-mono text-[10px] ${
                         active ? 'opacity-80' : 'text-muted-foreground'
                       }`}
                     >
-                      {fmtTime(e.start_time)}
+                      {fmtTime(e.startTime)}
                     </span>
                   )}
                 </button>
@@ -110,7 +110,7 @@ export function CheckInEventPicker({
                     {selected.title}
                   </span>
                   <span className="shrink-0 font-mono text-[11px] text-muted-foreground">
-                    {formatShortDate(selected.event_date)}
+                    {formatShortDate(selected.eventDate)}
                   </span>
                 </span>
               ) : (
@@ -158,8 +158,8 @@ export function CheckInEventPicker({
                               {e.title}
                             </span>
                             <span className="font-mono text-[10.5px] text-muted-foreground">
-                              {formatShortDate(e.event_date)}
-                              {e.start_time ? ` · ${fmtTime(e.start_time)}` : ''}
+                              {formatShortDate(e.eventDate)}
+                              {e.startTime ? ` · ${fmtTime(e.startTime)}` : ''}
                             </span>
                           </span>
                           {active && (

@@ -37,7 +37,7 @@ export default function DashboardLoading() {
           {/* Hero band — full width */}
           <Skeleton className="h-[132px] w-full rounded-[20px]" />
 
-          <div className="mt-4 grid grid-cols-[1.65fr_1fr] items-start gap-4">
+          <div className="mt-4 grid grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] items-start gap-4">
             {/* Left: event feed card */}
             <div className="rounded-2xl border border-border bg-card p-5">
                 <Skeleton className="mb-1 h-3 w-28" />

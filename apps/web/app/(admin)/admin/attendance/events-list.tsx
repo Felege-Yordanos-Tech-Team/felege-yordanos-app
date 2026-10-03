@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Database, UserRole, Department } from '@felege-yordanos/db';
+import type { departments, events, Role } from '@felege-yordanos/db/schema';
 import {
   ArrowLeft,
   BookOpen,
@@ -17,26 +17,48 @@ import {
   Users,
 } from 'lucide-react';
 import { formatShortDate } from '@/lib/format';
-import { deptColor, RECURRENCE_LABELS, todayYmd, type Recurrence } from '@/lib/events';
+import {
+  deptColor,
+  RECURRENCE_LABELS,
+  todayYmd,
+  type Recurrence,
+} from '@/lib/events';
 import { EventFormDialog } from './event-form-dialog';
 import { EventsCalendar } from './events-calendar';
 
-type EventRow = Database['public']['Tables']['events']['Row'];
+type EventRow = typeof events.$inferSelect;
+type Department = typeof departments.$inferSelect;
 
 interface EventsListProps {
   events: EventRow[];
   departments: Department[];
   attendanceCounts: Record<string, number>;
   attendedIds: string[];
-  userRole: UserRole;
+  userRole: Role;
   userDeptId: number | null;
-  userId: string;
 }
 
 type View = 'list' | 'calendar';
-type DialogState = { mode: 'create' | 'edit'; event: EventRow | null; date?: string };
+type DialogState = {
+  mode: 'create' | 'edit';
+  event: EventRow | null;
+  date?: string;
+};
 
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const MONTH_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+];
 
 function splitDate(d: string): { day: string; month: string } {
   const date = new Date(d);
@@ -102,7 +124,6 @@ export function EventsList({
   attendedIds,
   userRole,
   userDeptId,
-  userId,
 }: EventsListProps) {
   const router = useRouter();
   const [view, setView] = useState<View>('list');
@@ -111,22 +132,23 @@ export function EventsList({
   const today = todayYmd();
   const attendedSet = useMemo(() => new Set(attendedIds), [attendedIds]);
 
-  const upcoming = events.filter((e) => e.event_date >= today);
-  const past = events.filter((e) => e.event_date < today);
+  const upcoming = events.filter((e) => e.eventDate >= today);
+  const past = events.filter((e) => e.eventDate < today);
 
   const seriesEvents = useMemo(() => {
-    const g = dialog?.event?.recurrence_group;
+    const g = dialog?.event?.recurrenceGroup;
     if (!g) return dialog?.event ? [dialog.event] : [];
-    return events.filter((e) => e.recurrence_group === g);
+    return events.filter((e) => e.recurrenceGroup === g);
   }, [dialog, events]);
 
   function deptName(id: number | null): string {
     if (!id) return 'General';
-    return departments.find((d) => d.id === id)?.name_am ?? 'Unknown';
+    return departments.find((d) => d.id === id)?.nameAm ?? 'Unknown';
   }
   const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '—');
 
-  const openCreate = (date?: string) => setDialog({ mode: 'create', event: null, date });
+  const openCreate = (date?: string) =>
+    setDialog({ mode: 'create', event: null, date });
   const openEdit = (event: EventRow) => setDialog({ mode: 'edit', event });
 
   const titleBlock = (
@@ -200,12 +222,15 @@ export function EventsList({
                   </div>
                   <div className="flex flex-col gap-1.5">
                     {upcoming.map((event) => {
-                      const { day, month } = splitDate(event.event_date);
+                      const { day, month } = splitDate(event.eventDate);
                       return (
                         <div
                           key={event.id}
                           className="relative flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 pl-[18px]"
-                          style={{ borderLeftColor: deptColor(event.department_id), borderLeftWidth: 3 }}
+                          style={{
+                            borderLeftColor: deptColor(event.departmentId),
+                            borderLeftWidth: 3,
+                          }}
                         >
                           <div className="w-11 shrink-0 border-r border-border pr-2.5 text-center">
                             <div className="font-display text-lg font-medium leading-none tabular-nums text-burgundy dark:text-gold-light">
@@ -215,7 +240,10 @@ export function EventsList({
                               {month}
                             </div>
                           </div>
-                          <Link href={`/admin/attendance/${event.id}`} className="min-w-0 flex-1">
+                          <Link
+                            href={`/admin/attendance/${event.id}`}
+                            className="min-w-0 flex-1"
+                          >
                             <div className="flex items-center gap-1.5">
                               <span className="truncate font-display text-[17px] font-medium leading-tight text-burgundy-ink dark:text-cream">
                                 {event.title}
@@ -224,13 +252,13 @@ export function EventsList({
                             </div>
                             <div className="mt-0.5 flex items-center gap-1.5">
                               <span className="font-ethiopic text-[10px] text-gold-deep dark:text-gold">
-                                {deptName(event.department_id)}
+                                {deptName(event.departmentId)}
                               </span>
-                              {event.start_time && (
+                              {event.startTime && (
                                 <>
                                   <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
                                   <span className="font-mono text-[10px] text-muted-foreground">
-                                    {fmtTime(event.start_time)}
+                                    {fmtTime(event.startTime)}
                                   </span>
                                 </>
                               )}
@@ -280,7 +308,7 @@ export function EventsList({
                             <RecurBadge recurrence={event.recurrence} />
                           </div>
                           <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                            {event.event_date}
+                            {event.eventDate}
                           </div>
                         </div>
                         <span className="inline-flex items-center gap-1 rounded-md bg-gold/[0.14] px-2 py-1">
@@ -312,9 +340,24 @@ export function EventsList({
           {view === 'list' && (
             <div className="mt-6 grid grid-cols-3 gap-3">
               {[
-                { am: 'ሳምንታዊ ትምህርት', en: 'Weekly Lesson', Icon: BookOpen, recur: 'Weekly' },
-                { am: 'ወርሃዊ ስብሰባ', en: 'Monthly Meeting', Icon: Users, recur: 'Monthly' },
-                { am: 'የሰንበት አገልግሎት', en: 'Sunday Service', Icon: Church, recur: 'Weekly' },
+                {
+                  am: 'ሳምንታዊ ትምህርት',
+                  en: 'Weekly Lesson',
+                  Icon: BookOpen,
+                  recur: 'Weekly',
+                },
+                {
+                  am: 'ወርሃዊ ስብሰባ',
+                  en: 'Monthly Meeting',
+                  Icon: Users,
+                  recur: 'Monthly',
+                },
+                {
+                  am: 'የሰንበት አገልግሎት',
+                  en: 'Sunday Service',
+                  Icon: Church,
+                  recur: 'Weekly',
+                },
               ].map((t) => (
                 <button
                   key={t.en}
@@ -323,11 +366,18 @@ export function EventsList({
                   className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-dashed border-parchment-edge bg-card px-3.5 py-3 text-left transition-colors hover:bg-card/70 dark:border-ink-muted/40"
                 >
                   <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-burgundy/[0.08] dark:bg-gold/[0.12]">
-                    <t.Icon className="h-4 w-4 text-burgundy dark:text-gold" strokeWidth={1.75} />
+                    <t.Icon
+                      className="h-4 w-4 text-burgundy dark:text-gold"
+                      strokeWidth={1.75}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold text-burgundy-ink dark:text-cream">{t.en}</div>
-                    <div className="font-ethiopic text-[10.5px] text-gold-deep dark:text-gold">{t.am}</div>
+                    <div className="text-[12.5px] font-semibold text-burgundy-ink dark:text-cream">
+                      {t.en}
+                    </div>
+                    <div className="font-ethiopic text-[10.5px] text-gold-deep dark:text-gold">
+                      {t.am}
+                    </div>
                   </div>
                   <span className="inline-flex items-center gap-1 rounded-full bg-gold/[0.14] px-2 py-[3px] text-[9.5px] font-semibold text-gold-deep dark:text-gold">
                     <Repeat className="h-[9px] w-[9px]" />
@@ -368,20 +418,26 @@ export function EventsList({
                   </thead>
                   <tbody>
                     {[...upcoming, ...past].map((event, i, arr) => {
-                      const isUpcoming = event.event_date >= today;
+                      const isUpcoming = event.eventDate >= today;
                       return (
                         <tr
                           key={event.id}
-                          onClick={() => router.push(`/admin/attendance/${event.id}`)}
+                          onClick={() =>
+                            router.push(`/admin/attendance/${event.id}`)
+                          }
                           className={`group cursor-pointer transition-colors hover:bg-parchment/40 dark:hover:bg-card/60 ${
-                            i < arr.length - 1 ? 'border-b border-border/60' : ''
+                            i < arr.length - 1
+                              ? 'border-b border-border/60'
+                              : ''
                           }`}
                         >
                           <td className="px-5 py-3.5">
                             <div className="flex items-center gap-2">
                               <span
                                 className="h-6 w-1 shrink-0 rounded-full"
-                                style={{ background: deptColor(event.department_id) }}
+                                style={{
+                                  background: deptColor(event.departmentId),
+                                }}
                               />
                               <span className="font-display text-[15px] font-medium text-burgundy-ink dark:text-cream">
                                 {event.title}
@@ -390,13 +446,13 @@ export function EventsList({
                             </div>
                           </td>
                           <td className="px-3 py-3.5 font-ethiopic text-[13px] text-muted-foreground">
-                            {deptName(event.department_id)}
+                            {deptName(event.departmentId)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3.5 font-mono text-[13px] text-foreground">
-                            {formatShortDate(event.event_date)}
+                            {formatShortDate(event.eventDate)}
                           </td>
                           <td className="whitespace-nowrap px-3 py-3.5 font-mono text-[13px] text-muted-foreground">
-                            {fmtTime(event.start_time)}
+                            {fmtTime(event.startTime)}
                           </td>
                           <td className="px-3 py-3.5">
                             {isUpcoming ? (
@@ -409,7 +465,9 @@ export function EventsList({
                                 <span className="font-mono font-semibold text-status-present">
                                   {attendanceCounts[event.id] ?? 0}
                                 </span>{' '}
-                                <span className="text-muted-foreground">present</span>
+                                <span className="text-muted-foreground">
+                                  present
+                                </span>
                               </span>
                             )}
                           </td>
@@ -443,7 +501,11 @@ export function EventsList({
       {/* ───────────── CALENDAR (self-responsive) ───────────── */}
       {view === 'calendar' && (
         <div className="mx-auto w-full px-[22px] pb-8 md:max-w-[1180px] md:px-8 md:pb-10">
-          <EventsCalendar events={events} onSelectEvent={openEdit} onCreateAt={openCreate} />
+          <EventsCalendar
+            events={events}
+            onSelectEvent={openEdit}
+            onCreateAt={openCreate}
+          />
         </div>
       )}
 
@@ -457,7 +519,6 @@ export function EventsList({
         departments={departments}
         userRole={userRole}
         userDeptId={userDeptId}
-        userId={userId}
         seriesEvents={seriesEvents}
         attendedIds={attendedSet}
       />

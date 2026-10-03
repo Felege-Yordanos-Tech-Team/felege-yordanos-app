@@ -5,10 +5,8 @@
  * Tables: libs/db/src/schema/auth.ts
  */
 import 'server-only';
-import bcrypt from 'bcryptjs';
 import { betterAuth } from 'better-auth';
 import { drizzleAdapter } from 'better-auth/adapters/drizzle';
-import { hashPassword, verifyPassword } from 'better-auth/crypto';
 import { nextCookies } from 'better-auth/next-js';
 import {
   authAccounts,
@@ -38,15 +36,6 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
-    password: {
-      hash: hashPassword,
-      // Users migrated from Supabase have bcrypt hashes ($2a$/$2b$).
-      // They keep working; new or reset passwords use scrypt.
-      verify: async ({ hash, password }) =>
-        hash.startsWith('$2')
-          ? bcrypt.compare(password, hash)
-          : verifyPassword({ hash, password }),
-    },
     resetPasswordTokenExpiresIn: 60 * 60,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {

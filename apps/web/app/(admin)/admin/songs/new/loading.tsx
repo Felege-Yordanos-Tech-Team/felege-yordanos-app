@@ -16,7 +16,10 @@ export default function NewSongLoading() {
       {/* Form */}
       <div className="space-y-3.5">
         {/* Number + Category */}
-        <div className="grid gap-2.5" style={{ gridTemplateColumns: '100px 1fr' }}>
+        <div
+          className="grid gap-2.5"
+          style={{ gridTemplateColumns: '100px 1fr' }}
+        >
           <div className="space-y-1.5">
             <Skeleton className="h-3 w-14" />
             <Skeleton className="h-10 w-full rounded-[10px]" />

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import type { Database } from '@felege-yordanos/db';
+import type { events } from '@felege-yordanos/db/schema';
 import { ChevronLeft, ChevronRight, Plus, Repeat } from 'lucide-react';
 import {
   MONTH_AM,
@@ -12,12 +12,22 @@ import {
   todayYmd,
 } from '@/lib/events';
 
-type EventRow = Database['public']['Tables']['events']['Row'];
+type EventRow = typeof events.$inferSelect;
 
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ];
 
 interface EventsCalendarProps {
@@ -30,7 +40,11 @@ function timeLabel(t: string | null): string {
   return t ? t.slice(0, 5) : '';
 }
 
-export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCalendarProps) {
+export function EventsCalendar({
+  events,
+  onSelectEvent,
+  onCreateAt,
+}: EventsCalendarProps) {
   const today = todayYmd();
   const initial = parseYmd(today);
   const [year, setYear] = useState(initial.getFullYear());
@@ -41,12 +55,12 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
   const byDate = useMemo(() => {
     const map = new Map<string, EventRow[]>();
     for (const e of events) {
-      const arr = map.get(e.event_date) ?? [];
+      const arr = map.get(e.eventDate) ?? [];
       arr.push(e);
-      map.set(e.event_date, arr);
+      map.set(e.eventDate, arr);
     }
     for (const arr of map.values()) {
-      arr.sort((a, b) => (a.start_time ?? '').localeCompare(b.start_time ?? ''));
+      arr.sort((a, b) => (a.startTime ?? '').localeCompare(b.startTime ?? ''));
     }
     return map;
   }, [events]);
@@ -59,7 +73,7 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
     for (const [date, evs] of byDate) {
       const d = parseYmd(date);
       if (d.getFullYear() === year && d.getMonth() === month) {
-        for (const e of evs) ids.add(e.department_id);
+        for (const e of evs) ids.add(e.departmentId);
       }
     }
     return [...ids];
@@ -161,7 +175,7 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
               const isToday = date === today;
               const isSelected = date === selected;
               const dayNum = parseYmd(date).getDate();
-              const hasRecur = evs.some((e) => e.recurrence_group);
+              const hasRecur = evs.some((e) => e.recurrenceGroup);
               return (
                 <button
                   key={i}
@@ -185,7 +199,7 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
                         <span
                           key={e.id}
                           className="h-1.5 w-1.5 rounded-full"
-                          style={{ background: deptColor(e.department_id) }}
+                          style={{ background: deptColor(e.departmentId) }}
                         />
                       ))}
                       {hasRecur && (
@@ -229,21 +243,24 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
                 key={e.id}
                 onClick={() => onSelectEvent(e)}
                 className="flex w-full items-center gap-2.5 rounded-xl border border-border bg-background px-3 py-2.5 text-left"
-                style={{ borderLeftColor: deptColor(e.department_id), borderLeftWidth: 3 }}
+                style={{
+                  borderLeftColor: deptColor(e.departmentId),
+                  borderLeftWidth: 3,
+                }}
               >
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-1.5">
                     <span className="truncate font-display text-[15px] font-medium text-burgundy-ink dark:text-cream">
                       {e.title}
                     </span>
-                    {e.recurrence_group && (
+                    {e.recurrenceGroup && (
                       <Repeat className="h-3 w-3 shrink-0 text-gold-deep dark:text-gold" />
                     )}
                   </div>
-                  {(e.start_time || e.end_time) && (
+                  {(e.startTime || e.endTime) && (
                     <div className="mt-0.5 font-mono text-[10.5px] text-muted-foreground">
-                      {timeLabel(e.start_time)}
-                      {e.end_time ? ` – ${timeLabel(e.end_time)}` : ''}
+                      {timeLabel(e.startTime)}
+                      {e.endTime ? ` – ${timeLabel(e.endTime)}` : ''}
                     </div>
                   )}
                 </div>
@@ -267,7 +284,8 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
               </span>
             ))}
             <span className="flex items-center gap-1 text-[11px] text-muted-foreground">
-              <Repeat className="h-3 w-3 text-gold-deep dark:text-gold" /> recurring
+              <Repeat className="h-3 w-3 text-gold-deep dark:text-gold" />{' '}
+              recurring
             </span>
           </div>
         )}
@@ -361,20 +379,20 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
                         onClick={() => onSelectEvent(e)}
                         className="block w-full rounded-[5px] bg-background px-1.5 py-1 text-left transition-colors hover:brightness-95"
                         style={{
-                          borderLeft: `3px solid ${deptColor(e.department_id)}`,
+                          borderLeft: `3px solid ${deptColor(e.departmentId)}`,
                         }}
                       >
                         <div className="flex items-center gap-1">
-                          {e.recurrence_group && (
+                          {e.recurrenceGroup && (
                             <Repeat className="h-2.5 w-2.5 shrink-0 text-gold-deep dark:text-gold" />
                           )}
                           <span className="truncate text-[11px] font-medium leading-tight text-burgundy-ink dark:text-cream">
                             {e.title}
                           </span>
                         </div>
-                        {e.start_time && (
+                        {e.startTime && (
                           <div className="font-mono text-[9px] text-muted-foreground">
-                            {timeLabel(e.start_time)}
+                            {timeLabel(e.startTime)}
                           </div>
                         )}
                       </button>
@@ -394,7 +412,10 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
           {legend.length > 0 && (
             <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1.5">
               {legend.map((id) => (
-                <span key={id ?? 'general'} className="flex items-center gap-1.5">
+                <span
+                  key={id ?? 'general'}
+                  className="flex items-center gap-1.5"
+                >
                   <span
                     className="h-2 w-2 rounded-full"
                     style={{ background: deptColor(id) }}
@@ -405,7 +426,8 @@ export function EventsCalendar({ events, onSelectEvent, onCreateAt }: EventsCale
                 </span>
               ))}
               <span className="ml-auto flex items-center gap-1 text-[11px] text-muted-foreground">
-                <Repeat className="h-3 w-3 text-gold-deep dark:text-gold" /> recurring
+                <Repeat className="h-3 w-3 text-gold-deep dark:text-gold" />{' '}
+                recurring
               </span>
             </div>
           )}

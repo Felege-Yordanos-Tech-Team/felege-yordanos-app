@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { BadgeCheck, ArrowRight } from 'lucide-react';
+import type { DonationStatus } from '@felege-yordanos/db/schema';
 import { formatMoney, formatShortDate, paymentMethodLabel } from '@/lib/format';
 
 interface LastDonation {
   amount: number;
-  currency: string;
-  payment_method: string | null;
-  created_at: string;
-  status: 'pending' | 'verified' | 'rejected';
+  currency: string | null;
+  paymentMethod: string | null;
+  createdAt: Date | null;
+  status: DonationStatus;
 }
 
 interface MyGivingCardProps {
@@ -31,7 +32,9 @@ export function MyGivingCard({ total, currency, last }: MyGivingCardProps) {
         <span className="font-mono text-[28px] font-semibold tracking-tight text-burgundy dark:text-gold">
           {currency} {formatMoney(total)}
         </span>
-        <span className="text-xs text-muted-foreground">verified this year</span>
+        <span className="text-xs text-muted-foreground">
+          verified this year
+        </span>
       </div>
 
       {last ? (
@@ -43,9 +46,11 @@ export function MyGivingCard({ total, currency, last }: MyGivingCardProps) {
             </span>
             <span className="text-muted-foreground">
               {' · '}
-              {paymentMethodLabel(last.payment_method)}
+              {paymentMethodLabel(last.paymentMethod)}
               {' · '}
-              {formatShortDate(last.created_at)}
+              {last.createdAt
+                ? formatShortDate(last.createdAt.toISOString())
+                : ''}
             </span>
           </div>
           {last.status === 'verified' && (

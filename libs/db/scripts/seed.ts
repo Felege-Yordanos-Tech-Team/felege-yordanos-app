@@ -5,8 +5,8 @@
  *   pnpm db:seed
  */
 import './load-env';
-import bcrypt from 'bcryptjs';
-import { sql } from 'drizzle-orm';
+import { hashPassword } from 'better-auth/crypto';
+import { eq, sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import * as schema from '../src/schema';
@@ -38,54 +38,61 @@ const sampleMembers = [
   [10, 'FY-0010', 'ኤልሳቤጥ', 'ካሳ', 'ሴት'],
 ] as const;
 
-// One login per role. Password for all: see TEST_PASSWORD below.
-// Hashed with bcrypt, the same format Supabase uses, so the
-// Supabase-compatible password check is exercised in development.
+// One login per role, all with TEST_PASSWORD.
+// `member` links the login to a member record. member@ stays unlinked so
+// the /claim flow can be tested.
 const TEST_PASSWORD = 'password123';
 const testAccounts = [
   {
-    id: '00000000-0000-4000-8000-000000000001',
+    n: 1,
     email: 'member@felege.test',
     name: 'Test Member',
     role: 'member',
     departmentId: null,
+    member: null,
   },
   {
-    id: '00000000-0000-4000-8000-000000000002',
+    n: 2,
     email: 'songs.head@felege.test',
     name: 'Songs Dept Head',
     role: 'dept_head',
     departmentId: 6,
+    member: 2,
   },
   {
-    id: '00000000-0000-4000-8000-000000000003',
+    n: 3,
     email: 'budget.head@felege.test',
     name: 'Budget Dept Head',
     role: 'dept_head',
     departmentId: 9,
+    member: 3,
   },
   {
-    id: '00000000-0000-4000-8000-000000000004',
+    n: 4,
     email: 'events.head@felege.test',
     name: 'Programs Dept Head',
     role: 'dept_head',
     departmentId: 3,
+    member: 4,
   },
   {
-    id: '00000000-0000-4000-8000-000000000005',
+    n: 5,
     email: 'admin@felege.test',
     name: 'Test Admin',
     role: 'admin',
     departmentId: null,
+    member: 5,
   },
   {
-    id: '00000000-0000-4000-8000-000000000006',
+    n: 6,
     email: 'superadmin@felege.test',
     name: 'Test Super Admin',
     role: 'super_admin',
     departmentId: null,
+    member: null,
   },
 ] as const;
+const userId = (n: number) => `00000000-0000-4000-8000-00000000000${n}`;
 
 function isoDate(daysFromToday: number): string {
   const d = new Date();
@@ -98,7 +105,6 @@ async function main() {
     .insert(schema.departments)
     .values(seedDepartments)
     .onConflictDoNothing();
-
   await db
     .insert(schema.categories)
     .values(seedCategories)
@@ -118,52 +124,20 @@ async function main() {
     )
     .onConflictDoNothing();
 
-  const [{ count }] = await db
-    .select({ count: sql<number>`count(*)::int` })
-    .from(schema.events);
-  if (count === 0) {
-    await db.insert(schema.events).values([
-      {
-        title: 'የሰንበት ጉባኤ',
-        eventDate: isoDate(2),
-        startTime: '08:00',
-        endTime: '11:00',
-        departmentId: 3,
-      },
-      {
-        title: 'የመዝሙር ልምምድ',
-        eventDate: isoDate(4),
-        startTime: '16:00',
-        endTime: '18:00',
-        departmentId: 6,
-      },
-      {
-        title: 'የትምህርት ክፍለ ጊዜ',
-        eventDate: isoDate(-5),
-        startTime: '09:00',
-        endTime: '10:30',
-        departmentId: 2,
-      },
-    ]);
-  }
-
-  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
-  for (const account of testAccounts) {
+  // Logins (Better Auth tables) + profiles.
+  const passwordHash = await hashPassword(TEST_PASSWORD);
+  for (const a of testAccounts) {
+    const id = userId(a.n);
     await db
       .insert(schema.authUsers)
-      .values({
-        id: account.id,
-        email: account.email,
-        name: account.name,
-        emailVerified: true,
-      })
+      .values({ id, email: a.email, name: a.name, emailVerified: true })
       .onConflictDoNothing();
     await db
       .insert(schema.authAccounts)
       .values({
-        id: account.id,
-        userId: account.id,
-        accountId: account.id,
+        id,
+        userId: id,
+        accountId: id,
         providerId: 'credential',
         password: passwordHash,
       })
@@ -171,12 +145,99 @@ async function main() {
     await db
       .insert(schema.profiles)
       .values({
-        id: account.id,
-        role: account.role,
-        departmentId: account.departmentId,
-        displayName: account.name,
+        id,
+        role: a.role,
+        departmentId: a.departmentId,
+        displayName: a.name,
       })
       .onConflictDoNothing();
+    if (a.member) {
+      await db
+        .update(schema.members)
+        .set({ authUserId: id })
+        .where(eq(schema.members.id, a.member));
+    }
+  }
+
+  // Events, attendance and donations: only on a fresh database.
+  const [{ count }] = await db
+    .select({ count: sql<number>`count(*)::int` })
+    .from(schema.events);
+  if (count === 0) {
+    const [past, , rehearsal] = await db
+      .insert(schema.events)
+      .values([
+        {
+          title: 'የትምህርት ክፍለ ጊዜ',
+          eventDate: isoDate(-5),
+          startTime: '09:00',
+          endTime: '10:30',
+          departmentId: 2,
+          createdBy: userId(5),
+        },
+        {
+          title: 'የሰንበት ጉባኤ',
+          eventDate: isoDate(2),
+          startTime: '08:00',
+          endTime: '11:00',
+          departmentId: 3,
+          createdBy: userId(4),
+        },
+        {
+          title: 'የመዝሙር ልምምድ',
+          eventDate: isoDate(-2),
+          startTime: '16:00',
+          endTime: '18:00',
+          departmentId: 6,
+          createdBy: userId(2),
+        },
+      ])
+      .returning();
+
+    await db.insert(schema.attendance).values([
+      { eventId: past.id, memberId: 2, status: 'present', markedBy: userId(5) },
+      { eventId: past.id, memberId: 3, status: 'late', markedBy: userId(5) },
+      { eventId: past.id, memberId: 5, status: 'absent', markedBy: userId(5) },
+      {
+        eventId: rehearsal.id,
+        memberId: 2,
+        status: 'present',
+        markedBy: userId(2),
+      },
+      {
+        eventId: rehearsal.id,
+        memberId: 6,
+        status: 'present',
+        markedBy: userId(2),
+      },
+    ]);
+
+    await db.insert(schema.donations).values([
+      {
+        donorId: userId(1),
+        amount: '500.00',
+        paymentMethod: 'telebirr',
+        status: 'pending',
+        notes: 'ለአዳራሽ ግንባታ',
+      },
+      {
+        donorId: userId(2),
+        amount: '1000.00',
+        paymentMethod: 'bank_transfer',
+        status: 'verified',
+        verifiedBy: userId(3),
+        verifiedAt: new Date(),
+      },
+      {
+        donorId: userId(5),
+        amount: '250.00',
+        paymentMethod: 'cash',
+        status: 'rejected',
+        rejectionReason: 'Receipt is unreadable',
+        verifiedBy: userId(3),
+        verifiedAt: new Date(),
+      },
+    ]);
   }
 
   console.log('Seed complete.');

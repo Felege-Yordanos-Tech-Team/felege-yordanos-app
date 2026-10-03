@@ -3,8 +3,10 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
+import type {
+  categories as categoriesTable,
+  songs as songsTable,
+} from '@felege-yordanos/db/schema';
 import { Pencil, Plus, Search, Trash2, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
@@ -25,21 +27,33 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import {
+  createCategory,
+  deleteCategory,
+  deleteSong,
+  updateCategory,
+} from './actions';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Category = Database['public']['Tables']['categories']['Row'];
+type Song = typeof songsTable.$inferSelect;
+type Category = typeof categoriesTable.$inferSelect;
 
 interface SongsTableProps {
   songs: Song[];
   categories: Category[];
 }
 
-const FALLBACK_DOTS = ['#D4A843', '#6B1D2A', '#8B2F3F', '#4F7B3E', '#C97B1A', '#A47A18'];
+const FALLBACK_DOTS = [
+  '#D4A843',
+  '#6B1D2A',
+  '#8B2F3F',
+  '#4F7B3E',
+  '#C97B1A',
+  '#A47A18',
+];
 
 export function SongsTable({ songs, categories }: SongsTableProps) {
   const router = useRouter();
   const { toast } = useToast();
-  const supabase = createClient();
 
   const [search, setSearch] = useState('');
   const [filterCategory, setFilterCategory] = useState<string>('all');
@@ -79,19 +93,21 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
     const matchesSearch =
       !search ||
       song.title.toLowerCase().includes(search.toLowerCase()) ||
-      song.title_en?.toLowerCase().includes(search.toLowerCase()) ||
-      song.number.toString() === search;
-    const matchesCategory = filterCategory === 'all' || song.category === filterCategory;
+      song.titleEn?.toLowerCase().includes(search.toLowerCase()) ||
+      song.number?.toString() === search;
+    const matchesCategory =
+      filterCategory === 'all' || song.category === filterCategory;
     return matchesSearch && matchesCategory;
   });
 
   async function handleDeleteSong() {
     if (!deleteTarget) return;
     setDeleting(true);
-    const { error } = await supabase.from('songs').delete().eq('id', deleteTarget.id);
+    const res = await deleteSong(deleteTarget.id);
     setDeleting(false);
     setDeleteTarget(null);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok)
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     else {
       toast({ title: 'Song deleted' });
       router.refresh();
@@ -101,14 +117,14 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   async function handleAddCategory(e: React.FormEvent) {
     e.preventDefault();
     setSavingCat(true);
-    const { error } = await supabase.from('categories').insert({
+    const res = await createCategory({
       name: catName,
-      emoji: catEmoji || null,
-      color: catColor || null,
-      sort_order: categories.length + 1,
-    } as never);
+      emoji: catEmoji,
+      color: catColor,
+    });
     setSavingCat(false);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok)
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     else {
       toast({ title: 'Category added' });
       setCatName('');
@@ -122,10 +138,11 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
   async function handleDeleteCategory() {
     if (!deleteCatTarget) return;
     setDeletingCat(true);
-    const { error } = await supabase.from('categories').delete().eq('id', deleteCatTarget.id);
+    const res = await deleteCategory(deleteCatTarget.id);
     setDeletingCat(false);
     setDeleteCatTarget(null);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok)
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     else {
       toast({ title: 'Category deleted' });
       router.refresh();
@@ -143,16 +160,14 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
     e.preventDefault();
     if (!editCatTarget) return;
     setUpdatingCat(true);
-    const { error } = await supabase
-      .from('categories')
-      .update({
-        name: editCatName,
-        emoji: editCatEmoji || null,
-        color: editCatColor || null,
-      } as never)
-      .eq('id', editCatTarget.id);
+    const res = await updateCategory(editCatTarget.id, {
+      name: editCatName,
+      emoji: editCatEmoji,
+      color: editCatColor,
+    });
     setUpdatingCat(false);
-    if (error) toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok)
+      toast({ title: 'Error', description: res.error, variant: 'destructive' });
     else {
       toast({ title: 'Category updated' });
       setEditCatTarget(null);
@@ -162,284 +177,155 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
 
   return (
     <>
-    {/* ─── MOBILE (< md) — stacked ─── */}
-    <div className="mt-4 flex flex-col gap-4 md:hidden">
-      {/* Add song button */}
-      <div className="flex justify-end">
-        <Button
-          asChild
-          size="sm"
-          className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
-        >
-          <Link href="/admin/songs/new">
-            <Plus className="h-3.5 w-3.5 text-gold" />
-            <span>Song</span>
-          </Link>
-        </Button>
-      </div>
-
-      {/* Categories card */}
-      <section className="rounded-2xl border border-border bg-card px-4 py-3.5">
-        <div className="mb-2.5 flex items-center justify-between">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-            Categories
-          </div>
+      {/* ─── MOBILE (< md) — stacked ─── */}
+      <div className="mt-4 flex flex-col gap-4 md:hidden">
+        {/* Add song button */}
+        <div className="flex justify-end">
           <Button
-            variant="outline"
+            asChild
             size="sm"
-            onClick={() => setShowAddCategory(true)}
-            className="h-7 gap-1 rounded-lg border-border bg-card px-2.5 text-[11px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+            className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-3.5 py-1.5 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
           >
-            <Plus className="h-3 w-3" />
-            Add
+            <Link href="/admin/songs/new">
+              <Plus className="h-3.5 w-3.5 text-gold" />
+              <span>Song</span>
+            </Link>
           </Button>
         </div>
 
-        {categories.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No categories yet</p>
-        ) : (
-          <div className="flex flex-wrap gap-1.5">
-            {categories.map((cat) => (
-              <span
-                key={cat.id}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-gold/[0.10] py-1 pl-3 pr-1 text-[11px] text-foreground"
-              >
-                <span
-                  className="h-1.5 w-1.5 rounded-full"
-                  style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }}
-                />
-                <button
-                  type="button"
-                  onClick={() => openEditCategory(cat)}
-                  className="hover:underline"
-                >
-                  {cat.emoji ? <span className="mr-1">{cat.emoji}</span> : null}
-                  {cat.name}
-                </button>
-                <span className="rounded bg-background px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
-                  {songCountByCategory.get(cat.name) ?? 0}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setDeleteCatTarget(cat)}
-                  className="flex h-4 w-4 items-center justify-center rounded-full text-ink-faint hover:text-foreground"
-                  aria-label={`Delete ${cat.name}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
-      </section>
-
-      {/* Toolbar */}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-          <Input
-            placeholder="Search songs…"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            className="rounded-[10px] border border-border bg-card pl-[34px] text-[12.5px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
-          />
-        </div>
-        <Select value={filterCategory} onValueChange={setFilterCategory}>
-          <SelectTrigger className="h-10 w-[180px] rounded-[10px] border border-border bg-card text-[12.5px]">
-            <SelectValue placeholder="All categories" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All categories</SelectItem>
-            {categories.map((cat) => (
-              <SelectItem key={cat.id} value={cat.name}>
-                {cat.emoji ? `${cat.emoji} ` : ''}
-                {cat.name}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      </div>
-
-      {/* Songs table */}
-      <div className="overflow-hidden rounded-xl border border-border bg-card">
-        <div
-          className="grid items-center gap-2 border-b border-border bg-gold/[0.10] px-3.5 py-2.5 dark:bg-gold/[0.04]"
-          style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
-        >
-          {['#', 'Title', 'Category', ''].map((h, i) => (
-            <span
-              key={i}
-              className={`text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold ${
-                i === 3 ? 'text-right' : ''
-              }`}
-            >
-              {h}
-            </span>
-          ))}
-        </div>
-
-        {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">No songs found</p>
-        ) : (
-          filtered.map((song, i) => (
-            <div
-              key={song.id}
-              className={`grid items-center gap-2 px-3.5 py-2.5 ${
-                i < filtered.length - 1 ? 'border-b border-border' : ''
-              }`}
-              style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
-            >
-              <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
-                {String(song.number).padStart(2, '0')}
-              </span>
-              <div className="min-w-0">
-                <div className="truncate font-ethiopic text-sm font-semibold leading-tight text-burgundy-ink dark:text-cream">
-                  {song.title}
-                </div>
-                {song.title_en && (
-                  <div className="font-display text-[11px] italic text-muted-foreground">
-                    {song.title_en}
-                  </div>
-                )}
-              </div>
-              <span className="text-[9px] font-semibold uppercase tracking-[0.06em] text-gold-deep dark:text-gold">
-                {song.category}
-              </span>
-              <div className="flex justify-end gap-1">
-                <Button
-                  asChild
-                  variant="ghost"
-                  size="sm"
-                  className="h-[26px] w-[26px] rounded-md border border-border p-0 text-muted-foreground hover:text-foreground"
-                >
-                  <Link href={`/admin/songs/${song.id}/edit`} aria-label="Edit song">
-                    <Pencil className="h-3 w-3" />
-                  </Link>
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setDeleteTarget(song)}
-                  className="h-[26px] w-[26px] rounded-md border border-border p-0 text-status-absent hover:bg-status-absent-bg"
-                  aria-label="Delete song"
-                >
-                  <Trash2 className="h-3 w-3" />
-                </Button>
-              </div>
+        {/* Categories card */}
+        <section className="rounded-2xl border border-border bg-card px-4 py-3.5">
+          <div className="mb-2.5 flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
+              Categories
             </div>
-          ))
-        )}
-      </div>
-    </div>
-
-    {/* ─── DESKTOP (md+) — header + categories rail + table ─── */}
-    <div className="hidden md:block">
-      <div className="mb-4 flex items-end justify-between gap-4">
-        <div>
-          <div className="font-ethiopic text-xs text-gold-deep dark:text-gold">መዝሙር አስተዳደር</div>
-          <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
-            Songs &amp; categories
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {songs.length} songs across {categories.length} categories
-          </p>
-        </div>
-        <Button
-          asChild
-          className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-4 py-2 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
-        >
-          <Link href="/admin/songs/new">
-            <Plus className="h-4 w-4 text-gold" />
-            New song
-          </Link>
-        </Button>
-      </div>
-
-      <div className="grid grid-cols-[230px_1fr] items-start gap-4">
-        {/* Categories rail */}
-        <div className="rounded-2xl border border-border bg-card p-3.5 shadow-fy-sm">
-          <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-            Categories
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowAddCategory(true)}
+              className="h-7 gap-1 rounded-lg border-border bg-card px-2.5 text-[11px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+            >
+              <Plus className="h-3 w-3" />
+              Add
+            </Button>
           </div>
-          <button
-            type="button"
-            onClick={() => setFilterCategory('all')}
-            className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
-              filterCategory === 'all'
-                ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
-                : 'font-medium text-foreground hover:bg-card/80'
-            }`}
-          >
-            <span className="h-[7px] w-[7px] rounded-full bg-ink-faint" />
-            <span className="flex-1">All songs</span>
-            <span className="font-mono text-[10px] text-ink-faint">{songs.length}</span>
-          </button>
-          {categories.map((cat) => {
-            const active = filterCategory === cat.name;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => setFilterCategory(cat.name)}
-                className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
-                  active
-                    ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
-                    : 'font-medium text-foreground hover:bg-card/80'
-                }`}
-              >
-                <span className="h-[7px] w-[7px] rounded-full" style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }} />
-                <span className="flex-1 truncate">
+
+          {categories.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No categories yet</p>
+          ) : (
+            <div className="flex flex-wrap gap-1.5">
+              {categories.map((cat) => (
+                <span
+                  key={cat.id}
+                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-gold/[0.10] py-1 pl-3 pr-1 text-[11px] text-foreground"
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{
+                      background: colorByCategory.get(cat.name) ?? '#D4A843',
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => openEditCategory(cat)}
+                    className="hover:underline"
+                  >
+                    {cat.emoji ? (
+                      <span className="mr-1">{cat.emoji}</span>
+                    ) : null}
+                    {cat.name}
+                  </button>
+                  <span className="rounded bg-background px-1.5 py-0.5 font-mono text-[9px] font-medium text-muted-foreground">
+                    {songCountByCategory.get(cat.name) ?? 0}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setDeleteCatTarget(cat)}
+                    className="flex h-4 w-4 items-center justify-center rounded-full text-ink-faint hover:text-foreground"
+                    aria-label={`Delete ${cat.name}`}
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+        </section>
+
+        {/* Toolbar */}
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <Input
+              placeholder="Search songs…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="rounded-[10px] border border-border bg-card pl-[34px] text-[12.5px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
+            />
+          </div>
+          <Select value={filterCategory} onValueChange={setFilterCategory}>
+            <SelectTrigger className="h-10 w-[180px] rounded-[10px] border border-border bg-card text-[12.5px]">
+              <SelectValue placeholder="All categories" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
+              {categories.map((cat) => (
+                <SelectItem key={cat.id} value={cat.name}>
                   {cat.emoji ? `${cat.emoji} ` : ''}
                   {cat.name}
-                </span>
-                <span className="font-mono text-[10px] text-ink-faint">{songCountByCategory.get(cat.name) ?? 0}</span>
-              </button>
-            );
-          })}
-          <button
-            type="button"
-            onClick={() => setShowAddCategory(true)}
-            className="mt-1.5 flex w-full items-center gap-2 border-t border-border px-2.5 pt-2.5 text-[11.5px] font-semibold text-gold-deep dark:text-gold"
-          >
-            <Plus className="h-3 w-3" />
-            Add category
-          </button>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
 
         {/* Songs table */}
-        <div className="rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-          <div className="mb-3.5 flex w-[280px] items-center gap-2 rounded-[10px] border border-border bg-background px-[11px] py-2">
-            <Search className="h-3 w-3 shrink-0 text-ink-faint" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={`Search${filterCategory !== 'all' ? ` in ${filterCategory}` : ''}…`}
-              className="w-full bg-transparent text-[11.5px] text-foreground outline-none placeholder:text-ink-faint"
-            />
-          </div>
-          <div className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] gap-3 border-b border-parchment-edge px-1 pb-2.5 dark:border-ink-muted/40">
-            {['#', 'Title · Amharic', 'Title · English', 'Category', ''].map((h, i) => (
-              <span key={i} className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+        <div className="overflow-hidden rounded-xl border border-border bg-card">
+          <div
+            className="grid items-center gap-2 border-b border-border bg-gold/[0.10] px-3.5 py-2.5 dark:bg-gold/[0.04]"
+            style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
+          >
+            {['#', 'Title', 'Category', ''].map((h, i) => (
+              <span
+                key={i}
+                className={`text-[9px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold ${
+                  i === 3 ? 'text-right' : ''
+                }`}
+              >
                 {h}
               </span>
             ))}
           </div>
+
           {filtered.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">No songs found</p>
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No songs found
+            </p>
           ) : (
-            filtered.map((song) => (
+            filtered.map((song, i) => (
               <div
                 key={song.id}
-                className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] items-center gap-3 border-b border-border px-1 py-3 last:border-0"
+                className={`grid items-center gap-2 px-3.5 py-2.5 ${
+                  i < filtered.length - 1 ? 'border-b border-border' : ''
+                }`}
+                style={{ gridTemplateColumns: '40px 1fr 80px 72px' }}
               >
-                <span className="font-display text-[15px] font-semibold text-burgundy dark:text-gold">
-                  {String(song.number).padStart(2, '0')}
+                <span className="font-mono text-[11px] font-semibold tabular-nums text-muted-foreground">
+                  {song.number != null
+                    ? String(song.number).padStart(2, '0')
+                    : ''}
                 </span>
-                <span className="truncate font-ethiopic text-[13.5px] font-semibold text-burgundy-ink dark:text-cream">
-                  {song.title}
-                </span>
-                <span className="truncate font-display text-[13px] italic text-muted-foreground">{song.title_en}</span>
-                <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-gold-deep dark:text-gold">
+                <div className="min-w-0">
+                  <div className="truncate font-ethiopic text-sm font-semibold leading-tight text-burgundy-ink dark:text-cream">
+                    {song.title}
+                  </div>
+                  {song.titleEn && (
+                    <div className="font-display text-[11px] italic text-muted-foreground">
+                      {song.titleEn}
+                    </div>
+                  )}
+                </div>
+                <span className="text-[9px] font-semibold uppercase tracking-[0.06em] text-gold-deep dark:text-gold">
                   {song.category}
                 </span>
                 <div className="flex justify-end gap-1">
@@ -449,7 +335,10 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
                     size="sm"
                     className="h-[26px] w-[26px] rounded-md border border-border p-0 text-muted-foreground hover:text-foreground"
                   >
-                    <Link href={`/admin/songs/${song.id}/edit`} aria-label="Edit song">
+                    <Link
+                      href={`/admin/songs/${song.id}/edit`}
+                      aria-label="Edit song"
+                    >
                       <Pencil className="h-3 w-3" />
                     </Link>
                   </Button>
@@ -468,22 +357,194 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
           )}
         </div>
       </div>
-    </div>
+
+      {/* ─── DESKTOP (md+) — header + categories rail + table ─── */}
+      <div className="hidden md:block">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <div className="font-ethiopic text-xs text-gold-deep dark:text-gold">
+              መዝሙር አስተዳደር
+            </div>
+            <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
+              Songs &amp; categories
+            </h1>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {songs.length} songs across {categories.length} categories
+            </p>
+          </div>
+          <Button
+            asChild
+            className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-4 py-2 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
+          >
+            <Link href="/admin/songs/new">
+              <Plus className="h-4 w-4 text-gold" />
+              New song
+            </Link>
+          </Button>
+        </div>
+
+        <div className="grid grid-cols-[230px_1fr] items-start gap-4">
+          {/* Categories rail */}
+          <div className="rounded-2xl border border-border bg-card p-3.5 shadow-fy-sm">
+            <div className="px-2 pb-2 pt-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
+              Categories
+            </div>
+            <button
+              type="button"
+              onClick={() => setFilterCategory('all')}
+              className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
+                filterCategory === 'all'
+                  ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
+                  : 'font-medium text-foreground hover:bg-card/80'
+              }`}
+            >
+              <span className="h-[7px] w-[7px] rounded-full bg-ink-faint" />
+              <span className="flex-1">All songs</span>
+              <span className="font-mono text-[10px] text-ink-faint">
+                {songs.length}
+              </span>
+            </button>
+            {categories.map((cat) => {
+              const active = filterCategory === cat.name;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => setFilterCategory(cat.name)}
+                  className={`mb-0.5 flex w-full items-center gap-2.5 rounded-[9px] px-2.5 py-2 text-left text-[12.5px] ${
+                    active
+                      ? 'bg-burgundy/[0.07] font-semibold text-burgundy dark:bg-gold/[0.12] dark:text-gold'
+                      : 'font-medium text-foreground hover:bg-card/80'
+                  }`}
+                >
+                  <span
+                    className="h-[7px] w-[7px] rounded-full"
+                    style={{
+                      background: colorByCategory.get(cat.name) ?? '#D4A843',
+                    }}
+                  />
+                  <span className="flex-1 truncate">
+                    {cat.emoji ? `${cat.emoji} ` : ''}
+                    {cat.name}
+                  </span>
+                  <span className="font-mono text-[10px] text-ink-faint">
+                    {songCountByCategory.get(cat.name) ?? 0}
+                  </span>
+                </button>
+              );
+            })}
+            <button
+              type="button"
+              onClick={() => setShowAddCategory(true)}
+              className="mt-1.5 flex w-full items-center gap-2 border-t border-border px-2.5 pt-2.5 text-[11.5px] font-semibold text-gold-deep dark:text-gold"
+            >
+              <Plus className="h-3 w-3" />
+              Add category
+            </button>
+          </div>
+
+          {/* Songs table */}
+          <div className="rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
+            <div className="mb-3.5 flex w-[280px] items-center gap-2 rounded-[10px] border border-border bg-background px-[11px] py-2">
+              <Search className="h-3 w-3 shrink-0 text-ink-faint" />
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={`Search${filterCategory !== 'all' ? ` in ${filterCategory}` : ''}…`}
+                className="w-full bg-transparent text-[11.5px] text-foreground outline-none placeholder:text-ink-faint"
+              />
+            </div>
+            <div className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] gap-3 border-b border-parchment-edge px-1 pb-2.5 dark:border-ink-muted/40">
+              {['#', 'Title · Amharic', 'Title · English', 'Category', ''].map(
+                (h, i) => (
+                  <span
+                    key={i}
+                    className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                  >
+                    {h}
+                  </span>
+                ),
+              )}
+            </div>
+            {filtered.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                No songs found
+              </p>
+            ) : (
+              filtered.map((song) => (
+                <div
+                  key={song.id}
+                  className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] items-center gap-3 border-b border-border px-1 py-3 last:border-0"
+                >
+                  <span className="font-display text-[15px] font-semibold text-burgundy dark:text-gold">
+                    {song.number != null
+                      ? String(song.number).padStart(2, '0')
+                      : ''}
+                  </span>
+                  <span className="truncate font-ethiopic text-[13.5px] font-semibold text-burgundy-ink dark:text-cream">
+                    {song.title}
+                  </span>
+                  <span className="truncate font-display text-[13px] italic text-muted-foreground">
+                    {song.titleEn}
+                  </span>
+                  <span className="text-[9.5px] font-semibold uppercase tracking-[0.1em] text-gold-deep dark:text-gold">
+                    {song.category}
+                  </span>
+                  <div className="flex justify-end gap-1">
+                    <Button
+                      asChild
+                      variant="ghost"
+                      size="sm"
+                      className="h-[26px] w-[26px] rounded-md border border-border p-0 text-muted-foreground hover:text-foreground"
+                    >
+                      <Link
+                        href={`/admin/songs/${song.id}/edit`}
+                        aria-label="Edit song"
+                      >
+                        <Pencil className="h-3 w-3" />
+                      </Link>
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setDeleteTarget(song)}
+                      className="h-[26px] w-[26px] rounded-md border border-border p-0 text-status-absent hover:bg-status-absent-bg"
+                      aria-label="Delete song"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* Delete Song Dialog */}
-      <Dialog open={!!deleteTarget} onOpenChange={(open) => !open && setDeleteTarget(null)}>
+      <Dialog
+        open={!!deleteTarget}
+        onOpenChange={(open) => !open && setDeleteTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Delete song</DialogTitle>
+            <DialogTitle className="font-display text-xl">
+              Delete song
+            </DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete &ldquo;{deleteTarget?.title}&rdquo;? This cannot be undone.
+              Are you sure you want to delete &ldquo;{deleteTarget?.title}
+              &rdquo;? This cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteSong} disabled={deleting}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteSong}
+              disabled={deleting}
+            >
               {deleting ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
@@ -491,19 +552,29 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
       </Dialog>
 
       {/* Delete Category Dialog */}
-      <Dialog open={!!deleteCatTarget} onOpenChange={(open) => !open && setDeleteCatTarget(null)}>
+      <Dialog
+        open={!!deleteCatTarget}
+        onOpenChange={(open) => !open && setDeleteCatTarget(null)}
+      >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Delete category</DialogTitle>
+            <DialogTitle className="font-display text-xl">
+              Delete category
+            </DialogTitle>
             <DialogDescription>
-              Delete &ldquo;{deleteCatTarget?.name}&rdquo;? Songs using this category may be affected.
+              Delete &ldquo;{deleteCatTarget?.name}&rdquo;? Songs using this
+              category may be affected.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
             <Button variant="outline" onClick={() => setDeleteCatTarget(null)}>
               Cancel
             </Button>
-            <Button variant="destructive" onClick={handleDeleteCategory} disabled={deletingCat}>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteCategory}
+              disabled={deletingCat}
+            >
               {deletingCat ? 'Deleting…' : 'Delete'}
             </Button>
           </DialogFooter>
@@ -515,33 +586,64 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
         <DialogContent>
           <form onSubmit={handleAddCategory}>
             <DialogHeader>
-              <DialogTitle className="font-display text-xl">Add category</DialogTitle>
+              <DialogTitle className="font-display text-xl">
+                Add category
+              </DialogTitle>
               <DialogDescription>Create a new song category.</DialogDescription>
             </DialogHeader>
             <div className="space-y-3.5 py-4">
               <div className="space-y-1.5">
-                <Label htmlFor="catName" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                <Label
+                  htmlFor="catName"
+                  className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                >
                   Name
                 </Label>
-                <Input id="catName" required value={catName} onChange={(e) => setCatName(e.target.value)} placeholder="ምስጋና" />
+                <Input
+                  id="catName"
+                  required
+                  value={catName}
+                  onChange={(e) => setCatName(e.target.value)}
+                  placeholder="ምስጋና"
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="catEmoji" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  <Label
+                    htmlFor="catEmoji"
+                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                  >
                     Emoji
                   </Label>
-                  <Input id="catEmoji" value={catEmoji} onChange={(e) => setCatEmoji(e.target.value)} placeholder="🙏" />
+                  <Input
+                    id="catEmoji"
+                    value={catEmoji}
+                    onChange={(e) => setCatEmoji(e.target.value)}
+                    placeholder="🙏"
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="catColor" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  <Label
+                    htmlFor="catColor"
+                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                  >
                     Color
                   </Label>
-                  <Input id="catColor" value={catColor} onChange={(e) => setCatColor(e.target.value)} placeholder="#D4A843" />
+                  <Input
+                    id="catColor"
+                    value={catColor}
+                    onChange={(e) => setCatColor(e.target.value)}
+                    placeholder="#D4A843"
+                  />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowAddCategory(false)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setShowAddCategory(false)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={savingCat}>
@@ -553,37 +655,70 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
       </Dialog>
 
       {/* Edit Category Dialog */}
-      <Dialog open={!!editCatTarget} onOpenChange={(open) => !open && setEditCatTarget(null)}>
+      <Dialog
+        open={!!editCatTarget}
+        onOpenChange={(open) => !open && setEditCatTarget(null)}
+      >
         <DialogContent>
           <form onSubmit={handleUpdateCategory}>
             <DialogHeader>
-              <DialogTitle className="font-display text-xl">Edit category</DialogTitle>
-              <DialogDescription>Update the category details.</DialogDescription>
+              <DialogTitle className="font-display text-xl">
+                Edit category
+              </DialogTitle>
+              <DialogDescription>
+                Update the category details.
+              </DialogDescription>
             </DialogHeader>
             <div className="space-y-3.5 py-4">
               <div className="space-y-1.5">
-                <Label htmlFor="editCatName" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                <Label
+                  htmlFor="editCatName"
+                  className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                >
                   Name
                 </Label>
-                <Input id="editCatName" required value={editCatName} onChange={(e) => setEditCatName(e.target.value)} />
+                <Input
+                  id="editCatName"
+                  required
+                  value={editCatName}
+                  onChange={(e) => setEditCatName(e.target.value)}
+                />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="editCatEmoji" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  <Label
+                    htmlFor="editCatEmoji"
+                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                  >
                     Emoji
                   </Label>
-                  <Input id="editCatEmoji" value={editCatEmoji} onChange={(e) => setEditCatEmoji(e.target.value)} />
+                  <Input
+                    id="editCatEmoji"
+                    value={editCatEmoji}
+                    onChange={(e) => setEditCatEmoji(e.target.value)}
+                  />
                 </div>
                 <div className="space-y-1.5">
-                  <Label htmlFor="editCatColor" className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
+                  <Label
+                    htmlFor="editCatColor"
+                    className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+                  >
                     Color
                   </Label>
-                  <Input id="editCatColor" value={editCatColor} onChange={(e) => setEditCatColor(e.target.value)} />
+                  <Input
+                    id="editCatColor"
+                    value={editCatColor}
+                    onChange={(e) => setEditCatColor(e.target.value)}
+                  />
                 </div>
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setEditCatTarget(null)}>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditCatTarget(null)}
+              >
                 Cancel
               </Button>
               <Button type="submit" disabled={updatingCat}>

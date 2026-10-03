@@ -1,6 +1,6 @@
 /**
  * Development seed data. Safe to commit: contains no real member data.
- * Departments, categories and songs come from supabase/migrations 003 and 005.
+ * Departments, categories and songs come from the original Supabase seed migrations.
  */
 export const seedDepartments = [
   {

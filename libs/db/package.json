@@ -35,6 +35,6 @@
     "db:seed": "tsx scripts/seed.ts"
   },
   "devDependencies": {
-    "bcryptjs": "^3.0.3"
+    "better-auth": "1.7.7"
   }
 }

@@ -12,8 +12,8 @@
  * - profiles.id and members.auth_user_id reference auth_users (Better Auth)
  *   instead of Supabase's auth.users. Constraint names are unchanged.
  *
- * Note: the repo's supabase/migrations folder does NOT match production and
- * must not be used as a reference.
+ * Note: the old supabase/migrations folder (now removed) did not match
+ * production; this file is the reference.
  */
 import { sql } from 'drizzle-orm';
 import {

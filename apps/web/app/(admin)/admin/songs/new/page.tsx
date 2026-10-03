@@ -1,6 +1,19 @@
-import { NotMigrated } from '@/components/not-migrated';
+import { redirect } from 'next/navigation';
+import { asc } from 'drizzle-orm';
+import { categories, db } from '@felege-yordanos/db/server';
+import { canManageSongs } from '@/lib/permissions';
+import { requireUser } from '@/lib/session';
+import { SongForm } from '../song-form';
 
-// Not yet moved off Supabase. Old version: ./page.legacy.tsx
-export default function Page() {
-  return <NotMigrated feature="New song" legacyFile="app/(admin)/admin/songs/new/page.legacy.tsx" />;
+export default async function NewSongPage() {
+  const user = await requireUser();
+  // Same as before: /admin/songs shows the access-denied message.
+  if (!canManageSongs(user)) redirect('/admin/songs');
+
+  const rows = await db
+    .select()
+    .from(categories)
+    .orderBy(asc(categories.sortOrder));
+
+  return <SongForm categories={rows} />;
 }

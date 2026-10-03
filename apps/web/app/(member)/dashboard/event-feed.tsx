@@ -9,15 +9,15 @@ interface EventRow {
   id: string;
   title: string;
   description: string | null;
-  event_date: string;
-  start_time: string | null;
-  end_time: string | null;
-  department_id: number | null;
+  eventDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  departmentId: number | null;
 }
 
 interface DeptRow {
   id: number;
-  name_am: string;
+  nameAm: string;
 }
 
 interface EventFeedProps {
@@ -29,7 +29,14 @@ interface EventFeedProps {
 }
 
 // Stable color assignment for department dots — cycles through brand palette.
-const DOT_PALETTE = ['#D4A843', '#8B2F3F', '#4F7B3E', '#A47A18', '#C97B1A', '#6B1D2A'];
+const DOT_PALETTE = [
+  '#D4A843',
+  '#8B2F3F',
+  '#4F7B3E',
+  '#A47A18',
+  '#C97B1A',
+  '#6B1D2A',
+];
 function dotFor(deptId: number) {
   return DOT_PALETTE[deptId % DOT_PALETTE.length];
 }
@@ -43,10 +50,10 @@ export function EventFeed({
   const [filterDept, setFilterDept] = useState<number | null>(null);
 
   const filteredUpcoming = filterDept
-    ? upcoming.filter((e) => e.department_id === filterDept)
+    ? upcoming.filter((e) => e.departmentId === filterDept)
     : upcoming;
   const filteredPast = filterDept
-    ? past.filter((e) => e.department_id === filterDept)
+    ? past.filter((e) => e.departmentId === filterDept)
     : past;
 
   const hasAny = upcoming.length > 0 || past.length > 0;
@@ -54,7 +61,7 @@ export function EventFeed({
 
   function getDeptName(id: number | null): string | null {
     if (!id) return null;
-    return departments.find((d) => d.id === id)?.name_am ?? null;
+    return departments.find((d) => d.id === id)?.nameAm ?? null;
   }
 
   return (
@@ -96,7 +103,7 @@ export function EventFeed({
               className="h-1.5 w-1.5 rounded-full"
               style={{ background: dotFor(d.id) }}
             />
-            {d.name_am}
+            {d.nameAm}
           </button>
         ))}
       </div>
@@ -105,7 +112,7 @@ export function EventFeed({
       {filteredUpcoming.length > 0 && (
         <div className="space-y-2">
           {filteredUpcoming.map((event) => {
-            const deptName = getDeptName(event.department_id);
+            const deptName = getDeptName(event.departmentId);
             return (
               <article
                 key={event.id}
@@ -114,8 +121,12 @@ export function EventFeed({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     {deptName && (
-                      <span className="mb-1 inline-block rounded font-ethiopic text-[10px] font-medium tracking-wider text-gold-deep dark:text-gold"
-                        style={{ background: 'rgba(212,168,67,0.12)', padding: '2px 7px' }}
+                      <span
+                        className="mb-1 inline-block rounded font-ethiopic text-[10px] font-medium tracking-wider text-gold-deep dark:text-gold"
+                        style={{
+                          background: 'rgba(212,168,67,0.12)',
+                          padding: '2px 7px',
+                        }}
                       >
                         {deptName}
                       </span>
@@ -131,12 +142,12 @@ export function EventFeed({
                   </div>
                   <div className="shrink-0 text-right">
                     <div className="font-display text-lg font-medium leading-none text-burgundy dark:text-gold-light">
-                      {formatShortDate(event.event_date)}
+                      {formatShortDate(event.eventDate)}
                     </div>
-                    {event.start_time && (
+                    {event.startTime && (
                       <div className="mt-0.5 flex items-center justify-end gap-0.5 font-mono text-[10px] text-muted-foreground">
                         <Clock className="h-2.5 w-2.5" />
-                        {event.start_time.slice(0, 5)}
+                        {event.startTime.slice(0, 5)}
                       </div>
                     )}
                   </div>
@@ -168,7 +179,7 @@ export function EventFeed({
                     {event.title}
                   </p>
                   <p className="text-[10.5px] text-muted-foreground">
-                    {formatShortDate(event.event_date)}
+                    {formatShortDate(event.eventDate)}
                   </p>
                 </div>
               </div>

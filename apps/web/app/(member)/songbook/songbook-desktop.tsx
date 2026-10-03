@@ -3,12 +3,22 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Bookmark, Play, Printer, Search } from 'lucide-react';
-import type { Database } from '@felege-yordanos/db';
+import type {
+  categories as categoriesTable,
+  songs as songsTable,
+} from '@felege-yordanos/db/schema';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Category = Database['public']['Tables']['categories']['Row'];
+type Song = typeof songsTable.$inferSelect;
+type Category = typeof categoriesTable.$inferSelect;
 
-const FALLBACK_DOTS = ['#D4A843', '#6B1D2A', '#8B2F3F', '#4F7B3E', '#C97B1A', '#A47A18'];
+const FALLBACK_DOTS = [
+  '#D4A843',
+  '#6B1D2A',
+  '#8B2F3F',
+  '#4F7B3E',
+  '#C97B1A',
+  '#A47A18',
+];
 
 /**
  * Desktop songbook — master/detail: a scrollable list pane on the left and the
@@ -26,11 +36,15 @@ export function SongbookDesktop({
 }) {
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<number | string | null>(songs[0]?.id ?? null);
+  const [selectedId, setSelectedId] = useState<number | string | null>(
+    songs[0]?.id ?? null,
+  );
 
   const colorByCategory = useMemo(() => {
     const map = new Map<string, string>();
-    categories.forEach((c, i) => map.set(c.name, c.color || FALLBACK_DOTS[i % FALLBACK_DOTS.length]));
+    categories.forEach((c, i) =>
+      map.set(c.name, c.color || FALLBACK_DOTS[i % FALLBACK_DOTS.length]),
+    );
     return map;
   }, [categories]);
 
@@ -38,13 +52,14 @@ export function SongbookDesktop({
     const matchesSearch =
       !search ||
       s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.title_en?.toLowerCase().includes(search.toLowerCase()) ||
-      s.number.toString() === search;
+      s.titleEn?.toLowerCase().includes(search.toLowerCase()) ||
+      s.number?.toString() === search;
     const matchesCategory = !activeCategory || s.category === activeCategory;
     return matchesSearch && matchesCategory;
   });
 
-  const selected = songs.find((s) => s.id === selectedId) ?? filtered[0] ?? songs[0] ?? null;
+  const selected =
+    songs.find((s) => s.id === selectedId) ?? filtered[0] ?? songs[0] ?? null;
   const verses = (selected?.lyrics ?? '')
     .split(/\n\s*\n/)
     .map((v) => v.trim())
@@ -61,11 +76,17 @@ export function SongbookDesktop({
                 <div className="font-ethiopic text-[26px] font-bold leading-none text-burgundy dark:text-gold">
                   መዝሙር
                 </div>
-                <div className="mt-0.5 font-display text-[13px] italic text-muted-foreground">Songbook</div>
+                <div className="mt-0.5 font-display text-[13px] italic text-muted-foreground">
+                  Songbook
+                </div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-[11px] text-gold-deep dark:text-gold">{songs.length}</div>
-                <div className="text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground">songs</div>
+                <div className="font-mono text-[11px] text-gold-deep dark:text-gold">
+                  {songs.length}
+                </div>
+                <div className="text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground">
+                  songs
+                </div>
               </div>
             </div>
 
@@ -106,7 +127,12 @@ export function SongbookDesktop({
                         : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
                     }`}
                   >
-                    <span className="h-1.5 w-1.5 rounded-full" style={{ background: colorByCategory.get(c.name) ?? '#D4A843' }} />
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{
+                        background: colorByCategory.get(c.name) ?? '#D4A843',
+                      }}
+                    />
                     {c.name}
                   </button>
                 );
@@ -124,7 +150,9 @@ export function SongbookDesktop({
                   type="button"
                   onClick={() => setSelectedId(song.id)}
                   className={`relative mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors ${
-                    active ? 'bg-burgundy/[0.07] dark:bg-gold/[0.12]' : 'hover:bg-card/80'
+                    active
+                      ? 'bg-burgundy/[0.07] dark:bg-gold/[0.12]'
+                      : 'hover:bg-card/80'
                   }`}
                 >
                   {active && (
@@ -137,15 +165,17 @@ export function SongbookDesktop({
                         : 'border-border bg-gradient-to-br from-parchment-soft to-parchment-deep text-burgundy dark:from-[#2D1B0E] dark:to-[#1A0F08] dark:text-gold'
                     }`}
                   >
-                    {String(song.number).padStart(2, '0')}
+                    {song.number != null
+                      ? String(song.number).padStart(2, '0')
+                      : ''}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate font-ethiopic text-[13.5px] font-semibold text-burgundy-ink dark:text-cream">
                       {song.title}
                     </span>
-                    {song.title_en && (
+                    {song.titleEn && (
                       <span className="block truncate font-display text-[11.5px] italic text-muted-foreground">
-                        {song.title_en}
+                        {song.titleEn}
                       </span>
                     )}
                   </span>
@@ -156,7 +186,9 @@ export function SongbookDesktop({
               );
             })}
             {filtered.length === 0 && (
-              <p className="py-10 text-center text-sm text-muted-foreground">No songs found</p>
+              <p className="py-10 text-center text-sm text-muted-foreground">
+                No songs found
+              </p>
             )}
           </div>
         </div>
@@ -168,16 +200,18 @@ export function SongbookDesktop({
               <div className="flex items-start gap-4">
                 <div className="sacred-gradient flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-[14px] border border-gold/30 shadow-fy-md">
                   <span className="font-display text-[26px] font-medium text-gold">
-                    {String(selected.number).padStart(2, '0')}
+                    {selected.number != null
+                      ? String(selected.number).padStart(2, '0')
+                      : ''}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
                   <div className="font-ethiopic text-[28px] font-semibold leading-tight text-burgundy-ink dark:text-cream">
                     {selected.title}
                   </div>
-                  {selected.title_en && (
+                  {selected.titleEn && (
                     <div className="mt-0.5 font-display text-base italic text-muted-foreground">
-                      {selected.title_en}
+                      {selected.titleEn}
                     </div>
                   )}
                 </div>
@@ -189,14 +223,17 @@ export function SongbookDesktop({
                   <span className="h-1.5 w-1.5 rounded-full bg-gold" />
                   {selected.category}
                 </span>
-                {selected.audio_url && (
+                {selected.audioUrl && (
                   <a
-                    href={selected.audio_url}
+                    href={selected.audioUrl}
                     target="_blank"
                     rel="noreferrer"
                     className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-cream shadow-fy-sm hover:opacity-95"
                   >
-                    <Play className="h-[11px] w-[11px] text-gold" fill="currentColor" />
+                    <Play
+                      className="h-[11px] w-[11px] text-gold"
+                      fill="currentColor"
+                    />
                     Play recording
                   </a>
                 )}
@@ -223,7 +260,9 @@ export function SongbookDesktop({
                   <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
                     Lyrics
                   </span>
-                  <span className="font-ethiopic text-sm text-gold opacity-60">✣</span>
+                  <span className="font-ethiopic text-sm text-gold opacity-60">
+                    ✣
+                  </span>
                 </div>
                 <div className="font-ethiopic text-[17px] font-medium leading-[1.9] text-foreground">
                   {verses.map((verse, i) => (
@@ -254,13 +293,17 @@ export function SongbookDesktop({
                     </div>
                   ))}
                   {verses.length === 0 && (
-                    <p className="italic text-muted-foreground">No lyrics available.</p>
+                    <p className="italic text-muted-foreground">
+                      No lyrics available.
+                    </p>
                   )}
                 </div>
               </div>
             </div>
           ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">Select a song to view lyrics.</p>
+            <p className="py-16 text-center text-sm text-muted-foreground">
+              Select a song to view lyrics.
+            </p>
           )}
         </div>
       </div>

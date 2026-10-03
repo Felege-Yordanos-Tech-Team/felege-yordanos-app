@@ -21,6 +21,8 @@ const withPWA = withPWAInit({
 const nextConfig = {
   nx: {},
   experimental: {
+    // Donation receipts (max 5 MB) are uploaded through a server action.
+    serverActions: { bodySizeLimit: '6mb' },
     // Client-side Router Cache retention. In Next.js 16 the default reuse time
     // for dynamic pages is 0s, so navigating back to a route you just visited
     // discards its cached render, refetches the RSC payload (re-running every
