@@ -18,8 +18,19 @@ import {
 } from '@felege-yordanos/db/server';
 import { sendEmail } from './email';
 
+// Development only: accept the app on any localhost port. `pnpm dev` moves to
+// 3001, 3002, ... when 3000 is busy, and Better Auth rejects sign-in from an
+// origin other than BETTER_AUTH_URL ("Invalid origin").
+const LOCAL_ORIGIN = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/;
+const devTrustedOrigins = (request?: Request) => {
+  const origin = request?.headers.get('origin');
+  return origin && LOCAL_ORIGIN.test(origin) ? [origin] : [];
+};
+
 export const auth = betterAuth({
   appName: 'Felege Yordanos',
+  trustedOrigins:
+    process.env.NODE_ENV === 'production' ? [] : devTrustedOrigins,
   database: drizzleAdapter(db, {
     provider: 'pg',
     schema: {
