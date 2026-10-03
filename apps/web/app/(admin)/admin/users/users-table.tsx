@@ -101,10 +101,9 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
     );
   });
 
-  const deskFiltered =
-    roleFilter === 'all'
-      ? profiles
-      : profiles.filter((p) => p.role === roleFilter);
+  const deskFiltered = filtered.filter(
+    (p) => roleFilter === 'all' || p.role === roleFilter,
+  );
 
   function getDeptName(deptId: number | null): string {
     if (deptId == null) return '—';
@@ -249,25 +248,38 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
           </button>
         </div>
 
-        {/* Role filter pills */}
-        <div className="mb-4 flex gap-1.5">
-          {ROLE_FILTERS.map((f) => {
-            const active = roleFilter === f.value;
-            return (
-              <button
-                key={f.value}
-                type="button"
-                onClick={() => setRoleFilter(f.value)}
-                className={`rounded-full px-3.5 py-1.5 text-[11px] transition-colors ${
-                  active
-                    ? 'bg-burgundy font-semibold text-cream'
-                    : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-                }`}
-              >
-                {f.label}
-              </button>
-            );
-          })}
+        {/* Desktop search and role filters */}
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="relative w-full max-w-sm">
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
+            <Input
+              placeholder="Search by name or email…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="rounded-[10px] border border-border bg-card pl-[34px] text-[12.5px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
+            />
+          </div>
+
+          {/* Role filter pills */}
+          <div className="flex flex-wrap gap-1.5">
+            {ROLE_FILTERS.map((f) => {
+              const active = roleFilter === f.value;
+              return (
+                <button
+                  key={f.value}
+                  type="button"
+                  onClick={() => setRoleFilter(f.value)}
+                  className={`rounded-full px-3.5 py-1.5 text-[11px] transition-colors ${
+                    active
+                      ? 'bg-burgundy font-semibold text-cream'
+                      : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
+                  }`}
+                >
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Table */}
