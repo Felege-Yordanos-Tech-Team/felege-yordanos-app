@@ -1,93 +1,36 @@
-import { createServerClient, type CookieOptions } from '@supabase/ssr';
+import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
 
-export async function proxy(request: NextRequest) {
-  let supabaseResponse = NextResponse.next({ request });
+/**
+ * Fast, optimistic route guard. It only checks that a session cookie exists
+ * (no database or network call), so every navigation stays quick.
+ *
+ * It is NOT the security boundary. Layouts, pages and server actions must
+ * still call requireUser() / requireRole() from lib/session.ts, which
+ * validate the session for real.
+ */
+const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password'];
 
-  const supabase = createServerClient(
-    process.env['NEXT_PUBLIC_SUPABASE_URL'] ?? '',
-    process.env['NEXT_PUBLIC_SUPABASE_ANON_KEY'] ?? '',
-    {
-      cookies: {
-        getAll() {
-          return request.cookies.getAll();
-        },
-        setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
-          cookiesToSet.forEach(({ name, value }) =>
-            request.cookies.set(name, value),
-          );
-          supabaseResponse = NextResponse.next({ request });
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options),
-          );
-        },
-      },
-    },
+export function proxy(request: NextRequest) {
+  const { pathname } = request.nextUrl;
+  const hasSession = Boolean(getSessionCookie(request));
+  const isPublic = PUBLIC_PATHS.some(
+    (p) => pathname === p || (p !== '/' && pathname.startsWith(`${p}/`)),
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const pathname = request.nextUrl.pathname;
-
-  // /auth/callback must be reachable by anyone (recovery / email-link flow)
-  if (pathname.startsWith('/auth/callback')) {
-    return supabaseResponse;
+  // Note: sending signed-in users away from / and /login happens in those
+  // pages (after a real session check), not here. A stale cookie would
+  // otherwise cause a redirect loop between /login and /dashboard.
+  if (!hasSession && !isPublic) {
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
-  // Authenticated users visiting / or /login (but NOT the password flows) go to dashboard
-  if ((pathname === '/' || pathname.startsWith('/login')) && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/dashboard';
-    return NextResponse.redirect(url);
-  }
-
-  // Public routes — allow everyone
-  if (
-    pathname === '/' ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/forgot-password')
-  ) {
-    return supabaseResponse;
-  }
-
-  // /reset-password requires the temporary session minted by /auth/callback.
-  // If the user has a session, let them through; otherwise bounce to forgot-password.
-  if (pathname.startsWith('/reset-password')) {
-    if (user) return supabaseResponse;
-    const url = request.nextUrl.clone();
-    url.pathname = '/forgot-password';
-    return NextResponse.redirect(url);
-  }
-
-  // Protected routes — redirect to login if not authenticated
-  if (!user) {
-    const url = request.nextUrl.clone();
-    url.pathname = '/login';
-    return NextResponse.redirect(url);
-  }
-
-  // Admin routes — check role
-  if (pathname.startsWith('/admin')) {
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('role')
-      .eq('id', user.id)
-      .single();
-
-    if (!profile || profile.role === 'member') {
-      const url = request.nextUrl.clone();
-      url.pathname = '/dashboard';
-      return NextResponse.redirect(url);
-    }
-  }
-
-  return supabaseResponse;
+  return NextResponse.next();
 }
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|manifest\\.(?:json|webmanifest)|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    // Everything except auth API, Next internals and static files.
+    '/((?!api/auth|_next/static|_next/image|favicon.ico|manifest\\.(?:json|webmanifest)|sw\\.js|workbox-.*|offline\\.html|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)',
   ],
 };

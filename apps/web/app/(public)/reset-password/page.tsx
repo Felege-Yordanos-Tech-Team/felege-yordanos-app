@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import { createClient } from '@felege-yordanos/db';
+import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -15,19 +15,15 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [checking, setChecking] = useState(true);
-  const [hasSession, setHasSession] = useState(false);
+  const [token, setToken] = useState<string | null>(null);
   const router = useRouter();
 
+  // The reset email link lands here as /reset-password?token=...
+  // An expired or used link arrives as ?error=INVALID_TOKEN instead.
   useEffect(() => {
-    const supabase = createClient();
-    supabase.auth.getUser().then(({ data, error: userError }) => {
-      if (userError || !data.user) {
-        setHasSession(false);
-      } else {
-        setHasSession(true);
-      }
-      setChecking(false);
-    });
+    const params = new URLSearchParams(window.location.search);
+    setToken(params.get('error') ? null : params.get('token'));
+    setChecking(false);
   }, []);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,23 +34,26 @@ export default function ResetPasswordPage() {
       setError('Passwords do not match.');
       return;
     }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.');
       return;
     }
+    if (!token) return;
 
     setLoading(true);
-    const supabase = createClient();
-    const { error: updateError } = await supabase.auth.updateUser({ password });
+    const { error: updateError } = await authClient.resetPassword({
+      newPassword: password,
+      token,
+    });
 
     if (updateError) {
-      setError(updateError.message);
+      setError(updateError.message ?? 'Could not reset the password. Please try again.');
       setLoading(false);
       return;
     }
 
-    router.push('/dashboard');
-    router.refresh();
+    // Resetting signs out every session, so the user signs in again.
+    router.push('/login?reset=1');
   }
 
   const OrnamentRule = () => (
@@ -130,7 +129,7 @@ export default function ResetPasswordPage() {
               />
             </div>
           </>
-        ) : !hasSession ? (
+        ) : !token ? (
           <>
             <h1 className="text-center font-display text-[28px] font-medium leading-tight text-burgundy-ink dark:text-cream">
               Link <em className="text-gold-deep dark:text-gold">expired</em>
@@ -170,7 +169,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
-                  minLength={6}
+                  minLength={8}
                   className="rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] tracking-[0.25em] text-foreground placeholder:text-ink-faint placeholder:tracking-normal shadow-[inset_0_1px_2px_rgba(74,14,24,0.04)] focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-input"
                 />
               </div>
@@ -185,7 +184,7 @@ export default function ResetPasswordPage() {
                   onChange={(e) => setConfirm(e.target.value)}
                   placeholder="••••••••"
                   required
-                  minLength={6}
+                  minLength={8}
                   className="rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] tracking-[0.25em] text-foreground placeholder:text-ink-faint placeholder:tracking-normal shadow-[inset_0_1px_2px_rgba(74,14,24,0.04)] focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-input"
                 />
               </div>

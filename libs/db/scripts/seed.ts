@@ -5,6 +5,7 @@
  *   pnpm db:seed
  */
 import './load-env';
+import bcrypt from 'bcryptjs';
 import { sql } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
@@ -35,6 +36,55 @@ const sampleMembers = [
   [8, 'FY-0008', 'ቤተልሔም', 'ወልዴ', 'ሴት'],
   [9, 'FY-0009', 'ናትናኤል', 'ሙሉጌታ', 'ወንድ'],
   [10, 'FY-0010', 'ኤልሳቤጥ', 'ካሳ', 'ሴት'],
+] as const;
+
+// One login per role. Password for all: see TEST_PASSWORD below.
+// Hashed with bcrypt, the same format Supabase uses, so the
+// Supabase-compatible password check is exercised in development.
+const TEST_PASSWORD = 'password123';
+const testAccounts = [
+  {
+    id: '00000000-0000-4000-8000-000000000001',
+    email: 'member@felege.test',
+    name: 'Test Member',
+    role: 'member',
+    departmentId: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000002',
+    email: 'songs.head@felege.test',
+    name: 'Songs Dept Head',
+    role: 'dept_head',
+    departmentId: 6,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000003',
+    email: 'budget.head@felege.test',
+    name: 'Budget Dept Head',
+    role: 'dept_head',
+    departmentId: 9,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000004',
+    email: 'events.head@felege.test',
+    name: 'Programs Dept Head',
+    role: 'dept_head',
+    departmentId: 3,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000005',
+    email: 'admin@felege.test',
+    name: 'Test Admin',
+    role: 'admin',
+    departmentId: null,
+  },
+  {
+    id: '00000000-0000-4000-8000-000000000006',
+    email: 'superadmin@felege.test',
+    name: 'Test Super Admin',
+    role: 'super_admin',
+    departmentId: null,
+  },
 ] as const;
 
 function isoDate(daysFromToday: number): string {
@@ -97,7 +147,42 @@ async function main() {
     ]);
   }
 
+  const passwordHash = await bcrypt.hash(TEST_PASSWORD, 10);
+  for (const account of testAccounts) {
+    await db
+      .insert(schema.authUsers)
+      .values({
+        id: account.id,
+        email: account.email,
+        name: account.name,
+        emailVerified: true,
+      })
+      .onConflictDoNothing();
+    await db
+      .insert(schema.authAccounts)
+      .values({
+        id: account.id,
+        userId: account.id,
+        accountId: account.id,
+        providerId: 'credential',
+        password: passwordHash,
+      })
+      .onConflictDoNothing();
+    await db
+      .insert(schema.profiles)
+      .values({
+        id: account.id,
+        role: account.role,
+        departmentId: account.departmentId,
+        displayName: account.name,
+      })
+      .onConflictDoNothing();
+  }
+
   console.log('Seed complete.');
+  console.log(`Test logins (password "${TEST_PASSWORD}"):`);
+  for (const a of testAccounts)
+    console.log(`  ${a.role.padEnd(12)} ${a.email}`);
 }
 
 main()

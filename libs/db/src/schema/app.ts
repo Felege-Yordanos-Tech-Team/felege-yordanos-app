@@ -9,8 +9,8 @@
  *
  * Differences from production (intentional):
  * - No RLS policies. Authorization is enforced in server code.
- * - No foreign keys to Supabase's auth.users (profiles.id, members.auth_user_id).
- *   They are re-pointed to the new auth user table in Phase 0.2.
+ * - profiles.id and members.auth_user_id reference auth_users (Better Auth)
+ *   instead of Supabase's auth.users. Constraint names are unchanged.
  *
  * Note: the repo's supabase/migrations folder does NOT match production and
  * must not be used as a reference.
@@ -32,6 +32,7 @@ import {
   unique,
   uuid,
 } from 'drizzle-orm/pg-core';
+import { authUsers } from './auth';
 
 const createdAt = () =>
   timestamp('created_at', { withTimezone: true }).defaultNow();
@@ -61,7 +62,7 @@ export const departments = pgTable('departments', {
 export const profiles = pgTable(
   'profiles',
   {
-    // Same id as the auth user. FK to the auth user table is added in Phase 0.2.
+    // Same id as the auth user (auth_users.id).
     id: uuid('id').primaryKey(),
     role: text('role').$type<Role>().notNull().default('member'),
     departmentId: bigintId('department_id'),
@@ -74,6 +75,11 @@ export const profiles = pgTable(
       'profiles_role_check',
       sql`${t.role} = ANY (ARRAY['member'::text, 'dept_head'::text, 'admin'::text, 'super_admin'::text])`,
     ),
+    foreignKey({
+      name: 'profiles_id_fkey',
+      columns: [t.id],
+      foreignColumns: [authUsers.id],
+    }).onDelete('cascade'),
     foreignKey({
       name: 'profiles_department_id_fkey',
       columns: [t.departmentId],
@@ -133,6 +139,11 @@ export const members = pgTable(
       sql`${t.gender} = ANY (ARRAY['ወንድ'::text, 'ሴት'::text])`,
     ),
     index('idx_members_auth_user_id').on(t.authUserId),
+    foreignKey({
+      name: 'members_auth_user_id_fkey',
+      columns: [t.authUserId],
+      foreignColumns: [authUsers.id],
+    }),
     foreignKey({
       name: 'members_member_type_id_fkey',
       columns: [t.memberTypeId],

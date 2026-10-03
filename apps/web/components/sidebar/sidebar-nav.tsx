@@ -3,8 +3,8 @@
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
-import { createClient } from '@felege-yordanos/db';
-import type { UserRole } from '@felege-yordanos/db';
+import { authClient } from '@/lib/auth-client';
+import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { cn, initials } from '@/lib/utils';
 import { navForRole } from '@/lib/nav';
 import { useSidebar } from './sidebar-provider';
@@ -22,8 +22,7 @@ export function SidebarNav({ role, displayName }: SidebarNavProps) {
   const router = useRouter();
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await authClient.signOut();
     router.push('/login');
     router.refresh();
   }

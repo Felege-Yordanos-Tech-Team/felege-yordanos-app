@@ -1,39 +1,16 @@
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
-import { redirect } from 'next/navigation';
 import { AppShell } from '@/components/app-shell';
 import { UserMenu } from '@/components/user-menu';
 import { Badge } from '@/components/ui/badge';
-
-type Profile = Database['public']['Tables']['profiles']['Row'];
+import { requireRole } from '@/lib/session';
 
 export default async function AdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const cookieStore = await cookies();
-  const supabase = createServerComponentClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', user?.id ?? '')
-    .single();
-
-  const profile = data as Profile | null;
-  const role = profile?.role ?? 'member';
-
-  if (role === 'member') {
-    redirect('/dashboard');
-  }
-
-  const displayName = profile?.display_name || user?.email || 'User';
+  // Members are sent back to the dashboard. Each admin page still checks
+  // the exact roles and departments it allows.
+  const { displayName, role } = await requireRole(['dept_head', 'admin', 'super_admin']);
 
   const mobileHeader = (
     <header className="sticky top-0 z-50 flex items-center justify-between bg-burgundy px-4 py-3 shadow-sm md:hidden">

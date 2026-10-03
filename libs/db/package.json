@@ -33,5 +33,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
     "db:seed": "tsx scripts/seed.ts"
+  },
+  "devDependencies": {
+    "bcryptjs": "^3.0.3"
   }
 }

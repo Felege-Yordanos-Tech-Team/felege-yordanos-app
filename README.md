@@ -26,6 +26,19 @@ pnpm db:setup                 # Start Postgres, create tables, load sample data
 pnpm dev                      # Start the app at http://localhost:3000
 ```
 
+Sign in with a seeded test account (password `password123`):
+
+| Role | Email |
+|---|---|
+| member | member@felege.test |
+| dept_head (Songs) | songs.head@felege.test |
+| dept_head (Budget) | budget.head@felege.test |
+| dept_head (Programs & Events) | events.head@felege.test |
+| admin | admin@felege.test |
+| super_admin | superadmin@felege.test |
+
+Password reset emails are not sent in development. The reset link is printed in the terminal running `pnpm dev`.
+
 Useful database commands:
 
 ```bash
