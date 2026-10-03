@@ -36,9 +36,17 @@
 ## Database & migrations
 
 <!--
-  Any new/changed Supabase migrations or RLS policies? List the migration
-  files and whether existing rows/one-off records are affected. Write "None"
-  if this PR touches no schema.
+  Did you change libs/db/src/schema? List the new migration file(s) in
+  libs/db/migrations and say whether existing rows are affected.
+  Write "None" if this PR touches no schema.
+-->
+
+## Permissions
+
+<!--
+  Who can see or change what this PR touches? Name the function(s) from
+  apps/web/lib/permissions.ts you used or added, and confirm every page and
+  server action you added checks it. Write "None" if no data access changed.
 -->
 
 ## How to test / verification
@@ -52,11 +60,12 @@
 
 <!-- Before/after for any UI change. Mobile + desktop where both are affected. -->
 
-## Reviewer checklist
+## Checklist
 
-- [ ] Builds locally (`npx nx build web`) and lint passes (`npx nx lint web`)
-- [ ] Mobile and desktop layouts both verified (where applicable)
-- [ ] No new console errors/warnings introduced
-- [ ] Migrations are additive / backwards-compatible (or breaking change is called out above)
-- [ ] Docs / CLAUDE.md updated if behavior or architecture changed
-- [ ] Commit messages are descriptive and reference relevant issues
+- [ ] `pnpm check` passes locally (lint, typecheck, build)
+- [ ] Phone and desktop layouts both checked (where applicable)
+- [ ] Every new page and server action checks permissions (`lib/permissions.ts`)
+- [ ] Schema change has a migration (`pnpm db:generate`) (or no schema change)
+- [ ] No secrets, real member data or `.env.local` committed
+- [ ] Docs / CLAUDE.md updated if behaviour or architecture changed
+- [ ] PR targets `dev` (only maintainers open `dev` -> `main` release PRs)

@@ -83,6 +83,7 @@ pnpm install              # Install all dependencies
 pnpm db:setup             # Start local Postgres (Docker), migrate, seed
 pnpm db:generate          # Create a migration after changing libs/db/src/schema
 pnpm db:studio            # Browse the local database
+pnpm check                # Lint + typecheck + build (same as CI); run before every push
 npx nx serve web          # Start dev server
 npx nx build web          # Production build
 npx nx lint web           # Lint
@@ -109,6 +110,7 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 - Database schema lives in `libs/db/src/schema/` (Drizzle). Change it there, then run `pnpm db:generate` to create a migration. Never edit applied migration files
 - Supabase has been removed. Do NOT add Supabase or any other hosted backend SDK
 - Every page and server action must enforce the matching rule in `lib/permissions.ts`. Add new rules there, not inline
+- Team workflow is in CONTRIBUTING.md: branch from `dev`, PR into `dev`, CI (.github/workflows/ci.yml) must pass
 - Do not merge `dev` into `main` until the new server is live (main still deploys the old Vercel + Supabase version)
 - Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
