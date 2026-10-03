@@ -1,9 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CalendarCheck, Clock } from 'lucide-react';
+import { Chip, SectionHeader } from '@/components/ds';
+import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
-import { formatShortDate } from '@/lib/format';
+import { hasEthiopic, shortDate } from './format';
 
 interface EventRow {
   id: string;
@@ -17,37 +19,76 @@ interface EventRow {
 
 interface DeptRow {
   id: number;
-  nameAm: string;
+  /** Department name in the current language. */
+  name: string;
 }
 
 interface EventFeedProps {
   upcoming: EventRow[];
   past: EventRow[];
   departments: DeptRow[];
-  /** Overrides the section's default top margin (e.g. `mt-0` inside a card). */
-  className?: string;
+  /** `mobile`: stacked cards (phone). `desktop`: divided rows inside a card. */
+  variant: 'mobile' | 'desktop';
 }
 
-// Stable color assignment for department dots — cycles through brand palette.
-const DOT_PALETTE = [
-  '#D4A843',
-  '#8B2F3F',
-  '#4F7B3E',
-  '#A47A18',
-  '#C97B1A',
-  '#6B1D2A',
+// Department dot colors, as theme tokens.
+const DOTS = [
+  'rgb(var(--fy-gold))',
+  'rgb(var(--fy-brand-soft))',
+  'rgb(var(--fy-present))',
+  'rgb(var(--fy-gold-deep))',
+  'rgb(var(--fy-late))',
+  'rgb(var(--fy-brand))',
 ];
-function dotFor(deptId: number) {
-  return DOT_PALETTE[deptId % DOT_PALETTE.length];
+const dotFor = (deptId: number) => DOTS[deptId % DOTS.length];
+
+/** Event / department text: Ethiopic font for Ge'ez, display serif otherwise. */
+function TitleText({ text, className }: { text: string; className?: string }) {
+  const am = hasEthiopic(text);
+  return (
+    <h4
+      className={cn(
+        'leading-[1.15] text-brand-ink',
+        am
+          ? 'font-ethiopic text-[15px] font-semibold'
+          : 'font-display text-[17px] font-medium',
+        className,
+      )}
+    >
+      {text}
+    </h4>
+  );
+}
+
+function DeptTag({ name, className }: { name: string; className?: string }) {
+  return (
+    <span
+      className={cn(
+        'inline-block shrink-0 rounded bg-gold/[0.12] px-[7px] py-0.5 text-[10px] font-medium tracking-[0.04em] text-gold-deep dark:bg-gold/[0.16]',
+        hasEthiopic(name) ? 'font-ethiopic' : 'font-body',
+        className,
+      )}
+    >
+      {name}
+    </span>
+  );
 }
 
 export function EventFeed({
   upcoming,
   past,
   departments,
-  className,
+  variant,
 }: EventFeedProps) {
+  const t = useT();
+  const locale = useLocale();
   const [filterDept, setFilterDept] = useState<number | null>(null);
+
+  // Only offer filters for departments that have events in the feed.
+  const filterDepts = useMemo(() => {
+    const used = new Set([...upcoming, ...past].map((e) => e.departmentId));
+    return departments.filter((d) => used.has(d.id));
+  }, [upcoming, past, departments]);
 
   const filteredUpcoming = filterDept
     ? upcoming.filter((e) => e.departmentId === filterDept)
@@ -55,144 +96,197 @@ export function EventFeed({
   const filteredPast = filterDept
     ? past.filter((e) => e.departmentId === filterDept)
     : past;
-
   const hasAny = upcoming.length > 0 || past.length > 0;
-  if (!hasAny) return null;
 
-  function getDeptName(id: number | null): string | null {
-    if (!id) return null;
-    return departments.find((d) => d.id === id)?.nameAm ?? null;
+  const deptName = (id: number | null) =>
+    id ? (departments.find((d) => d.id === id)?.name ?? null) : null;
+
+  const chips = filterDepts.length > 0 && (
+    <div
+      className={cn(
+        'flex gap-1.5',
+        variant === 'mobile'
+          ? '-mx-[18px] overflow-x-auto px-[18px] pb-0.5'
+          : 'flex-wrap justify-end',
+      )}
+    >
+      <Chip
+        active={filterDept === null}
+        onClick={() => setFilterDept(null)}
+        amharic={locale === 'am'}
+        className={variant === 'mobile' ? 'py-1.5 text-[11.5px]' : undefined}
+      >
+        {t('All')}
+      </Chip>
+      {filterDepts.map((d) => (
+        <Chip
+          key={d.id}
+          active={filterDept === d.id}
+          onClick={() => setFilterDept(filterDept === d.id ? null : d.id)}
+          dot={dotFor(d.id)}
+          amharic={hasEthiopic(d.name)}
+          className={variant === 'mobile' ? 'py-1.5 text-[11.5px]' : undefined}
+        >
+          {d.name}
+        </Chip>
+      ))}
+    </div>
+  );
+
+  const time = (e: EventRow) => e.startTime?.slice(0, 5) ?? null;
+
+  const empty = (text: string) => (
+    <p className="py-8 text-center text-[12.5px] text-ink-muted">{text}</p>
+  );
+
+  const pastList = filteredPast.length > 0 && (
+    <div
+      className={
+        variant === 'mobile'
+          ? 'mt-5'
+          : 'mt-4 border-t border-parchment-edge pt-4'
+      }
+    >
+      <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep">
+        {t('Recent')}
+      </div>
+      <div className="space-y-1.5">
+        {filteredPast.map((event) => (
+          <div
+            key={event.id}
+            className="flex items-center gap-3 rounded-xl border border-parchment-edge/70 bg-parchment-soft/60 px-3 py-2.5"
+          >
+            <CalendarCheck
+              className="h-3.5 w-3.5 shrink-0 text-ink-faint"
+              strokeWidth={1.75}
+            />
+            <p
+              className={cn(
+                'min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink-muted',
+                hasEthiopic(event.title) && 'font-ethiopic',
+              )}
+            >
+              {event.title}
+            </p>
+            <span className="shrink-0 font-mono text-[10.5px] text-ink-faint">
+              {shortDate(event.eventDate, locale)}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+
+  if (variant === 'desktop') {
+    return (
+      <section>
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <SectionHeader en="Upcoming events" am="ተከታታይ መርሃ ግብሮች" />
+          {chips}
+        </div>
+
+        {!hasAny && empty(t('No upcoming events'))}
+
+        {filteredUpcoming.map((event, i) => {
+          const dept = deptName(event.departmentId);
+          return (
+            <div
+              key={event.id}
+              className={cn(
+                'flex items-center justify-between gap-3.5 py-3.5 pl-4 pr-1',
+                i > 0 && 'border-t border-parchment-edge',
+              )}
+            >
+              <div className="min-w-0 flex-1">
+                <div className="mb-[3px] flex min-w-0 items-center gap-2">
+                  {dept && <DeptTag name={dept} />}
+                  <TitleText text={event.title} className="truncate" />
+                </div>
+                {event.description && (
+                  <p className="truncate text-[11.5px] text-ink-muted">
+                    {event.description}
+                  </p>
+                )}
+              </div>
+              <div className="shrink-0 text-right">
+                <div className="font-display text-[17px] font-medium leading-none text-brand dark:text-gold-light">
+                  {shortDate(event.eventDate, locale)}
+                </div>
+                {time(event) && (
+                  <div className="mt-[3px] font-mono text-[10px] text-ink-muted">
+                    {time(event)}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+
+        {hasAny &&
+          filteredUpcoming.length === 0 &&
+          filteredPast.length === 0 &&
+          empty(t('No events for this department'))}
+        {hasAny &&
+          filteredUpcoming.length === 0 &&
+          filteredPast.length > 0 &&
+          empty(t('No upcoming events'))}
+        {pastList}
+      </section>
+    );
   }
 
   return (
-    <section className={cn('mt-[22px]', className)}>
-      <div className="mb-2.5">
-        <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-          ተከታታይ መርሃ ግብሮች
-        </div>
-        <h2 className="font-display text-[22px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
-          Upcoming events
-        </h2>
-      </div>
+    <section className="mt-[22px]">
+      <SectionHeader en="Upcoming events" am="ተከታታይ መርሃ ግብሮች" />
+      {chips && <div className="mb-3.5 mt-2.5">{chips}</div>}
+      {!chips && <div className="mb-3.5" />}
 
-      {/* Department filter pills */}
-      <div className="mb-3.5 flex gap-1.5 overflow-x-auto pb-0.5">
-        <button
-          type="button"
-          onClick={() => setFilterDept(null)}
-          className={`shrink-0 rounded-full px-3 py-1.5 text-[11.5px] transition-colors ${
-            filterDept === null
-              ? 'border-transparent bg-burgundy font-semibold text-cream'
-              : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-          }`}
-        >
-          All
-        </button>
-        {departments.map((d) => (
-          <button
-            key={d.id}
-            type="button"
-            onClick={() => setFilterDept(filterDept === d.id ? null : d.id)}
-            className={`shrink-0 rounded-full px-3 py-1.5 font-ethiopic text-[11.5px] transition-colors ${
-              filterDept === d.id
-                ? 'border-transparent bg-burgundy font-semibold text-cream'
-                : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-            } flex items-center gap-1.5`}
-          >
-            <span
-              className="h-1.5 w-1.5 rounded-full"
-              style={{ background: dotFor(d.id) }}
-            />
-            {d.nameAm}
-          </button>
-        ))}
-      </div>
+      {!hasAny && empty(t('No upcoming events'))}
 
-      {/* Upcoming events */}
-      {filteredUpcoming.length > 0 && (
-        <div className="space-y-2">
-          {filteredUpcoming.map((event) => {
-            const deptName = getDeptName(event.departmentId);
-            return (
-              <article
-                key={event.id}
-                className="gold-accent-l rounded-[14px] border border-border bg-card px-3.5 py-3.5 pl-[18px]"
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0 flex-1">
-                    {deptName && (
-                      <span
-                        className="mb-1 inline-block rounded font-ethiopic text-[10px] font-medium tracking-wider text-gold-deep dark:text-gold"
-                        style={{
-                          background: 'rgba(212,168,67,0.12)',
-                          padding: '2px 7px',
-                        }}
-                      >
-                        {deptName}
-                      </span>
-                    )}
-                    <h4 className="font-display text-[17px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-                      {event.title}
-                    </h4>
-                    {event.description && (
-                      <p className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
-                        {event.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <div className="font-display text-lg font-medium leading-none text-burgundy dark:text-gold-light">
-                      {formatShortDate(event.eventDate)}
-                    </div>
-                    {event.startTime && (
-                      <div className="mt-0.5 flex items-center justify-end gap-0.5 font-mono text-[10px] text-muted-foreground">
-                        <Clock className="h-2.5 w-2.5" />
-                        {event.startTime.slice(0, 5)}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </article>
-            );
-          })}
-        </div>
-      )}
-
-      {/* Past events */}
-      {filteredPast.length > 0 && (
-        <div className="mt-6">
-          <div className="mb-2 font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-            ቅርብ ጊዜ
-          </div>
-          <h3 className="mb-2.5 font-display text-base font-medium text-muted-foreground">
-            Recent
-          </h3>
-          <div className="space-y-1.5">
-            {filteredPast.map((event) => (
-              <div
-                key={event.id}
-                className="flex items-center gap-3 rounded-xl border border-border/60 bg-card/60 px-3 py-2.5 opacity-75"
-              >
-                <CalendarCheck className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+      <div className="space-y-2">
+        {filteredUpcoming.map((event) => {
+          const dept = deptName(event.departmentId);
+          return (
+            <article
+              key={event.id}
+              className="rounded-[14px] border border-parchment-edge bg-parchment-soft py-3.5 pl-[18px] pr-3.5"
+            >
+              <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-[13px] font-medium text-foreground">
-                    {event.title}
-                  </p>
-                  <p className="text-[10.5px] text-muted-foreground">
-                    {formatShortDate(event.eventDate)}
-                  </p>
+                  {dept && <DeptTag name={dept} className="mb-[5px]" />}
+                  <TitleText text={event.title} />
+                  {event.description && (
+                    <p className="mt-0.5 truncate text-[11.5px] text-ink-muted">
+                      {event.description}
+                    </p>
+                  )}
+                </div>
+                <div className="shrink-0 text-right">
+                  <div className="font-display text-lg font-medium leading-none text-brand dark:text-gold-light">
+                    {shortDate(event.eventDate, locale)}
+                  </div>
+                  {time(event) && (
+                    <div className="mt-[3px] flex items-center justify-end gap-[3px] font-mono text-[10px] text-ink-muted">
+                      <Clock className="h-[9px] w-[9px]" />
+                      {time(event)}
+                    </div>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            </article>
+          );
+        })}
+      </div>
 
-      {filteredUpcoming.length === 0 && filteredPast.length === 0 && hasAny && (
-        <p className="py-8 text-center text-sm text-muted-foreground">
-          No events for this department
-        </p>
-      )}
+      {hasAny &&
+        filteredUpcoming.length === 0 &&
+        filteredPast.length === 0 &&
+        empty(t('No events for this department'))}
+      {hasAny &&
+        filteredUpcoming.length === 0 &&
+        filteredPast.length > 0 &&
+        empty(t('No upcoming events'))}
+      {pastList}
     </section>
   );
 }

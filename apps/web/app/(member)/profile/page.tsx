@@ -1,5 +1,6 @@
 import { eq } from 'drizzle-orm';
 import { db, departments, members, profiles } from '@felege-yordanos/db/server';
+import { PageHead } from '@/components/ds';
 import { requireUser } from '@/lib/session';
 import { ProfileForm } from './profile-form';
 
@@ -39,15 +40,7 @@ export default async function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-md px-[22px] pb-6 pt-4 md:mx-0 md:max-w-none md:px-7 md:py-7">
-      {/* Mobile header — the desktop header lives in the form's desktop layout */}
-      <div className="md:hidden">
-        <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-          መገለጫዬ
-        </div>
-        <h1 className="mt-0.5 font-display text-[28px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
-          My profile
-        </h1>
-      </div>
+      <PageHead en="My profile" am="መገለጫ" className="mb-3.5 md:mb-4" />
 
       <ProfileForm
         email={user.email}

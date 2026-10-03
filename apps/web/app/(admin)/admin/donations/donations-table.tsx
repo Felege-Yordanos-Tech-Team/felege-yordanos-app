@@ -1,11 +1,17 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { AlertCircle, Check, Image as ImageIcon, X } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Textarea } from '@/components/ui/textarea';
-import { Label } from '@/components/ui/label';
+import {
+  AlertCircle,
+  ArrowLeft,
+  Check,
+  FileText,
+  Image as ImageIcon,
+  X,
+} from 'lucide-react';
+import { Card, Chip, Eyebrow, PageHead, StatusPill } from '@/components/ds';
 import {
   Dialog,
   DialogContent,
@@ -14,8 +20,11 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import type { DonationStatus, PaymentMethod } from '@felege-yordanos/db/schema';
 import type { ActionResult } from '@/lib/action-result';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { intlLocale } from '@/lib/i18n/config';
+import { cn } from '@/lib/utils';
+import type { DonationStatus, PaymentMethod } from '@felege-yordanos/db/schema';
 import { rejectDonation, verifyDonation } from './actions';
 
 export interface DonationRow {
@@ -34,45 +43,35 @@ export interface DonationRow {
   createdAt: string;
 }
 
+export interface DonationTotals {
+  pendingAmt: number;
+  pendingCount: number;
+  verifiedAmt: number;
+  verifiedDonors: number;
+}
+
 interface DonationsTableProps {
   donations: DonationRow[];
   profileMap: Record<string, string>;
+  totals: DonationTotals;
+  currency: string;
 }
 
-const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: 'Bank Transfer',
   telebirr: 'Telebirr',
   cash: 'Cash',
   other: 'Other',
 };
 
-const STATUS_STYLES: Record<
-  DonationRow['status'],
-  { bg: string; text: string; label: string }
-> = {
-  pending: {
-    bg: 'bg-status-late-bg',
-    text: 'text-status-late',
-    label: 'Pending',
-  },
-  verified: {
-    bg: 'bg-status-present-bg',
-    text: 'text-status-present',
-    label: 'Verified',
-  },
-  rejected: {
-    bg: 'bg-status-absent-bg',
-    text: 'text-status-absent',
-    label: 'Rejected',
-  },
-};
-
-const FILTERS: { value: 'all' | DonationRow['status']; label: string }[] = [
+const FILTERS: { value: 'all' | DonationStatus; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'pending', label: 'Pending' },
   { value: 'verified', label: 'Verified' },
   { value: 'rejected', label: 'Rejected' },
 ];
+
+const QUEUE_COLS = 'grid-cols-[minmax(0,1.3fr)_110px_130px_80px_110px]';
 
 /** Runs a server action, turning a network/server failure into an error result. */
 async function callAction(
@@ -85,21 +84,37 @@ async function callAction(
   }
 }
 
-function formatShortDate(iso: string): string {
+const isPdf = (href: string) => href.toLowerCase().includes('.pdf');
+
+/** File name from a /api/receipts/<user>/<file> link. */
+function receiptFileName(href: string) {
+  const last = href.split('/').pop() ?? href;
   try {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
+    return decodeURIComponent(last);
   } catch {
-    return iso;
+    return last;
   }
 }
 
-export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
-  const [filterStatus, setFilterStatus] = useState<
-    'all' | DonationRow['status']
-  >('pending');
+function initialsOf(name: string) {
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase();
+}
+
+export function DonationsTable({
+  donations,
+  profileMap,
+  totals,
+  currency,
+}: DonationsTableProps) {
+  const [filterStatus, setFilterStatus] = useState<'all' | DonationStatus>(
+    'pending',
+  );
   const [receiptUrl, setReceiptUrl] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -107,6 +122,26 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
+
+  const numberFmt = new Intl.NumberFormat(intlLocale(locale));
+  const dateFmt = new Intl.DateTimeFormat(intlLocale(locale), {
+    month: 'short',
+    day: 'numeric',
+  });
+  const fmtNumber = (v: string | number) => numberFmt.format(Number(v));
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d);
+  };
+  const fmtMoney = (v: string | number, cur: string) =>
+    `${t(cur)} ${fmtNumber(v)}`;
+  const methodLabel = (m: PaymentMethod | null) =>
+    m ? t(METHOD_LABELS[m] ?? m) : '—';
+  const donorName = (id: string) => profileMap[id] ?? t('Unknown');
+  const donorCount = (n: number) =>
+    `${fmtNumber(n)} ${n === 1 ? t('donor') : t('donors')}`;
 
   const counts = {
     all: donations.length,
@@ -126,18 +161,19 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
     donations.find((d) => d.status === 'pending') ??
     donations[0] ??
     null;
-  const pendingAmt = donations
-    .filter((d) => d.status === 'pending')
-    .reduce((a, b) => a + Number(b.amount), 0);
 
   async function handleVerify(donationId: string) {
     setActionLoading(donationId);
     const res = await callAction(() => verifyDonation(donationId));
     setActionLoading(null);
     if (!res.ok)
-      toast({ title: 'Error', description: res.error, variant: 'destructive' });
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
     else {
-      toast({ title: 'Donation verified' });
+      toast({ title: t('Donation verified') });
       router.refresh();
     }
   }
@@ -149,13 +185,22 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
     const res = await callAction(() => rejectDonation(id, rejectionReason));
     setActionLoading(null);
     if (!res.ok)
-      toast({ title: 'Error', description: res.error, variant: 'destructive' });
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
     else {
-      toast({ title: 'Donation rejected' });
+      toast({ title: t('Donation rejected') });
       setRejectingId(null);
       setRejectionReason('');
       router.refresh();
     }
+  }
+
+  function startReject(id: string) {
+    setRejectingId(id);
+    setRejectionReason('');
   }
 
   // Receipts are served by /api/receipts, which checks canViewReceipt.
@@ -165,43 +210,84 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
 
   return (
     <>
-      {/* ─── MOBILE (< md) — pills + cards ─── */}
-      <div className="md:hidden">
+      {/* ─── PHONE (< md) — totals, pills, cards ─── */}
+      <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:hidden">
+        <Link
+          href="/admin"
+          className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-gold-deep transition-colors hover:text-brand"
+        >
+          <ArrowLeft className="h-3.5 w-3.5" />
+          {t('Admin panel')}
+        </Link>
+
+        <PageHead
+          en="Verify donations"
+          am="መዋጮ ማረጋገጫ"
+          sub="Review submitted donations against bank statements"
+          className="mb-0"
+        />
+
+        {/* Totals strip */}
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
+          <div className="rounded-xl border border-status-late/25 bg-status-late-bg px-3.5 py-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-status-late">
+              {t('Pending review')}
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-medium leading-none tabular-nums text-status-late">
+              {fmtNumber(totals.pendingAmt)}{' '}
+              <span className="text-[11px] text-ink-muted">{t(currency)}</span>
+            </div>
+            <div className="mt-1 text-[10px] text-status-late/80">
+              {donorCount(totals.pendingCount)}
+            </div>
+          </div>
+          <div className="rounded-xl border border-status-present/25 bg-status-present-bg px-3.5 py-3">
+            <div className="text-[9px] font-semibold uppercase tracking-[0.16em] text-status-present">
+              {t('Verified')} · {t('this week')}
+            </div>
+            <div className="mt-1 font-mono text-[22px] font-medium leading-none tabular-nums text-status-present">
+              {fmtNumber(totals.verifiedAmt)}{' '}
+              <span className="text-[11px] text-ink-muted">{t(currency)}</span>
+            </div>
+            <div className="mt-1 text-[10px] text-status-present/80">
+              {donorCount(totals.verifiedDonors)}
+            </div>
+          </div>
+        </div>
+
         {/* Filter pills */}
-        <div className="mb-3 mt-4 flex gap-1.5 overflow-x-auto pb-0.5">
+        <div className="-mx-[22px] mb-3 mt-[18px] flex gap-1.5 overflow-x-auto px-[22px] pb-0.5">
           {FILTERS.map((f) => {
             const active = filterStatus === f.value;
-            const count = counts[f.value];
             return (
-              <button
+              <Chip
                 key={f.value}
-                type="button"
+                active={active}
+                amharic={locale === 'am'}
+                aria-pressed={active}
                 onClick={() => setFilterStatus(f.value)}
-                className={`shrink-0 inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[11.5px] transition-colors ${
-                  active
-                    ? 'border-transparent bg-burgundy font-semibold text-cream'
-                    : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-                }`}
+                className="py-1.5 text-[11.5px]"
               >
-                {f.label}
+                {t(f.label)}
                 <span
-                  className={`rounded px-1.5 py-0.5 font-mono text-[9px] font-semibold ${
+                  className={cn(
+                    'rounded px-1.5 py-px font-mono text-[9px] font-semibold',
                     active
                       ? 'bg-gold/25 text-gold'
-                      : 'bg-background/60 text-muted-foreground'
-                  }`}
+                      : 'bg-ink/5 text-ink-muted dark:bg-gold/10',
+                  )}
                 >
-                  {count}
+                  {counts[f.value]}
                 </span>
-              </button>
+              </Chip>
             );
           })}
         </div>
 
         {/* Donation cards */}
         {filtered.length === 0 ? (
-          <p className="py-8 text-center text-sm text-muted-foreground">
-            No donations found
+          <p className="rounded-xl border border-dashed border-parchment-edge py-8 text-center text-[13px] text-ink-muted">
+            {t('No donations found')}
           </p>
         ) : (
           <div className="flex flex-col gap-2">
@@ -209,68 +295,60 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
               d.status === 'pending' ? (
                 <article
                   key={d.id}
-                  className="rounded-xl border border-border bg-card px-3.5 py-3.5"
+                  className="rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 pb-3 pt-3.5"
                 >
                   <div className="mb-2.5 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-display text-base font-medium leading-tight text-burgundy-ink dark:text-cream">
-                        {profileMap[d.donorId] ?? 'Unknown'}
+                      <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
+                        {donorName(d.donorId)}
                       </div>
-                      <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-muted-foreground">
-                        <span>
-                          {d.paymentMethod
-                            ? (METHOD_LABELS[d.paymentMethod] ??
-                              d.paymentMethod)
-                            : '—'}
-                        </span>
+                      <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-muted">
+                        <span>{methodLabel(d.paymentMethod)}</span>
                         <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
                         <span className="font-mono">
-                          {formatShortDate(d.createdAt)}
+                          {fmtDate(d.createdAt)}
                         </span>
                       </div>
                       {d.notes && (
-                        <p className="mt-1 truncate text-[11px] italic text-muted-foreground">
+                        <p className="mt-1 truncate text-[11px] italic text-ink-muted">
                           {d.notes}
                         </p>
                       )}
                     </div>
                     <div className="shrink-0 text-right">
-                      <div className="font-display text-[22px] font-medium leading-none tabular-nums text-burgundy dark:text-gold">
-                        {Number(d.amount).toLocaleString()}
+                      <div className="font-mono text-lg font-medium leading-none tabular-nums text-brand dark:text-gold">
+                        {fmtNumber(d.amount)}
                       </div>
-                      <div className="mt-0.5 font-mono text-[9.5px] text-muted-foreground">
-                        {d.currency}
+                      <div className="mt-0.5 font-mono text-[9.5px] text-ink-muted">
+                        {t(d.currency)}
                       </div>
                     </div>
                   </div>
 
-                  {/* Action row */}
                   <div className="flex items-center gap-1.5">
                     {d.receiptHref ? (
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        onClick={() => openReceipt(d.receiptHref!)}
-                        className="h-9 flex-1 gap-1.5 rounded-lg border border-border bg-background text-[11.5px] font-medium hover:bg-card"
+                        onClick={() =>
+                          d.receiptHref && openReceipt(d.receiptHref)
+                        }
+                        className="inline-flex h-9 flex-1 items-center justify-center gap-1.5 rounded-lg border border-parchment-edge bg-parchment text-[11.5px] font-medium text-ink transition-colors hover:bg-parchment-deep"
                       >
-                        <ImageIcon className="h-3 w-3 text-muted-foreground" />
-                        View receipt
-                      </Button>
+                        <ImageIcon className="h-3 w-3 text-ink-muted" />
+                        {t('View receipt')}
+                      </button>
                     ) : (
                       <div className="inline-flex h-9 flex-1 items-center justify-center gap-1 rounded-lg bg-status-late-bg text-[10.5px] font-medium text-status-late">
                         <AlertCircle className="h-3 w-3" />
-                        No receipt
+                        {t('No receipt')}
                       </div>
                     )}
                     <button
                       type="button"
-                      onClick={() => {
-                        setRejectingId(d.id);
-                        setRejectionReason('');
-                      }}
+                      onClick={() => startReject(d.id)}
                       disabled={actionLoading === d.id}
-                      aria-label="Reject"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-status-absent/40 bg-status-absent/[0.15] text-status-absent transition-opacity hover:opacity-90 disabled:opacity-60"
+                      aria-label={t('Reject')}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg border border-status-absent/25 bg-status-absent/[0.12] text-status-absent transition-opacity hover:opacity-90 disabled:opacity-60"
                     >
                       <X className="h-4 w-4" strokeWidth={2.5} />
                     </button>
@@ -278,44 +356,42 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
                       type="button"
                       onClick={() => handleVerify(d.id)}
                       disabled={actionLoading === d.id}
-                      aria-label="Verify"
-                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-status-present text-cream shadow-[0_4px_12px_-4px_rgba(79,123,62,0.5)] transition-opacity hover:opacity-95 disabled:opacity-60"
+                      aria-label={t('Verify')}
+                      className="flex h-9 w-9 items-center justify-center rounded-lg bg-status-present text-cream dark:text-parchment-deep shadow-[0_4px_12px_-4px_rgba(79,123,62,0.5)] transition-opacity hover:opacity-95 disabled:opacity-60"
                     >
-                      <Check className="h-4 w-4" strokeWidth={2.5} />
+                      <Check className="h-[18px] w-[18px]" strokeWidth={2.5} />
                     </button>
                   </div>
                 </article>
               ) : (
                 <article
                   key={d.id}
-                  className="rounded-xl border border-border bg-card px-3.5 py-3 opacity-90"
+                  className="rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 py-3 opacity-[0.85]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="font-display text-[15px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-                        {profileMap[d.donorId] ?? 'Unknown'}
+                      <div className="truncate font-display text-[15px] font-medium leading-tight text-brand-ink">
+                        {donorName(d.donorId)}
                       </div>
-                      <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                        {Number(d.amount).toLocaleString()} {d.currency} ·{' '}
-                        {formatShortDate(d.createdAt)}
+                      <div className="mt-px font-mono text-[10px] text-ink-muted">
+                        {fmtNumber(d.amount)} {t(d.currency)} ·{' '}
+                        {fmtDate(d.createdAt)}
                       </div>
                     </div>
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex shrink-0 items-center gap-1.5">
                       {d.receiptHref && (
                         <button
                           type="button"
-                          onClick={() => openReceipt(d.receiptHref!)}
-                          className="rounded-md p-1 text-muted-foreground hover:bg-background hover:text-foreground"
-                          aria-label="View receipt"
+                          onClick={() =>
+                            d.receiptHref && openReceipt(d.receiptHref)
+                          }
+                          className="rounded-md p-1 text-ink-muted hover:bg-parchment-deep hover:text-ink"
+                          aria-label={t('View receipt')}
                         >
                           <ImageIcon className="h-3.5 w-3.5" />
                         </button>
                       )}
-                      <span
-                        className={`rounded-full px-2 py-0.5 text-[9.5px] font-semibold uppercase tracking-[0.06em] ${STATUS_STYLES[d.status].bg} ${STATUS_STYLES[d.status].text}`}
-                      >
-                        {STATUS_STYLES[d.status].label}
-                      </span>
+                      <StatusPill tone={d.status}>{t(d.status)}</StatusPill>
                     </div>
                   </div>
                   {d.status === 'rejected' && d.rejectionReason && (
@@ -331,92 +407,92 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
       </div>
 
       {/* ─── DESKTOP (md+) — queue table + receipt review ─── */}
-      <div className="hidden md:block">
-        <div className="mb-4">
-          <div className="font-ethiopic text-xs text-gold-deep dark:text-gold">
-            ስጦታ ማረጋገጫ
-          </div>
-          <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
-            Verify donations
-          </h1>
-          <p className="mt-1 text-xs text-muted-foreground">
-            {counts.pending} pending · ETB {pendingAmt.toLocaleString()}{' '}
-            awaiting review
-          </p>
-        </div>
+      <div className="hidden px-7 py-7 md:block">
+        <PageHead
+          en="Verify donations"
+          am="መዋጮ ማረጋገጫ"
+          sub={t('{count} pending · {amount} awaiting review', {
+            count: fmtNumber(counts.pending),
+            amount: fmtMoney(totals.pendingAmt, currency),
+          })}
+        />
 
-        <div className="grid grid-cols-[1fr_340px] items-start gap-4">
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
           {/* Queue */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-            <div className="grid grid-cols-[1.3fr_110px_130px_80px_110px] gap-3 border-b border-parchment-edge px-1 pb-2.5 dark:border-ink-muted/40">
-              {['Donor', 'Amount', 'Method', 'Date', 'Status'].map((h, i) => (
-                <span
-                  key={i}
-                  className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+          <Card className="p-[22px]">
+            <div className="overflow-x-auto">
+              <div className="min-w-[560px]">
+                <div
+                  className={cn(
+                    'grid gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]',
+                    QUEUE_COLS,
+                  )}
                 >
-                  {h}
-                </span>
-              ))}
-            </div>
-            {donations.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                No donations
-              </p>
-            ) : (
-              donations.map((d) => {
-                const active = d.id === selected?.id;
-                const initials = (profileMap[d.donorId] ?? '?')
-                  .split(' ')
-                  .map((w) => w[0])
-                  .join('')
-                  .slice(0, 2);
-                return (
-                  <button
-                    key={d.id}
-                    type="button"
-                    onClick={() => setSelectedId(d.id)}
-                    className={`grid w-full grid-cols-[1.3fr_110px_130px_80px_110px] items-center gap-3 border-b border-border px-1 py-3 text-left last:border-0 ${
-                      active ? 'rounded-lg bg-gold/[0.08]' : 'hover:bg-card/60'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-parchment-deep font-display text-[10.5px] font-bold text-burgundy dark:bg-gold/[0.14] dark:text-gold">
-                        {initials}
-                      </div>
-                      <span
-                        className={`text-[12.5px] ${active ? 'font-semibold' : 'font-medium'} text-foreground`}
-                      >
-                        {profileMap[d.donorId] ?? 'Unknown'}
-                      </span>
-                    </div>
-                    <span className="font-mono text-xs text-foreground">
-                      ETB {Number(d.amount).toLocaleString()}
-                    </span>
-                    <span className="text-[11.5px] text-muted-foreground">
-                      {d.paymentMethod
-                        ? (METHOD_LABELS[d.paymentMethod] ?? d.paymentMethod)
-                        : '—'}
-                    </span>
-                    <span className="font-mono text-[10.5px] text-muted-foreground">
-                      {formatShortDate(d.createdAt)}
-                    </span>
+                  {['Donor', 'Amount', 'Method', 'Date', 'Status'].map((h) => (
                     <span
-                      className={`inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${STATUS_STYLES[d.status].bg} ${STATUS_STYLES[d.status].text}`}
+                      key={h}
+                      className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                      {STATUS_STYLES[d.status].label.toLowerCase()}
+                      {t(h)}
                     </span>
-                  </button>
-                );
-              })
-            )}
-          </div>
+                  ))}
+                </div>
+                {donations.length === 0 ? (
+                  <p className="py-10 text-center text-[13px] text-ink-muted">
+                    {t('No donations yet')}
+                  </p>
+                ) : (
+                  donations.map((d) => {
+                    const active = d.id === selected?.id;
+                    const name = donorName(d.donorId);
+                    return (
+                      <button
+                        key={d.id}
+                        type="button"
+                        onClick={() => setSelectedId(d.id)}
+                        aria-pressed={active}
+                        className={cn(
+                          'grid w-full items-center gap-3 border-b border-parchment-edge py-3 text-left transition-colors',
+                          QUEUE_COLS,
+                          active
+                            ? '-mx-1 w-[calc(100%+8px)] rounded-lg bg-gold/[0.08] px-2'
+                            : 'px-1 hover:bg-parchment-deep/50',
+                        )}
+                      >
+                        <span className="flex min-w-0 items-center gap-[9px]">
+                          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-parchment-deep font-display text-[10.5px] font-bold text-brand dark:bg-gold/[0.14] dark:text-gold">
+                            {initialsOf(name) || '?'}
+                          </span>
+                          <span
+                            className={cn(
+                              'truncate text-[12.5px] text-ink',
+                              active ? 'font-semibold' : 'font-medium',
+                            )}
+                          >
+                            {name}
+                          </span>
+                        </span>
+                        <span className="font-mono text-xs text-ink">
+                          {fmtMoney(d.amount, d.currency)}
+                        </span>
+                        <span className="text-[11.5px] text-ink-muted">
+                          {methodLabel(d.paymentMethod)}
+                        </span>
+                        <span className="font-mono text-[10.5px] text-ink-muted">
+                          {fmtDate(d.createdAt)}
+                        </span>
+                        <StatusPill tone={d.status}>{t(d.status)}</StatusPill>
+                      </button>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          </Card>
 
           {/* Receipt review */}
-          <div className="rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-            <div className="mb-2.5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-              Receipt review
-            </div>
+          <Card>
+            <Eyebrow className="mb-2.5">{t('Receipt review')}</Eyebrow>
             {selected ? (
               <>
                 <button
@@ -425,69 +501,107 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
                     selected.receiptHref && openReceipt(selected.receiptHref)
                   }
                   disabled={!selected.receiptHref}
-                  className="flex h-[190px] w-full items-center justify-center overflow-hidden rounded-xl border border-border disabled:cursor-default"
-                  style={{
-                    background:
-                      'repeating-linear-gradient(45deg, #F3E9CF 0px, #F3E9CF 10px, #EFE2BE 10px, #EFE2BE 20px)',
-                  }}
+                  aria-label={
+                    selected.receiptHref ? t('View receipt') : t('No receipt')
+                  }
+                  className="relative flex h-[190px] w-full items-center justify-center overflow-hidden rounded-xl border border-parchment-edge bg-[repeating-linear-gradient(45deg,rgb(var(--fy-sunken)/0.55)_0px,rgb(var(--fy-sunken)/0.55)_10px,rgb(var(--fy-sunken))_10px,rgb(var(--fy-sunken))_20px)] disabled:cursor-default dark:bg-[repeating-linear-gradient(45deg,rgb(var(--fy-card))_0px,rgb(var(--fy-card))_10px,rgb(var(--fy-edge)/0.45)_10px,rgb(var(--fy-edge)/0.45)_20px)]"
                 >
-                  <span className="rounded-md border border-border bg-card px-2.5 py-1 font-mono text-[10px] text-muted-foreground">
-                    {selected.receiptHref ? 'View receipt' : 'No receipt'}
+                  {selected.receiptHref && !isPdf(selected.receiptHref) && (
+                    <img
+                      key={selected.receiptHref}
+                      src={selected.receiptHref}
+                      alt=""
+                      className="absolute inset-0 h-full w-full object-cover"
+                      onError={(e) => {
+                        e.currentTarget.style.display = 'none';
+                      }}
+                    />
+                  )}
+                  <span className="relative inline-flex max-w-[90%] items-center gap-1.5 truncate rounded-md border border-parchment-edge bg-parchment-soft px-2.5 py-1 font-mono text-[10px] text-ink-muted">
+                    {selected.receiptHref ? (
+                      <>
+                        {isPdf(selected.receiptHref) ? (
+                          <FileText className="h-3 w-3 shrink-0" />
+                        ) : (
+                          <ImageIcon className="h-3 w-3 shrink-0" />
+                        )}
+                        <span className="truncate">
+                          {t('receipt image')} ·{' '}
+                          {receiptFileName(selected.receiptHref)}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="h-3 w-3 shrink-0 text-status-late" />
+                        {t('No receipt')}
+                      </>
+                    )}
                   </span>
                 </button>
+
                 <div className="mt-3.5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="text-[13px] font-semibold text-foreground">
-                      {profileMap[selected.donorId] ?? 'Unknown'}
+                  <div className="flex items-baseline justify-between gap-3">
+                    <span className="truncate text-[13px] font-semibold text-ink">
+                      {donorName(selected.donorId)}
                     </span>
-                    <span className="font-mono text-[15px] text-burgundy dark:text-gold-light">
-                      ETB {Number(selected.amount).toLocaleString()}
+                    <span className="shrink-0 font-mono text-[15px] text-brand dark:text-gold-light">
+                      {fmtMoney(selected.amount, selected.currency)}
                     </span>
                   </div>
-                  <div className="mt-0.5 text-[11px] text-muted-foreground">
-                    {selected.paymentMethod
-                      ? (METHOD_LABELS[selected.paymentMethod] ??
-                        selected.paymentMethod)
-                      : '—'}{' '}
-                    · {formatShortDate(selected.createdAt)}
+                  <div className="mt-[3px] text-[11px] text-ink-muted">
+                    {methodLabel(selected.paymentMethod)} ·{' '}
+                    <span className="font-mono">
+                      {fmtDate(selected.createdAt)}
+                    </span>
                   </div>
+                  {selected.notes && (
+                    <p className="mt-2 rounded-lg bg-parchment-deep/60 px-2.5 py-1.5 text-[11px] italic text-ink-muted">
+                      {selected.notes}
+                    </p>
+                  )}
                 </div>
+
                 {selected.status === 'pending' ? (
                   <div className="mt-4 flex gap-2">
                     <button
                       type="button"
                       onClick={() => handleVerify(selected.id)}
                       disabled={actionLoading === selected.id}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-status-present py-2.5 text-xs font-semibold text-cream shadow-[0_4px_12px_-4px_rgba(79,123,62,0.5)] hover:opacity-95 disabled:opacity-60"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] bg-status-present py-2.5 text-xs font-semibold text-cream dark:text-parchment-deep shadow-[0_4px_12px_-4px_rgba(79,123,62,0.55)] transition-opacity hover:opacity-95 disabled:opacity-60"
                     >
-                      <Check className="h-3.5 w-3.5" />
-                      Verify
+                      <Check className="h-[13px] w-[13px]" />
+                      {t('Verify')}
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setRejectingId(selected.id);
-                        setRejectionReason('');
-                      }}
+                      onClick={() => startReject(selected.id)}
                       disabled={actionLoading === selected.id}
-                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-status-absent py-2.5 text-xs font-semibold text-status-absent hover:bg-status-absent/[0.06] disabled:opacity-60"
+                      className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-[10px] border border-status-absent py-2.5 text-xs font-semibold text-status-absent transition-colors hover:bg-status-absent/[0.06] disabled:opacity-60"
                     >
-                      <X className="h-3.5 w-3.5" />
-                      Reject
+                      <X className="h-[13px] w-[13px]" />
+                      {t('Reject')}
                     </button>
                   </div>
                 ) : (
-                  <div className="mt-4 rounded-[10px] border border-border bg-background py-2.5 text-center text-[11.5px] text-muted-foreground">
-                    Already {STATUS_STYLES[selected.status].label.toLowerCase()}
+                  <div className="mt-4 rounded-[10px] border border-parchment-edge bg-parchment px-3 py-2.5 text-center">
+                    <StatusPill tone={selected.status}>
+                      {t(selected.status)}
+                    </StatusPill>
+                    {selected.status === 'rejected' &&
+                      selected.rejectionReason && (
+                        <p className="mt-1.5 text-[11px] text-status-absent">
+                          {selected.rejectionReason}
+                        </p>
+                      )}
                   </div>
                 )}
               </>
             ) : (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                Select a donation to review.
+              <p className="py-10 text-center text-[13px] text-ink-muted">
+                {t('Select a donation to review.')}
               </p>
             )}
-          </div>
+          </Card>
         </div>
       </div>
 
@@ -496,38 +610,53 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
         open={!!rejectingId}
         onOpenChange={(open) => !open && setRejectingId(null)}
       >
-        <DialogContent>
+        <DialogContent className="border-parchment-edge bg-parchment-soft">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">
-              Reject donation
+            <DialogTitle
+              className={cn(
+                'text-xl text-brand-ink',
+                locale === 'am'
+                  ? 'font-ethiopic font-semibold'
+                  : 'font-display font-medium',
+              )}
+            >
+              {t('Reject donation')}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-1.5">
-            <Label
+            <label
               htmlFor="rejection-reason"
-              className="text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+              className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
             >
-              Reason
-            </Label>
-            <Textarea
+              {t('Reason')}
+            </label>
+            <textarea
               id="rejection-reason"
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
-              placeholder="e.g. Receipt is unclear, amount doesn't match…"
+              placeholder={t("e.g. Receipt is unclear, amount doesn't match…")}
               rows={3}
+              maxLength={500}
+              className="block w-full resize-y rounded-[10px] border border-parchment-edge bg-parchment px-3.5 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus-visible:border-gold focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep"
             />
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setRejectingId(null)}>
-              Cancel
-            </Button>
-            <Button
-              variant="destructive"
+          <DialogFooter className="gap-2">
+            <button
+              type="button"
+              onClick={() => setRejectingId(null)}
+              className="rounded-[10px] border border-parchment-edge bg-parchment-soft px-4 py-2 text-[12.5px] font-semibold text-brand transition-colors hover:bg-parchment-deep dark:text-gold"
+            >
+              {t('Cancel')}
+            </button>
+            <button
+              type="button"
               disabled={actionLoading === rejectingId}
               onClick={handleReject}
+              className="inline-flex items-center justify-center gap-1.5 rounded-[10px] bg-status-absent px-4 py-2 text-[12.5px] font-semibold text-cream transition-opacity hover:opacity-95 disabled:opacity-60"
             >
-              {actionLoading === rejectingId ? 'Rejecting…' : 'Reject'}
-            </Button>
+              <X className="h-[13px] w-[13px]" />
+              {actionLoading === rejectingId ? t('Rejecting…') : t('Reject')}
+            </button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -537,16 +666,32 @@ export function DonationsTable({ donations, profileMap }: DonationsTableProps) {
         open={!!receiptUrl}
         onOpenChange={(open) => !open && setReceiptUrl(null)}
       >
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg border-parchment-edge bg-parchment-soft">
           <DialogHeader>
-            <DialogTitle className="font-display text-xl">Receipt</DialogTitle>
+            <DialogTitle
+              className={cn(
+                'text-xl text-brand-ink',
+                locale === 'am'
+                  ? 'font-ethiopic font-semibold'
+                  : 'font-display font-medium',
+              )}
+            >
+              {t('Receipt')}
+            </DialogTitle>
           </DialogHeader>
           {receiptUrl &&
-            (receiptUrl.includes('.pdf') ? (
-              <iframe src={receiptUrl} className="h-[500px] w-full rounded" />
+            (isPdf(receiptUrl) ? (
+              <iframe
+                src={receiptUrl}
+                title={t('Receipt')}
+                className="h-[500px] w-full rounded-lg border border-parchment-edge"
+              />
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={receiptUrl} alt="Receipt" className="w-full rounded" />
+              <img
+                src={receiptUrl}
+                alt={t('Receipt')}
+                className="w-full rounded-lg border border-parchment-edge"
+              />
             ))}
         </DialogContent>
       </Dialog>

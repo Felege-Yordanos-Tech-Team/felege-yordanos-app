@@ -58,9 +58,22 @@ export function maxRecurrenceUntil(startYmd: string): string {
   return toYmd(addMonthsClamped(parseYmd(startYmd), MAX_RECURRENCE_MONTHS));
 }
 
-/** Full weekday name for a date, e.g. "Monday". */
-export function weekdayLabel(ymd: string): string {
-  return parseYmd(ymd).toLocaleDateString('en-US', { weekday: 'long' });
+/** Weekday names (Sunday first). */
+export const WEEKDAY_EN = [
+  'Sunday',
+  'Monday',
+  'Tuesday',
+  'Wednesday',
+  'Thursday',
+  'Friday',
+  'Saturday',
+];
+export const WEEKDAY_AM = ['እሑድ', 'ሰኞ', 'ማክሰኞ', 'ረቡዕ', 'ሐሙስ', 'ዓርብ', 'ቅዳሜ'];
+
+/** Full weekday name for a date, e.g. "Monday" (or "ሰኞ" in Amharic). */
+export function weekdayLabel(ymd: string, locale: 'am' | 'en' = 'en'): string {
+  const i = parseYmd(ymd).getDay();
+  return (locale === 'am' ? WEEKDAY_AM : WEEKDAY_EN)[i];
 }
 
 /**
@@ -105,11 +118,20 @@ export const RECURRENCE_LABELS: Record<Recurrence, string> = {
 };
 
 /** Human phrase for a cadence on a given weekday, e.g. "every Monday". */
-export function cadencePhrase(recurrence: Recurrence, startYmd: string): string {
-  const weekday = weekdayLabel(startYmd);
+export function cadencePhrase(
+  recurrence: Recurrence,
+  startYmd: string,
+  locale: 'am' | 'en' = 'en',
+): string {
+  const weekday = weekdayLabel(startYmd, locale);
+  const day = parseYmd(startYmd).getDate();
+  if (locale === 'am') {
+    if (recurrence === 'weekly') return `በየሳምንቱ ${weekday}`;
+    if (recurrence === 'biweekly') return `በየሁለት ሳምንቱ ${weekday}`;
+    return `በየወሩ በ${day}ኛው ቀን`;
+  }
   if (recurrence === 'weekly') return `every ${weekday}`;
   if (recurrence === 'biweekly') return `every other ${weekday}`;
-  const day = parseYmd(startYmd).getDate();
   const suffix =
     day % 10 === 1 && day !== 11
       ? 'st'
@@ -121,32 +143,92 @@ export function cadencePhrase(recurrence: Recurrence, startYmd: string): string 
   return `monthly on the ${day}${suffix}`;
 }
 
+/** CLDR abbreviated Amharic month names (Gregorian). */
+const MONTH_AM_SHORT = [
+  'ጃንዩ',
+  'ፌብሩ',
+  'ማርች',
+  'ኤፕሪ',
+  'ሜይ',
+  'ጁን',
+  'ጁላይ',
+  'ኦገስ',
+  'ሴፕቴ',
+  'ኦክቶ',
+  'ኖቬም',
+  'ዲሴም',
+];
+
+/**
+ * Format a `YYYY-MM-DD` date for display in the current language (local
+ * parts, so the day never shifts across time zones). Amharic is formatted by
+ * hand so server and browser render the same text (their ICU data differs).
+ */
+export function formatYmd(
+  ymd: string,
+  locale: 'am' | 'en',
+  opts: Intl.DateTimeFormatOptions = { month: 'short', day: 'numeric' },
+): string {
+  if (!ymd) return '';
+  const d = parseYmd(ymd);
+  if (Number.isNaN(d.getTime())) return ymd;
+  if (locale === 'am') {
+    const parts: string[] = [];
+    if (opts.weekday) parts.push(`${WEEKDAY_AM[d.getDay()]}፣`);
+    if (opts.month)
+      parts.push(
+        (opts.month === 'long' ? MONTH_AM : MONTH_AM_SHORT)[d.getMonth()],
+      );
+    if (opts.day)
+      parts.push(
+        opts.day === '2-digit'
+          ? String(d.getDate()).padStart(2, '0')
+          : String(d.getDate()),
+      );
+    let out = parts.join(' ');
+    if (opts.year) out += `${opts.day ? ',' : ''} ${d.getFullYear()}`;
+    return out.trim();
+  }
+  try {
+    return new Intl.DateTimeFormat('en-US', opts).format(d);
+  } catch {
+    return ymd;
+  }
+}
+
+/** "08:30" from a Postgres time ("08:30:00"), or '' when missing. */
+export function hhmm(t: string | null | undefined): string {
+  return t ? t.slice(0, 5) : '';
+}
+
 // ── Department colours (client-side map; no DB column) ────────────────────────
 
 /**
- * Deterministic colour per department id. Jewel tones that read on parchment in
- * both light and dark. `null` (General) falls back to a muted ink tone.
+ * Deterministic colour per department id (used as inline styles for dots,
+ * bars and calendar chips). Jewel tones from the design's calendar palette
+ * that read on parchment in both light and dark. `null` (General) falls
+ * back to a muted ink tone.
  */
 const DEPT_COLOR: Record<number, string> = {
-  1: '#5B5FA6', // Planning — indigo
-  2: '#2F6F8F', // Education — teal-blue
-  3: '#6B1D2A', // Programs & Events — burgundy
-  4: '#8C4A6B', // People Ops — plum
-  5: '#C97B1A', // Comms — amber
-  6: '#A47A18', // Songs & Celebrations — gold-deep
-  7: '#B5532F', // Arts & Culture — terracotta
-  8: '#4F7B3E', // Development & Charity — green
-  9: '#3E7C6A', // Budget & Asset — emerald
+  1: '#5B5FA6', // Planning: indigo
+  2: '#2E8577', // Education: teal (design "edu")
+  3: '#B5532F', // Programs & Events: terracotta
+  4: '#8C4A6B', // People Ops: plum
+  5: '#C97B1A', // Comms: amber (design "comms")
+  6: '#D4A843', // Songs & Celebrations: gold (design "choir")
+  7: '#2F6F8F', // Arts & Culture: blue
+  8: '#4F7B3E', // Development & Charity: green (design "kids")
+  9: '#75664A', // Budget & Asset: umber
 };
 
-const DEPT_FALLBACK = '#75664A'; // ink-muted
+const DEPT_FALLBACK = '#A89673'; // ink-faint
 
 export function deptColor(id: number | null | undefined): string {
   if (!id) return DEPT_FALLBACK;
   return DEPT_COLOR[id] ?? DEPT_FALLBACK;
 }
 
-/** Short English label for legends/tight spaces. */
+/** Short labels for legends, chips and other tight spaces. */
 const DEPT_SHORT: Record<number, string> = {
   1: 'Planning',
   2: 'Education',
@@ -159,17 +241,46 @@ const DEPT_SHORT: Record<number, string> = {
   9: 'Budget',
 };
 
-export function deptShortLabel(id: number | null | undefined): string {
-  if (!id) return 'General';
-  return DEPT_SHORT[id] ?? 'Dept';
+/** Leading word(s) of each department's official Amharic name. */
+const DEPT_SHORT_AM: Record<number, string> = {
+  1: 'እቅድ',
+  2: 'ትምህርት',
+  3: 'መርሐ ግብር',
+  4: 'የሰው ሀብት',
+  5: 'መረጃ',
+  6: 'መዝሙር',
+  7: 'ኪነጥበብ',
+  8: 'ልማት',
+  9: 'በጀት',
+};
+
+export function deptShortLabel(
+  id: number | null | undefined,
+  locale: 'am' | 'en' = 'en',
+): string {
+  if (!id) return locale === 'am' ? 'ጠቅላላ' : 'General';
+  return (
+    (locale === 'am' ? DEPT_SHORT_AM[id] : DEPT_SHORT[id]) ??
+    (locale === 'am' ? 'ክፍል' : 'Dept')
+  );
 }
 
 // ── Calendar grid ─────────────────────────────────────────────────────────────
 
 /** Amharic transliteration of Gregorian month names (matches the shown month). */
 export const MONTH_AM = [
-  'ጃንዋሪ', 'ፌብሩዋሪ', 'ማርች', 'ኤፕሪል', 'ሜይ', 'ጁን',
-  'ጁላይ', 'ኦገስት', 'ሴፕቴምበር', 'ኦክቶበር', 'ኖቬምበር', 'ዲሴምበር',
+  'ጃንዋሪ',
+  'ፌብሩዋሪ',
+  'ማርች',
+  'ኤፕሪል',
+  'ሜይ',
+  'ጁን',
+  'ጁላይ',
+  'ኦገስት',
+  'ሴፕቴምበር',
+  'ኦክቶበር',
+  'ኖቬምበር',
+  'ዲሴምበር',
 ];
 
 /**
@@ -181,9 +292,69 @@ export function monthGrid(year: number, month: number): (string | null)[][] {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (string | null)[] = [];
   for (let i = 0; i < firstDay; i += 1) cells.push(null);
-  for (let d = 1; d <= daysInMonth; d += 1) cells.push(toYmd(new Date(year, month, d)));
+  for (let d = 1; d <= daysInMonth; d += 1)
+    cells.push(toYmd(new Date(year, month, d)));
   while (cells.length % 7 !== 0) cells.push(null);
   const weeks: (string | null)[][] = [];
   for (let i = 0; i < cells.length; i += 7) weeks.push(cells.slice(i, i + 7));
   return weeks;
+}
+
+// ── Ethiopian calendar (for the calendar subtitle) ───────────────────────────
+
+export const ETH_MONTHS = [
+  'መስከረም',
+  'ጥቅምት',
+  'ኅዳር',
+  'ታኅሣሥ',
+  'ጥር',
+  'የካቲት',
+  'መጋቢት',
+  'ሚያዝያ',
+  'ግንቦት',
+  'ሰኔ',
+  'ሐምሌ',
+  'ነሐሴ',
+  'ጳጉሜን',
+];
+
+/** Gregorian date -> Ethiopian { year, month (1-13), day } via the Julian Day Number. */
+export function toEthiopic(d: Date): {
+  year: number;
+  month: number;
+  day: number;
+} {
+  const a = Math.floor((14 - (d.getMonth() + 1)) / 12);
+  const y = d.getFullYear() + 4800 - a;
+  const m = d.getMonth() + 1 + 12 * a - 3;
+  const jdn =
+    d.getDate() +
+    Math.floor((153 * m + 2) / 5) +
+    365 * y +
+    Math.floor(y / 4) -
+    Math.floor(y / 100) +
+    Math.floor(y / 400) -
+    32045;
+  const r = (jdn - 1723856) % 1461;
+  const n = (r % 365) + 365 * Math.floor(r / 1460);
+  return {
+    year:
+      4 * Math.floor((jdn - 1723856) / 1461) +
+      Math.floor(r / 365) -
+      Math.floor(r / 1460),
+    month: Math.floor(n / 30) + 1,
+    day: (n % 30) + 1,
+  };
+}
+
+const G1 = ['', '፩', '፪', '፫', '፬', '፭', '፮', '፯', '፰', '፱'];
+const G10 = ['', '፲', '፳', '፴', '፵', '፶', '፷', '፸', '፹', '፺'];
+const geezPair = (n: number) => G10[Math.floor(n / 10)] + G1[n % 10];
+
+/** Number in Ge'ez numerals (1-9999), e.g. 2018 -> ፳፻፲፰. */
+export function geez(n: number): string {
+  if (n < 100) return geezPair(n);
+  const hi = Math.floor(n / 100);
+  const lo = n % 100;
+  return (hi === 1 ? '' : geezPair(hi)) + '፻' + geezPair(lo);
 }

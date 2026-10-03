@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils';
 import { isActivePath, type NavItem } from '@/lib/nav';
 import { useSidebar } from './sidebar-provider';
 
-/** One sidebar row. Renders icon-only when the sidebar is collapsed. */
+/** One sidebar row: Amharic label leads, English sits small on the right. */
 export function SidebarNavItem({ item }: { item: NavItem }) {
   const pathname = usePathname();
   const { collapsed } = useSidebar();
@@ -17,38 +17,31 @@ export function SidebarNavItem({ item }: { item: NavItem }) {
     <Link
       href={item.href}
       aria-current={active ? 'page' : undefined}
-      title={collapsed ? `${item.labelEn} · ${item.labelAm}` : undefined}
+      title={collapsed ? `${item.labelAm} · ${item.labelEn}` : undefined}
       className={cn(
-        'group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm transition-colors',
-        collapsed && 'justify-center px-0',
-        active
-          ? 'bg-gold/[0.13] font-semibold text-gold-light'
-          : 'text-cream/70 hover:bg-cream/10 hover:text-cream',
+        'relative flex items-center gap-[11px] rounded-[10px] transition-colors',
+        collapsed ? 'mx-2.5 my-0.5 justify-center py-[11px]' : 'mx-3 my-px px-3 py-[9px]',
+        active ? 'bg-gold/[0.13] text-gold' : 'text-cream/60 hover:bg-cream/[0.06] hover:text-cream/85',
       )}
     >
-      {/* Subtle left indicator on the active row */}
       {active && !collapsed && (
-        <span
-          aria-hidden
-          className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-gold"
-        />
+        <span aria-hidden className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gold" />
       )}
-      <Icon
-        className={cn('h-[18px] w-[18px] shrink-0', active && 'text-gold')}
-        strokeWidth={active ? 2.25 : 1.9}
-      />
+      <Icon className={cn('shrink-0', collapsed ? 'h-5 w-5' : 'h-[17px] w-[17px]')} strokeWidth={active ? 2 : 1.7} />
       {!collapsed && (
-        <span className="flex min-w-0 flex-1 items-baseline justify-between gap-2">
-          <span className="truncate">{item.labelEn}</span>
+        <>
           <span
             className={cn(
-              'font-ethiopic text-[11px]',
-              active ? 'text-gold/70' : 'text-cream/40',
+              'min-w-0 flex-1 overflow-hidden whitespace-nowrap font-ethiopic text-[12.5px] tracking-[0.02em]',
+              active ? 'font-semibold' : 'font-medium',
             )}
           >
             {item.labelAm}
           </span>
-        </span>
+          <span className={cn('whitespace-nowrap text-[10.5px]', active ? 'opacity-85' : 'opacity-55')}>
+            {item.labelEn}
+          </span>
+        </>
       )}
     </Link>
   );

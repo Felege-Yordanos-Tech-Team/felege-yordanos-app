@@ -5,6 +5,10 @@
   "dependencies": {
     "@felege-yordanos/db": "workspace:*",
     "@felege-yordanos/ui": "workspace:*",
+    "@fontsource-variable/inter": "5.3.0",
+    "@fontsource/cormorant-garamond": "5.3.0",
+    "@fontsource/jetbrains-mono": "5.3.0",
+    "@fontsource/noto-serif-ethiopic": "5.3.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-avatar": "^1.1.11",
     "@radix-ui/react-dialog": "^1.1.15",
@@ -19,6 +23,7 @@
     "drizzle-orm": "0.45.3",
     "html5-qrcode": "^2.3.8",
     "next": "~16.1.6",
+    "next-themes": "0.4.6",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
