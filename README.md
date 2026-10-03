@@ -48,6 +48,10 @@ pnpm db:migrate               # Apply migrations
 docker compose down -v        # Wipe the local database (then run pnpm db:setup)
 ```
 
+## Contributing
+
+Read [CONTRIBUTING.md](CONTRIBUTING.md) before your first pull request.
+
 ## Project Structure
 
 ```

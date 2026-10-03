@@ -1,0 +1,29 @@
+name: Feature or improvement
+description: Something new, or a change to how something works
+labels: [enhancement]
+body:
+  - type: textarea
+    id: need
+    attributes:
+      label: Who needs this and why?
+      description: Which role (member, dept head, admin) and what problem it solves.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What should it do?
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: How do we know it is done?
+      placeholder: |
+        - [ ] A dept head can ...
+        - [ ] Works on phone and desktop
+  - type: textarea
+    id: permissions
+    attributes:
+      label: Who is allowed to see or change this?
+      description: Which roles and departments. This becomes a rule in lib/permissions.ts.

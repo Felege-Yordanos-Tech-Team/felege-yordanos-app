@@ -1,0 +1,78 @@
+name: CI
+
+# Runs on every pull request into dev or main, and on every push to dev.
+# A PR can only be merged when this passes.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck, migrations, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: felege
+          POSTGRES_PASSWORD: felege
+          POSTGRES_DB: felege
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U felege -d felege"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://felege:felege@localhost:5432/felege
+      # CI-only values. Real secrets never go in this file.
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
+      BETTER_AUTH_URL: http://localhost:3000
+      NX_NO_CLOUD: true
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Check schema changes have a migration
+        # Fails when someone edited libs/db/src/schema but forgot `pnpm db:generate`.
+        run: |
+          pnpm db:generate
+          if [ -n "$(git status --porcelain libs/db/migrations)" ]; then
+            echo "::error::The database schema changed but no migration was committed. Run 'pnpm db:generate' and commit the new file in libs/db/migrations."
+            git status --porcelain libs/db/migrations
+            exit 1
+          fi
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
