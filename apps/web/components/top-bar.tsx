@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import { Bell, PanelLeft, Search } from 'lucide-react';
-import type { UserRole } from '@felege-yordanos/db';
+import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { Badge } from '@/components/ui/badge';
 import { breadcrumbForPath } from '@/lib/nav';
 import { initials } from '@/lib/utils';

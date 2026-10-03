@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { createClient } from '@felege-yordanos/db';
+import { authClient } from '@/lib/auth-client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,16 +19,14 @@ export default function ForgotPasswordPage() {
     setLoading(true);
     setError('');
 
-    const supabase = createClient();
-    const redirectTo = `${window.location.origin}/auth/callback?next=/reset-password`;
-
-    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+    // The email link opens /reset-password?token=... (or ?error=INVALID_TOKEN).
+    const { error: resetError } = await authClient.requestPasswordReset({
       email,
-      { redirectTo },
-    );
+      redirectTo: '/reset-password',
+    });
 
     if (resetError) {
-      setError(resetError.message);
+      setError(resetError.message ?? 'Something went wrong. Please try again.');
       setLoading(false);
       return;
     }

@@ -1,4 +1,4 @@
-import type { UserRole } from '@felege-yordanos/db';
+import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { BottomNav } from '@felege-yordanos/ui';
 import { SidebarProvider } from './sidebar/sidebar-provider';
 import { SidebarNav } from './sidebar/sidebar-nav';

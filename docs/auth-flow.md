@@ -1,3 +1,5 @@
+> **Outdated:** this describes the old Supabase Auth flow. Auth now uses Better Auth: see `apps/web/lib/auth.ts`, `apps/web/lib/session.ts` and `apps/web/proxy.ts`. The RLS tables below are still the reference for the permission rules each screen must enforce when ported.
+
 # Authentication & Authorization Flow
 
 ## Proxy Request Flow

@@ -1,6 +1,6 @@
 'use client';
 
-import { createClient } from '@felege-yordanos/db';
+import { authClient } from '@/lib/auth-client';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LogOut, User } from 'lucide-react';
@@ -21,8 +21,7 @@ export function UserMenu({ displayName }: UserMenuProps) {
   const router = useRouter();
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await authClient.signOut();
     router.push('/login');
     router.refresh();
   }

@@ -1,8 +1,12 @@
 import Link from 'next/link';
 import Image from 'next/image';
+import { redirect } from 'next/navigation';
 import { Button } from '@/components/ui/button';
+import { getSession } from '@/lib/session';
 
-export default function LandingPage() {
+export default async function LandingPage() {
+  if (await getSession()) redirect('/dashboard');
+
   return (
     <div className="auth-bg-dark flex min-h-screen flex-col items-center justify-center px-6">
       {/* Sunday School icon */}

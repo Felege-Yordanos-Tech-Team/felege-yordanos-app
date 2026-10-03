@@ -1,28 +1,6 @@
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
-import { DonateForm } from './donate-form';
+import { NotMigrated } from '@/components/not-migrated';
 
-type Donation = Database['public']['Tables']['donations']['Row'];
-
-export default async function DonatePage() {
-  const cookieStore = await cookies();
-  const supabase = createServerComponentClient(cookieStore);
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const { data: donations } = await supabase
-    .from('donations')
-    .select('*')
-    .eq('donor_id', user?.id ?? '')
-    .order('created_at', { ascending: false });
-
-  return (
-    <DonateForm
-      userId={user?.id ?? ''}
-      pastDonations={(donations as Donation[]) ?? []}
-    />
-  );
+// Not yet moved off Supabase. Old version: ./page.legacy.tsx
+export default function Page() {
+  return <NotMigrated feature="Donate" legacyFile="app/(member)/donate/page.legacy.tsx" />;
 }

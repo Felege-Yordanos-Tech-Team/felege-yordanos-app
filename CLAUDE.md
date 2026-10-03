@@ -16,8 +16,8 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School. Email: leykungiza
 | App        | Next.js (App Router) — single app at `apps/web/`                   |
 | Language   | TypeScript (strict)                                                |
 | Styling    | Tailwind CSS + shadcn/ui                                           |
-| Backend/DB | Supabase (PostgreSQL) — project ID: `uoaigpdabiswykfjyznv`         |
-| Auth       | Supabase Auth via `@supabase/ssr`                                  |
+| Backend/DB | PostgreSQL + Drizzle (`libs/db`). Production still on Supabase until cutover |
+| Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres                   |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
 | Hosting    | Vercel (free tier)                                                 |
 | GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (private) |
@@ -60,6 +60,8 @@ Roles stored in `profiles` table (column: `role`). Department scoping via `depar
 ## Library Imports
 
 - DB (new, server only): `import { db, songs } from '@felege-yordanos/db/server'`
+- Current user (server only): `import { requireUser, requireRole, getCurrentUser } from '@/lib/session'`
+- Auth in client components: `import { authClient } from '@/lib/auth-client'`
 - DB schema/types (safe anywhere): `import type { Role } from '@felege-yordanos/db/schema'`
 - UI components: `import { BottomNav } from '@felege-yordanos/ui'`
 - Legacy Supabase client (being removed): `import { createClient, createServerComponentClient } from '@felege-yordanos/db'`
@@ -84,18 +86,20 @@ npx nx graph              # View project dependency graph
 
 ## Environment Variables
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://uoaigpdabiswykfjyznv.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-```
+See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `EMAIL_TRANSPORT`. Supabase variables are no longer needed locally.
+
+Dev emails (password reset links) are printed in the terminal running the app.
+Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
 
 ## Migration Status
 
 Moving off Vercel and Supabase to a self-hosted server (Postgres + Drizzle, Better Auth, Kamal).
 
 - Done: local Postgres + Drizzle schema matching the live Supabase database exactly (12 tables, verified 2026-10-02)
-- Next: replace Supabase Auth, then port features one by one to server actions
-- Authorization rules that lived in RLS must be enforced in server code when a feature is ported
+- Done: Better Auth (sign up, sign in, sign out, password reset). Supabase bcrypt password hashes are accepted so existing users keep their passwords at cutover
+- Unported screens render `<NotMigrated />`. Their old Supabase code is kept beside them as `page.legacy.tsx` (not routed by Next.js) for reference
+- Porting a screen: rewrite `page.tsx` with server-side data access (`@felege-yordanos/db/server` + `lib/session.ts`, mutations as server actions), enforce the old RLS rule in code, then delete `page.legacy.tsx` and any child components only it used
+- Authorization rules that lived in RLS must be enforced in server code when a feature is ported. `proxy.ts` is only a fast cookie check, never the security boundary
 
 ## Rules
 
