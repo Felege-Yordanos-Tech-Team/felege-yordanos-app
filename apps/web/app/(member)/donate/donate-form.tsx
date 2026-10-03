@@ -7,13 +7,21 @@ import {
   Building2,
   Heart,
   MoreHorizontal,
-  Phone,
+  Smartphone,
+  Upload,
   UploadCloud,
 } from 'lucide-react';
-import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import {
+  Card,
+  Eyebrow,
+  PageHead,
+  SectionHeader,
+  StatusPill,
+} from '@/components/ds';
 import { useToast } from '@/hooks/use-toast';
+import { useBilingual, useLocale, useT } from '@/lib/i18n/client';
+import { intlLocale } from '@/lib/i18n/config';
+import { cn } from '@/lib/utils';
 import type { DonationStatus, PaymentMethod } from '@felege-yordanos/db/schema';
 import { createDonation } from './actions';
 
@@ -37,59 +45,49 @@ interface DonateFormProps {
 const QUICK_AMOUNTS = ['100', '250', '500', '1000'];
 
 const PAYMENT_METHODS: {
-  value: string;
+  value: PaymentMethod;
   label: string;
-  am: string;
   Icon: typeof Banknote;
 }[] = [
-  { value: 'telebirr', label: 'Telebirr', am: 'ቴሌብር', Icon: Phone },
-  {
-    value: 'bank_transfer',
-    label: 'Bank Transfer',
-    am: 'የባንክ ዝውውር',
-    Icon: Building2,
-  },
-  { value: 'cash', label: 'Cash', am: 'ጥሬ ገንዘብ', Icon: Banknote },
-  { value: 'other', label: 'Other', am: 'ሌላ', Icon: MoreHorizontal },
+  { value: 'telebirr', label: 'Telebirr', Icon: Smartphone },
+  { value: 'bank_transfer', label: 'Bank Transfer', Icon: Building2 },
+  { value: 'cash', label: 'Cash', Icon: Banknote },
+  { value: 'other', label: 'Other', Icon: MoreHorizontal },
 ];
 
-const METHOD_LABELS: Record<string, string> = {
+const METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: 'Bank Transfer',
   telebirr: 'Telebirr',
   cash: 'Cash',
   other: 'Other',
 };
 
-const STATUS_STYLES: Record<
-  DonationRow['status'],
-  { label: string; bg: string; text: string }
-> = {
-  pending: {
-    label: 'Pending',
-    bg: 'bg-status-late-bg',
-    text: 'text-status-late',
-  },
-  verified: {
-    label: 'Verified',
-    bg: 'bg-status-present-bg',
-    text: 'text-status-present',
-  },
-  rejected: {
-    label: 'Rejected',
-    bg: 'bg-status-absent-bg',
-    text: 'text-status-absent',
-  },
-};
+const MAX_RECEIPT_BYTES = 5 * 1024 * 1024;
 
-function formatShortDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    });
-  } catch {
-    return iso;
-  }
+/** Small uppercase field label. */
+function FieldLabel({
+  htmlFor,
+  optional,
+  children,
+}: {
+  htmlFor?: string;
+  optional?: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <label
+      htmlFor={htmlFor}
+      className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
+    >
+      {children}
+      {optional && (
+        <span className="font-normal normal-case tracking-normal text-ink-faint">
+          {' '}
+          · {optional}
+        </span>
+      )}
+    </label>
+  );
 }
 
 export function DonateForm({ pastDonations }: DonateFormProps) {
@@ -103,8 +101,26 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
   const deskFileRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
+  const bi = useBilingual();
 
-  // Desktop giving-history summary: verified total for the current year.
+  const numberFmt = new Intl.NumberFormat(intlLocale(locale));
+  const dateFmt = new Intl.DateTimeFormat(intlLocale(locale), {
+    month: 'short',
+    day: 'numeric',
+  });
+  const fmtNumber = (v: string | number) => numberFmt.format(Number(v));
+  const fmtDate = (iso: string) => {
+    const d = new Date(iso);
+    return Number.isNaN(d.getTime()) ? iso : dateFmt.format(d);
+  };
+  const fmtMoney = (v: string | number, currency: string) =>
+    `${t(currency)} ${fmtNumber(v)}`;
+  const methodLabel = (m: PaymentMethod | null) =>
+    m ? t(METHOD_LABELS[m] ?? m) : '—';
+
+  // Giving-history summary: verified total for the current year.
   const currentYear = new Date().getFullYear();
   const verifiedTotal = pastDonations
     .filter(
@@ -125,10 +141,10 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
     if (notes) formData.append('notes', notes);
 
     if (file) {
-      if (file.size > 5 * 1024 * 1024) {
+      if (file.size > MAX_RECEIPT_BYTES) {
         toast({
-          title: 'File too large',
-          description: 'Receipt must be under 5MB.',
+          title: t('File too large'),
+          description: t('Receipt must be under 5MB.'),
           variant: 'destructive',
         });
         setSubmitting(false);
@@ -151,11 +167,15 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
     setSubmitting(false);
 
     if (!res.ok) {
-      toast({ title: 'Error', description: res.error, variant: 'destructive' });
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
     } else {
       toast({
-        title: 'Donation submitted',
-        description: 'Your donation is pending verification.',
+        title: t('Donation submitted'),
+        description: t('Your donation is pending verification.'),
       });
       setAmount('');
       setMethod('');
@@ -174,54 +194,99 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
     if (dropped) setFile(dropped);
   }
 
+  /** The Amharic accent is shown only in English mode. */
+  const submitButton = (am: string, size: 'md' | 'lg', icon?: boolean) => (
+    <button
+      type="submit"
+      disabled={submitting}
+      className={cn(
+        'sacred-gradient flex w-full items-center justify-center gap-2 whitespace-nowrap rounded-xl border border-gold/40 px-5 font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95 disabled:opacity-70',
+        size === 'lg' ? 'py-[15px] text-sm' : 'py-3 text-[13px]',
+      )}
+    >
+      {locale !== 'am' && (
+        <>
+          <span className="font-ethiopic text-xs opacity-85">{am}</span>
+          <span className="h-3.5 w-px bg-gold/40" />
+        </>
+      )}
+      {icon && <Heart className="h-3.5 w-3.5 text-gold" strokeWidth={2} />}
+      <span>{submitting ? t('Submitting…') : t('Submit donation')}</span>
+    </button>
+  );
+
+  const notesField = (id: string) => (
+    <div>
+      <FieldLabel htmlFor={id} optional={t('optional')}>
+        {t('Notes')}
+      </FieldLabel>
+      <textarea
+        id={id}
+        value={notes}
+        onChange={(e) => setNotes(e.target.value)}
+        placeholder={t('For Easter offering')}
+        rows={2}
+        maxLength={500}
+        className="block min-h-[48px] w-full resize-y rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus-visible:border-gold focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep"
+      />
+    </div>
+  );
+
+  const fileInput = (ref: React.RefObject<HTMLInputElement | null>) => (
+    <input
+      ref={ref}
+      type="file"
+      accept="image/jpeg,image/png,application/pdf"
+      className="hidden"
+      aria-label={t('Receipt')}
+      onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+    />
+  );
+
   return (
     <>
-      {/* ─────────────────────────── MOBILE (< md) — unchanged ─────────────────────────── */}
+      {/* ─── PHONE (< md) ─── */}
       <div className="mx-auto max-w-md px-[22px] pb-6 pt-4 md:hidden">
-        {/* Section header */}
-        <div className="mb-1.5">
-          <div className="font-ethiopic text-xs font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-            ስጦታ
-          </div>
-          <h1 className="font-display text-[28px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
-            Make a donation
-          </h1>
-        </div>
-        <p className="text-[13px] text-muted-foreground">
-          Submit your donation with a receipt — admins will verify it.
+        <SectionHeader en="Make a donation" am="መዋጮ" size="md" as="h1" />
+        <p className="mt-1.5 text-[13px] text-ink-muted">
+          {t('Submit your donation with a receipt — admins will verify it.')}
         </p>
 
         {/* Ornament rule */}
-        <div className="my-4 flex items-center gap-2.5">
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge dark:to-ink-muted/40" />
+        <div className="my-4 flex items-center gap-2.5" aria-hidden>
+          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge" />
           <span className="flex items-center gap-1">
             <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
             <span className="h-1 w-1 rounded-full bg-gold" />
             <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
           </span>
-          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge dark:to-ink-muted/40" />
+          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
           {/* Featured amount card */}
-          <div className="relative overflow-hidden rounded-2xl border-[1.5px] border-border bg-card px-[18px] py-3.5 shadow-[0_0_0_4px_rgba(212,168,67,0.06)]">
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-              Amount
-            </div>
+          <div className="relative overflow-hidden rounded-2xl border-[1.5px] border-parchment-edge bg-parchment-soft px-[18px] py-3.5 shadow-[0_0_0_4px_rgba(212,168,67,0.06)]">
+            <label
+              htmlFor="amount-phone"
+              className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep"
+            >
+              {t('Amount')}
+            </label>
             <div className="flex items-baseline gap-1.5">
               <input
+                id="amount-phone"
                 type="number"
                 min="1"
                 step="0.01"
+                inputMode="decimal"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 required
-                aria-label="Donation amount"
-                className="w-full bg-transparent font-display text-[44px] font-medium leading-none tabular-nums text-burgundy outline-none placeholder:text-ink-faint/60 focus:outline-none dark:text-gold"
+                className="w-full min-w-0 bg-transparent font-mono text-[36px] font-medium leading-none tabular-nums text-brand outline-none placeholder:text-ink-faint/60 dark:text-gold"
               />
-              <span className="font-mono text-sm font-medium text-muted-foreground">
-                ETB
+              <span className="font-mono text-sm font-medium text-ink-muted">
+                {t('ETB')}
               </span>
             </div>
             <div className="mt-2.5 flex gap-1.5">
@@ -232,13 +297,15 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
                     key={v}
                     type="button"
                     onClick={() => setAmount(v)}
-                    className={`flex-1 rounded-lg py-1.5 font-mono text-[11px] font-semibold transition-colors ${
+                    aria-pressed={active}
+                    className={cn(
+                      'flex-1 rounded-lg border py-1.5 font-mono text-[11px] font-semibold text-ink transition-colors',
                       active
-                        ? 'border border-gold bg-gold/[0.15] text-foreground'
-                        : 'border border-border bg-background text-foreground hover:bg-card'
-                    }`}
+                        ? 'border-gold bg-gold/[0.15]'
+                        : 'border-parchment-edge bg-parchment hover:bg-parchment-deep',
+                    )}
                   >
-                    {Number(v).toLocaleString()}
+                    {fmtNumber(v)}
                   </button>
                 );
               })}
@@ -247,488 +314,361 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
 
           {/* Payment method */}
           <div>
-            <Label className="mb-2 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-              Payment method
-            </Label>
-            <div className="grid grid-cols-2 gap-2">
+            <FieldLabel>{t('Payment method')}</FieldLabel>
+            <div
+              className="grid grid-cols-2 gap-2"
+              role="radiogroup"
+              aria-label={t('Payment method')}
+            >
               {PAYMENT_METHODS.map((m) => {
                 const active = method === m.value;
+                const { primary, secondary } = bi(m.label);
                 return (
                   <button
                     key={m.value}
                     type="button"
+                    role="radio"
+                    aria-checked={active}
                     onClick={() => setMethod(m.value)}
-                    className={`flex flex-col items-start gap-1 rounded-xl px-3.5 py-3 text-left transition-colors ${
+                    className={cn(
+                      'flex flex-col items-start gap-1 rounded-xl px-3.5 py-3 text-left transition-colors',
                       active
-                        ? 'border-[1.5px] border-burgundy bg-burgundy/[0.08] dark:bg-burgundy/40'
-                        : 'border border-border bg-card hover:bg-card/80'
-                    }`}
+                        ? 'border-[1.5px] border-brand bg-brand/[0.08] dark:bg-brand/40'
+                        : 'border border-parchment-edge bg-parchment-soft hover:bg-parchment-deep',
+                    )}
                   >
                     <m.Icon
-                      className={`h-4 w-4 ${
-                        active
-                          ? 'text-burgundy dark:text-gold'
-                          : 'text-muted-foreground'
-                      }`}
+                      className={cn(
+                        'h-4 w-4',
+                        active ? 'text-brand dark:text-gold' : 'text-ink-muted',
+                      )}
                       strokeWidth={1.75}
                     />
-                    <div
-                      className={`mt-1 text-xs font-semibold ${
-                        active
-                          ? 'text-burgundy-ink dark:text-cream'
-                          : 'text-foreground'
-                      }`}
+                    <span
+                      className={cn(
+                        'mt-1 text-xs font-semibold',
+                        active ? 'text-brand-ink' : 'text-ink',
+                        locale === 'am' && 'font-ethiopic',
+                      )}
                     >
-                      {m.label}
-                    </div>
-                    <div
-                      className={`font-ethiopic text-[10px] ${
-                        active
-                          ? 'text-gold-deep dark:text-gold'
-                          : 'text-muted-foreground'
-                      }`}
+                      {primary}
+                    </span>
+                    <span
+                      className={cn(
+                        'text-[10px]',
+                        active ? 'text-gold-deep' : 'text-ink-muted',
+                        locale === 'am' ? 'font-body' : 'font-ethiopic',
+                      )}
                     >
-                      {m.am}
-                    </div>
+                      {secondary}
+                    </span>
                   </button>
                 );
               })}
             </div>
           </div>
 
-          {/* Bank details panel — only when bank transfer is selected */}
-          {method === 'bank_transfer' && (
-            <div className="rounded-xl border border-dashed border-gold bg-gold/[0.08] px-3.5 py-3 dark:bg-gold/[0.05]">
-              <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                Send to · CBE
-              </div>
-              <div className="font-mono text-sm font-semibold tracking-[0.06em] text-burgundy-ink dark:text-cream">
-                1000-4527-8891-0012
-              </div>
-              <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-                FELEGE YORDANOS SUNDAY SCHOOL
-              </div>
-            </div>
-          )}
-
-          {/* Notes */}
-          <div>
-            <Label
-              htmlFor="notes"
-              className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
-            >
-              Notes{' '}
-              <span className="font-normal text-ink-faint">· optional</span>
-            </Label>
-            <Textarea
-              id="notes"
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              placeholder="For Easter offering"
-              rows={2}
-              className="rounded-[10px] border border-border bg-card px-3.5 py-2.5 text-[13px] text-foreground placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-input"
-            />
-          </div>
+          {notesField('notes-phone')}
 
           {/* Receipt upload */}
           <div>
-            <Label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-              Receipt{' '}
-              <span className="font-normal text-ink-faint">· optional</span>
-            </Label>
+            <FieldLabel optional={t('optional')}>{t('Receipt')}</FieldLabel>
             <button
               type="button"
               onClick={() => fileRef.current?.click()}
-              className="flex w-full items-center gap-3 rounded-xl border border-dashed border-border bg-gold/[0.05] px-4 py-3.5 text-left transition-colors hover:bg-gold/[0.08]"
+              className="flex w-full items-center gap-3 rounded-xl border border-dashed border-parchment-edge bg-gold/[0.05] px-4 py-3.5 text-left transition-colors hover:bg-gold/[0.08] dark:bg-gold/[0.04]"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gold/[0.18]">
+              <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] bg-gold/[0.18]">
                 <UploadCloud className="h-5 w-5 text-gold" />
-              </div>
-              <div className="flex-1">
-                <div className="text-[12.5px] font-semibold text-foreground">
-                  {file ? file.name : 'Tap to upload receipt'}
-                </div>
-                <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-                  JPEG, PNG or PDF · max 5MB
-                </div>
-              </div>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[12.5px] font-semibold text-ink">
+                  {file ? file.name : t('Tap to upload receipt')}
+                </span>
+                <span className="mt-px block text-[10.5px] text-ink-muted">
+                  {t('JPEG, PNG or PDF')} · {t('max 5MB')}
+                </span>
+              </span>
             </button>
-            <input
-              ref={fileRef}
-              type="file"
-              accept="image/jpeg,image/png,application/pdf"
-              className="hidden"
-              onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            />
+            {fileInput(fileRef)}
           </div>
 
-          {/* Submit */}
-          <Button
-            type="submit"
-            disabled={submitting}
-            className="sacred-gradient mt-1 flex w-full items-center justify-center gap-2 rounded-xl py-[15px] text-sm font-semibold tracking-wider text-cream shadow-[0_6px_16px_-6px_rgba(74,14,24,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95 disabled:opacity-70"
-            style={{ border: '1px solid rgba(212,168,67,0.4)' }}
-          >
-            <span className="font-ethiopic text-xs opacity-85">ላክ</span>
-            <span className="h-3.5 w-px bg-gold/40" />
-            <span>{submitting ? 'Submitting…' : 'Submit donation'}</span>
-          </Button>
+          <div className="pt-1">{submitButton('ላክ', 'lg')}</div>
         </form>
 
         {/* Past donations */}
         {pastDonations.length > 0 && (
           <section className="mt-[26px]">
-            <div className="mb-2.5">
-              <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-                ያለፉ ስጦታዎች
-              </div>
-              <h2 className="font-display text-[22px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
-                Your donations
-              </h2>
-            </div>
-
-            <div className="space-y-2">
-              {pastDonations.map((d) => {
-                const s = STATUS_STYLES[d.status] ?? STATUS_STYLES.pending;
-                return (
-                  <div
-                    key={d.id}
-                    className="rounded-xl border border-border bg-card px-3.5 py-3"
-                  >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <div className="flex items-baseline gap-1 font-display text-xl font-medium leading-none text-burgundy-ink dark:text-cream">
-                          <span className="tabular-nums">
-                            {Number(d.amount).toLocaleString()}
-                          </span>
-                          <span className="font-mono text-[11px] text-muted-foreground">
-                            {d.currency}
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center gap-2 text-[10.5px] text-muted-foreground">
-                          <span>
-                            {d.paymentMethod
-                              ? (METHOD_LABELS[d.paymentMethod] ??
-                                d.paymentMethod)
-                              : '—'}
-                          </span>
-                          <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
-                          <span className="font-mono">
-                            {formatShortDate(d.createdAt)}
-                          </span>
-                        </div>
+            <SectionHeader en="Your donations" am="ያለፉ መዋጮዎች" />
+            <div className="mt-2.5 space-y-2">
+              {pastDonations.map((d) => (
+                <div
+                  key={d.id}
+                  className="rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 py-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex items-baseline gap-1 leading-none">
+                        <span className="font-mono text-lg font-medium tabular-nums text-brand-ink">
+                          {fmtNumber(d.amount)}
+                        </span>
+                        <span className="font-mono text-[11px] text-ink-muted">
+                          {t(d.currency)}
+                        </span>
                       </div>
-                      <span
-                        className={`rounded-full px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.06em] ${s.bg} ${s.text}`}
-                      >
-                        {s.label}
-                      </span>
+                      <div className="mt-1 flex items-center gap-2 text-[10.5px] text-ink-muted">
+                        <span>{methodLabel(d.paymentMethod)}</span>
+                        <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
+                        <span className="font-mono">
+                          {fmtDate(d.createdAt)}
+                        </span>
+                      </div>
                     </div>
-                    {d.status === 'rejected' && d.rejectionReason && (
-                      <div className="mt-2 rounded-lg bg-status-absent-bg px-2.5 py-1.5 text-[11px] text-status-absent">
-                        Reason: {d.rejectionReason}
-                      </div>
-                    )}
+                    <StatusPill tone={d.status}>{t(d.status)}</StatusPill>
                   </div>
-                );
-              })}
+                  {d.status === 'rejected' && d.rejectionReason && (
+                    <div className="mt-2 rounded-lg bg-status-absent-bg px-2.5 py-1.5 text-[11px] text-status-absent">
+                      {t('Reason')}: {d.rejectionReason}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           </section>
         )}
       </div>
 
-      {/* ─────────────────────────── DESKTOP (md+) — two-column ─────────────────────────── */}
-      <div className="hidden md:block">
-        <div className="px-7 py-7">
-          {/* Page header */}
-          <div className="mb-6">
-            <div className="font-ethiopic text-[13px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-              ስጦታ
-            </div>
-            <h1 className="font-display text-[38px] font-medium leading-[1.02] tracking-tight text-burgundy-ink dark:text-cream">
-              Make a donation
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Donations are reviewed and verified by the finance team.
-            </p>
-          </div>
+      {/* ─── DESKTOP (md+) ─── */}
+      <div className="hidden px-7 py-7 md:block">
+        <PageHead
+          en="Make a donation"
+          am="መዋጮ"
+          sub="Donations are reviewed and verified by the finance team."
+        />
 
-          <div className="grid grid-cols-[minmax(0,420px)_minmax(0,1fr)] items-start gap-4">
-            {/* LEFT — donation form card */}
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-5 rounded-2xl border border-border bg-card p-5 shadow-fy-sm"
-            >
-              {/* Amount */}
-              <div>
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-                  Amount · ETB
-                </div>
-                <div className="rounded-xl border-[1.5px] border-border bg-background px-4 py-3">
-                  <div className="flex items-baseline gap-2">
-                    <span className="font-mono text-sm font-medium text-muted-foreground">
-                      ETB
-                    </span>
-                    <input
-                      type="number"
-                      min="1"
-                      step="0.01"
-                      value={amount}
-                      onChange={(e) => setAmount(e.target.value)}
-                      placeholder="0"
-                      required
-                      aria-label="Donation amount"
-                      className="w-full bg-transparent font-display text-[40px] font-medium leading-none tabular-nums text-burgundy outline-none placeholder:text-ink-faint/50 focus:outline-none dark:text-gold"
-                    />
-                  </div>
-                </div>
-                <div className="mt-2.5 flex gap-2">
-                  {QUICK_AMOUNTS.map((v) => {
-                    const active = amount === v;
-                    return (
-                      <button
-                        key={v}
-                        type="button"
-                        onClick={() => setAmount(v)}
-                        className={`flex-1 rounded-lg py-2 font-mono text-xs font-semibold transition-colors ${
-                          active
-                            ? 'border border-burgundy bg-burgundy text-cream dark:border-gold dark:bg-gold dark:text-burgundy-ink'
-                            : 'border border-border bg-background text-foreground hover:bg-card'
-                        }`}
-                      >
-                        {Number(v).toLocaleString()}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Method */}
-              <div>
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                  Method
-                </div>
-                <div className="space-y-2">
-                  {PAYMENT_METHODS.map((m) => {
-                    const active = method === m.value;
-                    return (
-                      <button
-                        key={m.value}
-                        type="button"
-                        onClick={() => setMethod(m.value)}
-                        className={`flex w-full items-center gap-3 rounded-xl px-4 py-3 text-left transition-colors ${
-                          active
-                            ? 'border-[1.5px] border-gold bg-gold/[0.12]'
-                            : 'border border-border bg-background hover:bg-card'
-                        }`}
-                      >
-                        <m.Icon
-                          className={`h-[18px] w-[18px] shrink-0 ${
-                            active
-                              ? 'text-gold-deep dark:text-gold'
-                              : 'text-muted-foreground'
-                          }`}
-                          strokeWidth={1.75}
-                        />
-                        <span
-                          className={`flex-1 text-[13px] font-semibold ${
-                            active
-                              ? 'text-burgundy-ink dark:text-cream'
-                              : 'text-foreground'
-                          }`}
-                        >
-                          {m.label}
-                        </span>
-                        <span
-                          className={`flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-full border ${
-                            active ? 'border-gold' : 'border-ink-faint/50'
-                          }`}
-                        >
-                          {active && (
-                            <span className="h-2.5 w-2.5 rounded-full bg-gold" />
-                          )}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Bank details panel — only when bank transfer is selected */}
-              {method === 'bank_transfer' && (
-                <div className="rounded-xl border border-dashed border-gold bg-gold/[0.08] px-3.5 py-3 dark:bg-gold/[0.05]">
-                  <div className="mb-1.5 text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                    Send to · CBE
-                  </div>
-                  <div className="font-mono text-sm font-semibold tracking-[0.06em] text-burgundy-ink dark:text-cream">
-                    1000-4527-8891-0012
-                  </div>
-                  <div className="mt-0.5 text-[10.5px] text-muted-foreground">
-                    FELEGE YORDANOS SUNDAY SCHOOL
-                  </div>
-                </div>
-              )}
-
-              {/* Receipt */}
-              <div>
-                <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                  Receipt{' '}
-                  <span className="font-normal normal-case tracking-normal text-ink-faint">
-                    · optional
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => deskFileRef.current?.click()}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    setDragging(true);
-                  }}
-                  onDragLeave={() => setDragging(false)}
-                  onDrop={handleDrop}
-                  className={`flex w-full flex-col items-center justify-center gap-2 rounded-xl border border-dashed px-4 py-7 text-center transition-colors ${
-                    dragging
-                      ? 'border-gold bg-gold/[0.12]'
-                      : 'border-border bg-gold/[0.04] hover:bg-gold/[0.08]'
-                  }`}
-                >
-                  <UploadCloud
-                    className="h-6 w-6 text-gold-deep dark:text-gold"
-                    strokeWidth={1.75}
-                  />
-                  <div className="text-[13px] text-muted-foreground">
-                    {file ? (
-                      <span className="font-semibold text-foreground">
-                        {file.name}
-                      </span>
-                    ) : (
-                      <>
-                        Drop receipt image, or{' '}
-                        <span className="font-semibold text-gold-deep dark:text-gold">
-                          browse
-                        </span>
-                      </>
-                    )}
-                  </div>
-                </button>
+        <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[420px_minmax(0,1fr)]">
+          {/* Form */}
+          <Card className="p-6">
+            <form onSubmit={handleSubmit}>
+              <label htmlFor="amount-desk" className="mb-2.5 block">
+                <Eyebrow>
+                  {t('Amount')} · {t('ETB')}
+                </Eyebrow>
+              </label>
+              <div className="flex items-baseline gap-2 rounded-xl border border-parchment-edge-strong bg-parchment px-4 py-3.5 shadow-[inset_0_1px_2px_rgba(10,60,54,0.05)] focus-within:border-gold focus-within:ring-2 focus-within:ring-gold/25 dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]">
+                <span className="font-mono text-xs text-ink-faint">
+                  {t('ETB')}
+                </span>
                 <input
-                  ref={deskFileRef}
-                  type="file"
-                  accept="image/jpeg,image/png,application/pdf"
-                  className="hidden"
-                  onChange={(e) => setFile(e.target.files?.[0] ?? null)}
+                  id="amount-desk"
+                  type="number"
+                  min="1"
+                  step="0.01"
+                  inputMode="decimal"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  placeholder="0"
+                  required
+                  className="w-full min-w-0 bg-transparent font-mono text-2xl leading-none tabular-nums text-ink outline-none placeholder:text-ink-faint/60"
                 />
               </div>
-
-              {/* Submit */}
-              <Button
-                type="submit"
-                disabled={submitting}
-                className="sacred-gradient flex w-full items-center justify-center gap-2 rounded-xl py-[15px] text-sm font-semibold tracking-wider text-cream shadow-[0_6px_16px_-6px_rgba(74,14,24,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95 disabled:opacity-70"
-                style={{ border: '1px solid rgba(212,168,67,0.4)' }}
-              >
-                <span className="font-ethiopic text-xs opacity-85">ስጦታ</span>
-                <span className="h-3.5 w-px bg-gold/40" />
-                <Heart className="h-4 w-4" strokeWidth={2} />
-                <span>{submitting ? 'Submitting…' : 'Submit donation'}</span>
-              </Button>
-            </form>
-
-            {/* RIGHT — giving history */}
-            <div className="rounded-2xl border border-border bg-card p-6 shadow-fy-sm">
-              {/* History header */}
-              <div className="flex items-start justify-between">
-                <div>
-                  <div className="font-ethiopic text-xs font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-                    የስጦታ ታሪክ
-                  </div>
-                  <h2 className="font-display text-[26px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
-                    Giving history
-                  </h2>
-                </div>
-                <div className="text-right">
-                  <div className="font-display text-[22px] font-medium leading-none tabular-nums text-gold-deep dark:text-gold">
-                    {historyCurrency} {verifiedTotal.toLocaleString()}
-                  </div>
-                  <div className="mt-1 text-[11px] text-muted-foreground">
-                    verified · {currentYear}
-                  </div>
-                </div>
+              <div className="mt-2.5 flex gap-1.5">
+                {QUICK_AMOUNTS.map((v) => {
+                  const active = amount === v;
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      onClick={() => setAmount(v)}
+                      aria-pressed={active}
+                      className={cn(
+                        'flex-1 rounded-full py-[7px] font-mono text-[11px] transition-colors',
+                        active
+                          ? 'bg-brand font-semibold text-cream'
+                          : 'border border-parchment-edge bg-parchment-soft font-medium text-ink hover:bg-parchment-deep',
+                      )}
+                    >
+                      {v}
+                    </button>
+                  );
+                })}
               </div>
 
-              {/* History table */}
-              {pastDonations.length > 0 ? (
-                <div className="mt-5 overflow-x-auto">
-                  <table className="w-full border-collapse">
-                    <thead>
-                      <tr className="border-b border-border">
-                        <th className="pb-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                          Date
-                        </th>
-                        <th className="pb-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                          Amount
-                        </th>
-                        <th className="pb-2 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                          Method
-                        </th>
-                        <th className="pb-2 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pastDonations.map((d) => {
-                        const s =
-                          STATUS_STYLES[d.status] ?? STATUS_STYLES.pending;
-                        return (
-                          <tr
-                            key={d.id}
-                            className="border-b border-border/60 last:border-0"
-                          >
-                            <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-xs text-muted-foreground">
-                              {formatShortDate(d.createdAt)}
-                            </td>
-                            <td className="whitespace-nowrap py-3.5 pr-4 font-mono text-[13px] font-semibold text-burgundy-ink dark:text-cream">
-                              {d.currency} {Number(d.amount).toLocaleString()}
-                            </td>
-                            <td className="py-3.5 pr-4 text-[13px] text-foreground">
-                              {d.paymentMethod
-                                ? (METHOD_LABELS[d.paymentMethod] ??
-                                  d.paymentMethod)
-                                : '—'}
-                            </td>
-                            <td className="py-3.5 text-right align-top">
-                              <span
-                                className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold ${s.bg} ${s.text}`}
-                              >
-                                <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                                {s.label.toLowerCase()}
-                              </span>
-                              {d.status === 'rejected' && d.rejectionReason && (
-                                <div className="mt-1 text-[10.5px] text-status-absent">
-                                  {d.rejectionReason}
-                                </div>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              ) : (
-                <div className="mt-6 rounded-xl border border-dashed border-border py-12 text-center text-sm text-muted-foreground">
-                  No donations yet — your giving history will appear here.
-                </div>
-              )}
+              <Eyebrow className="mb-2 mt-[18px]">{t('Method')}</Eyebrow>
+              <div
+                className="flex flex-col gap-1.5"
+                role="radiogroup"
+                aria-label={t('Method')}
+              >
+                {PAYMENT_METHODS.map((m) => {
+                  const active = method === m.value;
+                  return (
+                    <button
+                      key={m.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => setMethod(m.value)}
+                      className={cn(
+                        'flex w-full items-center gap-2.5 rounded-[10px] border px-3 py-2.5 text-left transition-colors',
+                        active
+                          ? 'border-gold/50 bg-gold/10'
+                          : 'border-parchment-edge bg-parchment-soft hover:bg-parchment-deep',
+                      )}
+                    >
+                      <m.Icon
+                        className={cn(
+                          'h-[15px] w-[15px] shrink-0',
+                          active ? 'text-gold-deep' : 'text-ink-muted',
+                        )}
+                        strokeWidth={1.75}
+                      />
+                      <span
+                        className={cn(
+                          'flex-1 text-[12.5px] text-ink',
+                          active ? 'font-semibold' : 'font-medium',
+                          locale === 'am' && 'font-ethiopic',
+                        )}
+                      >
+                        {t(m.label)}
+                      </span>
+                      <span
+                        className={cn(
+                          'flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded-full',
+                          active
+                            ? 'bg-gold'
+                            : 'border-[1.5px] border-parchment-edge-strong',
+                        )}
+                      >
+                        {active && (
+                          <span className="h-[5px] w-[5px] rounded-full bg-brand-deep" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
 
-              {/* Footer note */}
-              <p className="mt-5 border-t border-border pt-4 text-xs text-muted-foreground">
-                Verification usually takes 1–2 days. You&apos;ll see the status
-                update here once reviewed.
-              </p>
+              {/* Notes (GitHub issue #45) */}
+              <div className="mt-[18px]">{notesField('notes-desk')}</div>
+
+              <Eyebrow className="mb-2 mt-[18px]">
+                {t('Receipt')}
+                <span className="font-normal normal-case tracking-normal text-ink-faint">
+                  {' '}
+                  · {t('optional')}
+                </span>
+              </Eyebrow>
+              <button
+                type="button"
+                onClick={() => deskFileRef.current?.click()}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragging(true);
+                }}
+                onDragLeave={() => setDragging(false)}
+                onDrop={handleDrop}
+                className={cn(
+                  'flex w-full flex-col items-center justify-center gap-1.5 rounded-xl border-[1.5px] border-dashed px-4 py-5 text-center transition-colors',
+                  dragging
+                    ? 'border-gold bg-gold/[0.12]'
+                    : 'border-parchment-edge-strong bg-gold/[0.06] hover:bg-gold/[0.09] dark:bg-gold/[0.04]',
+                )}
+              >
+                <Upload
+                  className="h-[18px] w-[18px] text-gold-deep"
+                  strokeWidth={1.75}
+                />
+                <span className="text-xs text-ink-muted">
+                  {file ? (
+                    <span className="font-semibold text-ink">{file.name}</span>
+                  ) : (
+                    <>
+                      {t('Drop receipt image, or')}{' '}
+                      <span className="font-semibold text-gold-deep">
+                        {t('browse')}
+                      </span>
+                    </>
+                  )}
+                </span>
+                <span className="text-[10.5px] text-ink-faint">
+                  {t('JPEG, PNG or PDF')} · {t('max 5MB')}
+                </span>
+              </button>
+              {fileInput(deskFileRef)}
+
+              <div className="mt-[18px]">{submitButton('መዋጮ', 'md', true)}</div>
+            </form>
+          </Card>
+
+          {/* Giving history */}
+          <Card className="p-6">
+            <div className="mb-3.5 flex items-center justify-between gap-4">
+              <SectionHeader en="Giving history" am="የመዋጮ ታሪክ" />
+              <span className="whitespace-nowrap font-mono text-xs text-gold-deep">
+                {fmtMoney(verifiedTotal, historyCurrency)}{' '}
+                <span className="font-body text-[9.5px] text-ink-muted">
+                  {t('verified')} · {currentYear}
+                </span>
+              </span>
             </div>
-          </div>
+
+            {pastDonations.length > 0 ? (
+              <div className="overflow-x-auto">
+                <div className="min-w-[440px]">
+                  <div className="grid grid-cols-[90px_120px_minmax(0,1fr)_110px] gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]">
+                    {['Date', 'Amount', 'Method', 'Status'].map((h) => (
+                      <span
+                        key={h}
+                        className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
+                      >
+                        {t(h)}
+                      </span>
+                    ))}
+                  </div>
+                  {pastDonations.map((d) => (
+                    <div
+                      key={d.id}
+                      className="grid grid-cols-[90px_120px_minmax(0,1fr)_110px] items-center gap-3 border-b border-parchment-edge px-1 py-3"
+                    >
+                      <span className="font-mono text-[11px] text-ink-muted">
+                        {fmtDate(d.createdAt)}
+                      </span>
+                      <span className="font-mono text-[12.5px] text-ink">
+                        {fmtMoney(d.amount, d.currency)}
+                      </span>
+                      <span className="min-w-0 text-xs text-ink-muted">
+                        {methodLabel(d.paymentMethod)}
+                        {d.notes && (
+                          <span className="mt-0.5 block truncate text-[10.5px] italic text-ink-faint">
+                            {d.notes}
+                          </span>
+                        )}
+                      </span>
+                      <div>
+                        <StatusPill tone={d.status}>{t(d.status)}</StatusPill>
+                        {d.status === 'rejected' && d.rejectionReason && (
+                          <div className="mt-[3px] text-[10px] text-status-absent">
+                            {d.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-parchment-edge py-12 text-center text-[13px] text-ink-muted">
+                {t('No donations yet. Your giving history will appear here.')}
+              </div>
+            )}
+
+            <p className="mt-3.5 text-[11px] leading-normal text-ink-faint">
+              {t(
+                "Verification usually takes 1–2 days. You'll see the status update here once reviewed.",
+              )}
+            </p>
+          </Card>
         </div>
       </div>
     </>

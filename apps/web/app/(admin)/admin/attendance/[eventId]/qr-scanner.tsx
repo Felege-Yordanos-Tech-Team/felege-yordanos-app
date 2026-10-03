@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { Camera, Check, Info, ScanLine, X } from 'lucide-react';
+import { useT } from '@/lib/i18n/client';
 
 export type ScanResult =
   | { kind: 'success'; name: string; memberId: string; time: string }
@@ -14,8 +15,6 @@ interface QRScannerProps {
   presentCount: number;
   total: number;
 }
-
-const VIDEO_ELEMENT_ID = 'fy-qr-reader';
 
 type Status = 'idle' | 'starting' | 'running' | 'denied' | 'error';
 
@@ -38,6 +37,9 @@ export function QRScanner({
   presentCount,
   total,
 }: QRScannerProps) {
+  const t = useT();
+  // Unique per instance: the phone and desktop layouts can both mount a scanner.
+  const VIDEO_ELEMENT_ID = `fy-qr-reader-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`;
   const instanceRef = useRef<ScannerInstance | null>(null);
   const lastValueRef = useRef<string>('');
   const lastAtRef = useRef<number>(0);
@@ -109,7 +111,7 @@ export function QRScanner({
           setErrorMessage('');
         } else {
           setStatus('error');
-          setErrorMessage(msg || 'Unknown camera error');
+          setErrorMessage(msg || t('Unknown camera error'));
         }
       }
     })();
@@ -195,7 +197,7 @@ export function QRScanner({
           setStatus('denied');
         } else {
           setStatus('error');
-          setErrorMessage(msg || 'Unknown camera error');
+          setErrorMessage(msg || t('Unknown camera error'));
         }
       }
     })();
@@ -204,7 +206,7 @@ export function QRScanner({
   return (
     <div>
       {/* Camera viewfinder */}
-      <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-[#0A0604] to-[#16100A]">
+      <div className="relative aspect-square w-full overflow-hidden rounded-2xl border border-parchment-edge bg-gradient-to-b from-black to-neutral-900">
         <div
           id={VIDEO_ELEMENT_ID}
           className="absolute inset-0 h-full w-full [&_video]:h-full [&_video]:w-full [&_video]:object-cover"
@@ -222,26 +224,26 @@ export function QRScanner({
         {(status === 'idle' || status === 'starting') && (
           <ScannerStateMessage
             icon={<Camera className="h-6 w-6 text-gold" />}
-            title="Starting camera…"
-            subtitle="Allow camera access if prompted"
+            title={t('Starting camera…')}
+            subtitle={t('Allow camera access if prompted')}
           />
         )}
         {status === 'denied' && (
           <ScannerStateMessage
             icon={<Camera className="h-6 w-6 text-status-absent" />}
-            title="Camera permission required"
-            subtitle="Allow camera in your browser, then retry."
-            action={<RetryButton onClick={retry} />}
+            title={t('Camera permission required')}
+            subtitle={t('Allow camera in your browser, then retry.')}
+            action={<RetryButton onClick={retry} label={t('Retry')} />}
           />
         )}
         {status === 'error' && (
           <ScannerStateMessage
             icon={<X className="h-6 w-6 text-status-absent" />}
-            title="Scanner unavailable"
+            title={t('Scanner unavailable')}
             subtitle={
-              errorMessage || 'Your browser may not support camera access.'
+              errorMessage || t('Your browser may not support camera access.')
             }
-            action={<RetryButton onClick={retry} />}
+            action={<RetryButton onClick={retry} label={t('Retry')} />}
           />
         )}
 
@@ -257,27 +259,20 @@ export function QRScanner({
                 className="absolute inset-x-2 top-1/2 h-0.5 -translate-y-1/2 animate-pulse"
                 style={{
                   background:
-                    'linear-gradient(to right, transparent, #D4A843 50%, transparent)',
+                    'linear-gradient(to right, transparent, rgb(var(--fy-gold)) 50%, transparent)',
                   boxShadow:
                     '0 0 16px rgba(212,168,67,0.7), 0 0 32px rgba(212,168,67,0.4)',
                 }}
               />
             </div>
 
-            <div
-              className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/30 px-2.5 py-1 text-cream backdrop-blur-sm"
-              style={{
-                background:
-                  'linear-gradient(135deg, rgba(107,29,42,0.85), rgba(74,14,24,0.85))',
-              }}
-            >
+            <div className="sacred-gradient pointer-events-none absolute right-3 top-3 inline-flex items-center gap-2 rounded-full border border-gold/30 px-2.5 py-1 text-cream opacity-90 backdrop-blur-sm">
               <span
                 aria-hidden
-                className="h-1.5 w-1.5 rounded-full bg-status-present"
-                style={{ boxShadow: '0 0 6px #4F7B3E' }}
+                className="h-1.5 w-1.5 rounded-full bg-status-present shadow-[0_0_6px_#4F7B3E]"
               />
               <span className="text-[9px] font-semibold uppercase tracking-[0.14em] text-gold-light/80">
-                Live
+                {t('Live')}
               </span>
               <span className="font-mono text-[12px] font-bold text-gold">
                 {presentCount}
@@ -302,22 +297,28 @@ export function QRScanner({
       {lastScan ? (
         <ScanFeedbackBanner result={lastScan} />
       ) : status === 'running' ? (
-        <p className="mt-3 text-center text-[10px] italic text-muted-foreground">
-          Scan a QR · ready for the next member
+        <p className="mt-3 text-center text-[10px] italic text-ink-muted">
+          {t('Scan a QR · ready for the next member')}
         </p>
       ) : null}
     </div>
   );
 }
 
-function RetryButton({ onClick }: { onClick: () => void }) {
+function RetryButton({
+  onClick,
+  label,
+}: {
+  onClick: () => void;
+  label: string;
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className="rounded-lg border border-gold/40 bg-gold/20 px-3 py-1.5 text-xs font-semibold text-gold transition-colors hover:bg-gold/30"
     >
-      Retry
+      {label}
     </button>
   );
 }
@@ -353,7 +354,7 @@ function ScannerStateMessage({
   action?: React.ReactNode;
 }) {
   return (
-    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-[#0A0604] to-[#16100A] px-6 text-center">
+    <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-2 bg-gradient-to-b from-black to-neutral-900 px-6 text-center">
       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/30 bg-cream/[0.08]">
         {icon}
       </div>
@@ -367,19 +368,20 @@ function ScannerStateMessage({
 }
 
 function ScanFeedbackBanner({ result }: { result: ScanResult }) {
+  const t = useT();
   if (result.kind === 'success') {
     return (
-      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-status-present/30 bg-gradient-to-br from-status-present-bg to-status-present-bg/60 px-4 py-3 dark:from-status-present/[0.30] dark:to-status-present/[0.12] dark:border-status-present/40">
+      <div className="mt-3 flex items-center gap-3 rounded-[14px] border border-status-present/30 bg-status-present-bg px-4 py-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-present">
           <Check className="h-[22px] w-[22px] text-cream" strokeWidth={3} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-base font-medium leading-tight text-burgundy-ink dark:text-foreground">
+          <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
             {result.name}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-status-present">
             <ScanLine className="h-2.5 w-2.5" />
-            Checked in · {result.memberId}
+            {t('Checked in')} · {result.memberId}
           </div>
         </div>
         <div className="shrink-0 font-mono text-[10px] font-semibold text-status-present">
@@ -390,32 +392,32 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
   }
   if (result.kind === 'already') {
     return (
-      <div className="mt-3 flex items-center gap-3 rounded-2xl border border-status-late/40 bg-gradient-to-br from-status-late-bg to-status-late-bg/60 px-4 py-3 dark:from-status-late/[0.25] dark:to-status-late/[0.10]">
+      <div className="mt-3 flex items-center gap-3 rounded-[14px] border border-status-late/40 bg-status-late-bg px-4 py-3">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-late">
           <Info className="h-5 w-5 text-cream" strokeWidth={2.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-base font-medium leading-tight text-burgundy-ink dark:text-foreground">
+          <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
             {result.name}
           </div>
           <div className="mt-0.5 text-[11px] font-semibold text-status-late">
-            Already marked present · {result.memberId}
+            {t('Already marked present')} · {result.memberId}
           </div>
         </div>
       </div>
     );
   }
   return (
-    <div className="mt-3 flex items-center gap-3 rounded-2xl border border-status-absent/40 bg-gradient-to-br from-status-absent-bg to-status-absent-bg/60 px-4 py-3 dark:from-status-absent/[0.30] dark:to-status-absent/[0.12]">
+    <div className="mt-3 flex items-center gap-3 rounded-[14px] border border-status-absent/40 bg-status-absent-bg px-4 py-3">
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-absent">
         <X className="h-[22px] w-[22px] text-cream" strokeWidth={3} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-display text-base font-medium leading-tight text-burgundy-ink dark:text-foreground">
-          Invalid QR code
+        <div className="font-display text-base font-medium leading-tight text-brand-ink">
+          {t('Invalid QR code')}
         </div>
         <div className="mt-0.5 truncate text-[11px] font-medium text-status-absent">
-          Not a Felege Yordanos member ID · {result.code.slice(0, 32)}
+          {t('Not a Felege Yordanos member ID')} · {result.code.slice(0, 32)}
         </div>
       </div>
     </div>

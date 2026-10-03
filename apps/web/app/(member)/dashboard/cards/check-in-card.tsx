@@ -1,23 +1,24 @@
+import { Card, Eyebrow } from '@/components/ds';
 import { MemberQR } from '@/components/member-qr';
+import { getT } from '@/lib/i18n/server';
 
 /** Right-column compact check-in card: QR + code. Only shown for linked members. */
-export function CheckInCard({ memberId }: { memberId: string }) {
+export async function CheckInCard({ memberId }: { memberId: string }) {
+  const t = await getT();
   return (
-    <section className="gold-accent-t flex items-center gap-4 rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-      <div className="shrink-0 rounded-xl border border-gold/30 bg-parchment-soft p-2">
-        <MemberQR value={memberId} size={104} />
+    <Card className="flex items-center gap-4">
+      <div className="shrink-0 rounded-xl border border-gold/30 bg-parchment p-2">
+        <MemberQR value={memberId} size={96} />
       </div>
       <div className="min-w-0">
-        <div className="font-label text-[10px] font-semibold uppercase tracking-[0.14em] text-gold-deep dark:text-gold">
-          Check-in code
-        </div>
-        <div className="mt-0.5 font-mono text-lg font-semibold tracking-[0.05em] text-burgundy-ink dark:text-cream">
+        <Eyebrow>{t('Check-in code')}</Eyebrow>
+        <div className="mt-1 font-mono text-lg font-semibold tracking-[0.05em] text-brand-ink">
           {memberId}
         </div>
-        <p className="mt-1 text-[12px] leading-snug text-muted-foreground">
-          Show this code at the door to check in.
+        <p className="mt-1 text-[11.5px] leading-snug text-ink-muted">
+          {t('Show this code at the door to check in.')}
         </p>
       </div>
-    </section>
+    </Card>
   );
 }

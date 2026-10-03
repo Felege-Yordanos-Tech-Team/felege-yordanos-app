@@ -5,22 +5,18 @@ import {
   donations,
   events,
   members,
+  songs as songsTable,
 } from '@felege-yordanos/db/server';
-import {
-  BadgeCheck,
-  Music,
-  CalendarCheck,
-  Heart,
-  Link2,
-  ArrowRight,
-} from 'lucide-react';
-import Link from 'next/link';
+import { Card } from '@/components/ds';
+import { getLocale } from '@/lib/i18n/server';
 import { requireUser } from '@/lib/session';
 import { EventFeed } from './event-feed';
 import { WelcomeBanner } from './cards/welcome-banner';
 import { MyGivingCard } from './cards/my-giving-card';
-import { ContinueSingingCard } from './cards/continue-singing-card';
+import { SongbookPreviewCard } from './cards/continue-singing-card';
 import { CheckInCard } from './cards/check-in-card';
+import { LinkProfilePrompt } from './cards/link-profile-prompt';
+import { QuickActions } from './cards/quick-actions';
 
 /** Columns the event feed and welcome banner need. */
 const eventColumns = {
@@ -34,7 +30,7 @@ const eventColumns = {
 };
 
 export default async function MemberDashboard() {
-  const user = await requireUser();
+  const [user, locale] = await Promise.all([requireUser(), getLocale()]);
 
   // Same day boundary as before: the UTC date.
   const today = new Date().toISOString().split('T')[0];
@@ -57,6 +53,8 @@ export default async function MemberDashboard() {
     [verifiedTotal],
     [lastVerified],
     [latestDonation],
+    previewSongs,
+    songCount,
   ] = await Promise.all([
     db
       .select({
@@ -80,7 +78,11 @@ export default async function MemberDashboard() {
       .orderBy(desc(events.eventDate))
       .limit(5),
     db
-      .select({ id: departmentsTable.id, nameAm: departmentsTable.nameAm })
+      .select({
+        id: departmentsTable.id,
+        nameAm: departmentsTable.nameAm,
+        nameEn: departmentsTable.nameEn,
+      })
       .from(departmentsTable)
       .orderBy(asc(departmentsTable.id)),
     db
@@ -111,6 +113,19 @@ export default async function MemberDashboard() {
       .where(ownDonation)
       .orderBy(desc(donations.createdAt))
       .limit(1),
+    // Songbook preview: play history isn't tracked, so show the first songs by number.
+    db
+      .select({
+        id: songsTable.id,
+        number: songsTable.number,
+        title: songsTable.title,
+        titleEn: songsTable.titleEn,
+        audioUrl: songsTable.audioUrl,
+      })
+      .from(songsTable)
+      .orderBy(asc(songsTable.number))
+      .limit(3),
+    db.$count(songsTable),
   ]);
 
   const verifiedThisYear = Number(verifiedTotal?.total ?? 0);
@@ -122,233 +137,64 @@ export default async function MemberDashboard() {
     : user.displayName || user.email || 'User';
   const firstName = fullName.split(' ')[0];
 
+  // Department names in the current language.
+  const depts = departments.map((d) => ({
+    id: d.id,
+    name: locale === 'en' ? d.nameEn : d.nameAm,
+  }));
   const memberDeptName = user.departmentId
-    ? (departments.find((d) => d.id === user.departmentId)?.nameAm ?? null)
+    ? (depts.find((d) => d.id === user.departmentId)?.name ?? null)
     : null;
+
+  const hero = {
+    firstName,
+    memberId: member?.memberId ?? null,
+    memberDeptName,
+    nextEvent,
+  };
 
   return (
     <>
-      {/* ─── MOBILE (< md) — unchanged single-column stack ─── */}
+      {/* ─── PHONE (< md): hero, quick actions, event cards ─── */}
       <div className="mx-auto max-w-2xl px-[18px] pb-6 pt-[14px] md:hidden">
-        {/* Hero greeting card */}
-        <section className="sacred-gradient relative overflow-hidden rounded-[20px] px-5 py-5 text-cream shadow-fy-lg">
-          <div className="tibeb-gold absolute inset-0 opacity-50" />
-          <div
-            className="absolute -right-8 -top-8 h-40 w-40"
-            style={{
-              background:
-                'radial-gradient(circle, rgba(212,168,67,0.32) 0%, transparent 60%)',
-              filter: 'blur(8px)',
-            }}
-          />
-          <div className="relative">
-            <div className="mb-1 font-ethiopic text-xs tracking-wider text-gold-light">
-              እንኳን ደህና መጡ
-            </div>
-            <h1 className="font-display text-[32px] font-medium leading-tight text-cream">
-              Welcome, <em className="text-gold">{firstName}</em>
-            </h1>
-            {member && (
-              <div className="mt-2.5 inline-flex w-fit items-center gap-1.5 rounded-full border border-gold/35 bg-gold/[0.18] px-2.5 py-1">
-                <BadgeCheck className="h-3 w-3 text-gold" strokeWidth={2.25} />
-                <span className="font-mono text-[10px] font-semibold tracking-[0.08em] text-gold">
-                  {member.memberId}
-                </span>
-                {memberDeptName && (
-                  <>
-                    <span className="font-ethiopic text-[10px] text-gold-light/65">
-                      · {memberDeptName}
-                    </span>
-                  </>
-                )}
-              </div>
-            )}
-          </div>
-        </section>
-
-        {/* Claim prompt */}
-        {!member && (
-          <section className="mt-4">
-            <div className="gold-accent-l rounded-2xl border border-border bg-card px-4 py-3 pl-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-burgundy/10 p-2.5 dark:bg-gold/10">
-                  <Link2 className="h-4 w-4 text-burgundy dark:text-gold" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    Link your member profile
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Required for attendance and donation history
-                  </p>
-                </div>
-                <Link
-                  href="/claim"
-                  className="rounded-lg bg-burgundy px-3 py-1.5 text-xs font-semibold text-cream hover:bg-burgundy-soft dark:bg-gold dark:text-burgundy-ink dark:hover:bg-gold-light"
-                >
-                  Link
-                </Link>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* Quick actions */}
-        <section className="mt-[22px]">
-          <div className="mb-2.5">
-            <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-              ፈጣን መዳረሻዎች
-            </div>
-            <h2 className="font-display text-[22px] font-medium leading-[1.05] tracking-tight text-burgundy-ink dark:text-cream">
-              Quick actions
-            </h2>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2.5">
-            {/* Songbook — full width feature tile */}
-            <Link
-              href="/songbook"
-              className="relative col-span-2 flex items-center gap-3.5 overflow-hidden rounded-2xl border border-border bg-card px-4 py-4 shadow-fy-md transition-all hover:-translate-y-0.5"
-            >
-              <div
-                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl shadow-fy-gold"
-                style={{
-                  background: 'linear-gradient(135deg, #D4A843, #A47A18)',
-                }}
-              >
-                <Music className="h-5 w-5 text-cream" strokeWidth={2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex items-baseline gap-1.5">
-                  <h3 className="font-display text-xl font-medium leading-none text-burgundy-ink dark:text-cream">
-                    Songbook
-                  </h3>
-                  <span className="font-ethiopic text-[13px] text-gold-deep dark:text-gold">
-                    · መዝሙር
-                  </span>
-                </div>
-                <p className="mt-1 text-[11.5px] text-muted-foreground">
-                  Lyrics & recordings
-                </p>
-              </div>
-              <ArrowRight className="h-4 w-4 text-gold-deep dark:text-gold" />
-              <span
-                aria-hidden
-                className="pointer-events-none absolute -bottom-2 -right-2 font-ethiopic text-[60px] leading-none text-gold/[0.06]"
-              >
-                ✣
-              </span>
-            </Link>
-
-            {/* Attendance */}
-            <Link
-              href="/attendance"
-              className="flex aspect-square flex-col justify-between rounded-2xl border border-border bg-card p-3.5 transition-all hover:-translate-y-0.5"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-burgundy/[0.08] dark:bg-gold/[0.12]">
-                <CalendarCheck
-                  className="h-[18px] w-[18px] text-burgundy dark:text-gold"
-                  strokeWidth={1.75}
-                />
-              </div>
-              <div>
-                <h4 className="mb-1 font-display text-[19px] font-medium leading-none text-burgundy-ink dark:text-cream">
-                  Attendance
-                </h4>
-                <p className="font-ethiopic text-[11px] tracking-wider text-gold-deep dark:text-gold">
-                  ክትትል
-                </p>
-              </div>
-            </Link>
-
-            {/* Donate */}
-            <Link
-              href="/donate"
-              className="flex aspect-square flex-col justify-between rounded-2xl border border-border bg-card p-3.5 transition-all hover:-translate-y-0.5"
-            >
-              <div className="flex h-9 w-9 items-center justify-center rounded-[10px] bg-burgundy/[0.08] dark:bg-gold/[0.12]">
-                <Heart
-                  className="h-[18px] w-[18px] text-burgundy dark:text-gold"
-                  strokeWidth={1.75}
-                />
-              </div>
-              <div>
-                <h4 className="mb-1 font-display text-[19px] font-medium leading-none text-burgundy-ink dark:text-cream">
-                  Donate
-                </h4>
-                <p className="font-ethiopic text-[11px] tracking-wider text-gold-deep dark:text-gold">
-                  ስጦታ
-                </p>
-              </div>
-            </Link>
-          </div>
-        </section>
-
-        {/* Events feed */}
-        <EventFeed upcoming={upcoming} past={past} departments={departments} />
+        <WelcomeBanner {...hero} variant="mobile" />
+        {!member && <LinkProfilePrompt className="mt-3.5" />}
+        <QuickActions songCount={songCount} />
+        <EventFeed
+          upcoming={upcoming}
+          past={past}
+          departments={depts}
+          variant="mobile"
+        />
       </div>
 
-      {/* ─── DESKTOP (md+) — hero band + two-column grid ─── */}
-      <div className="hidden md:block">
-        <div className="px-7 py-7">
-          {!member && (
-            <div className="gold-accent-l mb-4 rounded-2xl border border-border bg-card px-4 py-3 pl-5">
-              <div className="flex items-center gap-3">
-                <div className="rounded-full bg-burgundy/10 p-2.5 dark:bg-gold/10">
-                  <Link2 className="h-4 w-4 text-burgundy dark:text-gold" />
-                </div>
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-foreground">
-                    Link your member profile
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    Required for attendance and donation history
-                  </p>
-                </div>
-                <Link
-                  href="/claim"
-                  className="rounded-lg bg-burgundy px-3 py-1.5 text-xs font-semibold text-cream hover:bg-burgundy-soft dark:bg-gold dark:text-burgundy-ink dark:hover:bg-gold-light"
-                >
-                  Link
-                </Link>
-              </div>
-            </div>
-          )}
+      {/* ─── DESKTOP (md+): hero band + two-column grid ─── */}
+      <div className="hidden p-7 md:block">
+        <WelcomeBanner {...hero} variant="desktop" />
+        {!member && <LinkProfilePrompt className="mt-4" />}
 
-          {/* Hero band — full width */}
-          <WelcomeBanner
-            firstName={firstName}
-            memberId={member?.memberId ?? null}
-            memberDeptName={memberDeptName}
-            nextEvent={nextEvent}
-          />
+        <div className="mt-4 grid grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] items-start gap-4">
+          <Card>
+            <EventFeed
+              upcoming={upcoming}
+              past={past}
+              departments={depts}
+              variant="desktop"
+            />
+          </Card>
 
-          {/* Two-column grid */}
-          <div className="mt-4 grid grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] items-start gap-4">
-            {/* Left: upcoming events */}
-            <div className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-              <EventFeed
-                upcoming={upcoming}
-                past={past}
-                departments={departments}
-                className="mt-0"
-              />
-            </div>
-
-            {/* Right column stack */}
-            <div className="space-y-4">
-              <ContinueSingingCard />
-              <MyGivingCard
-                total={verifiedThisYear}
-                currency={givingCurrency}
-                last={
-                  lastVerified
-                    ? { ...lastVerified, amount: Number(lastVerified.amount) }
-                    : null
-                }
-              />
-              {member && <CheckInCard memberId={member.memberId} />}
-            </div>
+          <div className="flex flex-col gap-4">
+            <SongbookPreviewCard songs={previewSongs} />
+            <MyGivingCard
+              total={verifiedThisYear}
+              currency={givingCurrency}
+              last={
+                lastVerified
+                  ? { ...lastVerified, amount: Number(lastVerified.amount) }
+                  : null
+              }
+            />
+            {member && <CheckInCard memberId={member.memberId} />}
           </div>
         </div>
       </div>

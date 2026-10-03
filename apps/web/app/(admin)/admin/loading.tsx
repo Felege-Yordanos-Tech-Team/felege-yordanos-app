@@ -16,7 +16,7 @@ export default function AdminLoading() {
         {Array.from({ length: 5 }).map((_, i) => (
           <div
             key={i}
-            className="rounded-2xl border border-border bg-card px-[18px] py-[18px] pl-[22px]"
+            className="rounded-2xl border border-parchment-edge bg-parchment-soft px-[18px] py-[18px] pl-[22px]"
           >
             <div className="flex items-start gap-3.5">
               <Skeleton className="h-[42px] w-[42px] shrink-0 rounded-xl" />

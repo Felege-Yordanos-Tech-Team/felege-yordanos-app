@@ -1,29 +1,29 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Link from 'next/link';
-import { Bookmark, Play, Printer, Search } from 'lucide-react';
+import { Play, Printer, Search } from 'lucide-react';
 import type {
   categories as categoriesTable,
   songs as songsTable,
 } from '@felege-yordanos/db/schema';
+import { Card, Chip } from '@/components/ds';
+import { useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
+import {
+  categoryDotMap,
+  hasEthiopic,
+  matchesSongSearch,
+  songNumber,
+} from '@/lib/category-color';
+import { LyricsCard } from './lyrics';
 
 type Song = typeof songsTable.$inferSelect;
 type Category = typeof categoriesTable.$inferSelect;
 
-const FALLBACK_DOTS = [
-  '#D4A843',
-  '#6B1D2A',
-  '#8B2F3F',
-  '#4F7B3E',
-  '#C97B1A',
-  '#A47A18',
-];
-
 /**
- * Desktop songbook — master/detail: a scrollable list pane on the left and the
- * selected song's lyrics on the right. Mobile keeps the existing SongList +
- * per-song route; this renders only at md+.
+ * Desktop songbook: a scrollable list pane on the
+ * left and the selected song's lyrics on the right. Phones use SongList and
+ * the per-song route instead; this renders only at md+.
  */
 export function SongbookDesktop({
   songs,
@@ -34,107 +34,83 @@ export function SongbookDesktop({
   categories: Category[];
   className?: string;
 }) {
+  const t = useT();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<number | string | null>(
+  const [selectedId, setSelectedId] = useState<string | null>(
     songs[0]?.id ?? null,
   );
 
-  const colorByCategory = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach((c, i) =>
-      map.set(c.name, c.color || FALLBACK_DOTS[i % FALLBACK_DOTS.length]),
-    );
-    return map;
-  }, [categories]);
+  const dots = useMemo(() => categoryDotMap(categories), [categories]);
 
-  const filtered = songs.filter((s) => {
-    const matchesSearch =
-      !search ||
-      s.title.toLowerCase().includes(search.toLowerCase()) ||
-      s.titleEn?.toLowerCase().includes(search.toLowerCase()) ||
-      s.number?.toString() === search;
-    const matchesCategory = !activeCategory || s.category === activeCategory;
-    return matchesSearch && matchesCategory;
-  });
+  const filtered = songs.filter(
+    (s) =>
+      matchesSongSearch(s, search) &&
+      (!activeCategory || s.category === activeCategory),
+  );
 
   const selected =
     songs.find((s) => s.id === selectedId) ?? filtered[0] ?? songs[0] ?? null;
-  const verses = (selected?.lyrics ?? '')
-    .split(/\n\s*\n/)
-    .map((v) => v.trim())
-    .filter(Boolean);
 
   return (
     <div className={className}>
-      <div className="grid h-[calc(100vh-6.75rem)] min-h-[560px] grid-cols-[350px_1fr] items-stretch gap-4">
+      <div className="grid h-[calc(100vh-110px)] min-h-[560px] grid-cols-[350px_1fr] items-stretch gap-4">
         {/* ── Left: list pane ── */}
-        <div className="flex flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
-          <div className="p-5 pb-0">
+        <Card className="flex flex-col overflow-hidden p-0">
+          <div className="px-5 pt-5">
             <div className="flex items-end justify-between">
               <div>
-                <div className="font-ethiopic text-[26px] font-bold leading-none text-burgundy dark:text-gold">
+                <div className="font-ethiopic text-[26px] font-bold leading-none text-brand dark:text-gold">
                   መዝሙር
                 </div>
-                <div className="mt-0.5 font-display text-[13px] italic text-muted-foreground">
+                <div className="mt-0.5 font-display text-[13px] italic text-ink-muted">
                   Songbook
                 </div>
               </div>
               <div className="text-right">
-                <div className="font-mono text-[11px] text-gold-deep dark:text-gold">
+                <div className="font-mono text-[11px] text-gold-deep">
                   {songs.length}
                 </div>
-                <div className="text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground">
-                  songs
+                <div className="text-[8.5px] uppercase tracking-[0.16em] text-ink-muted">
+                  {t('songs')}
                 </div>
               </div>
             </div>
 
             {/* Search */}
-            <div className="my-3 flex items-center gap-2 rounded-[10px] border border-border bg-background px-[11px] py-2">
+            <label className="mb-2.5 mt-3 flex items-center gap-2 rounded-[10px] border border-parchment-edge bg-parchment px-[11px] py-2 focus-within:ring-2 focus-within:ring-gold/30 dark:bg-parchment-deep">
               <Search className="h-[13px] w-[13px] shrink-0 text-ink-faint" />
               <input
+                type="text"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Title, number, or lyrics…"
-                className="w-full bg-transparent text-xs text-foreground outline-none placeholder:text-ink-faint"
+                aria-label={t('Search songs')}
+                placeholder={t('Title, number, or lyrics…')}
+                className="w-full bg-transparent text-xs text-ink outline-none placeholder:text-ink-faint"
               />
-            </div>
+            </label>
 
             {/* Category pills */}
-            <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-              <button
-                type="button"
+            <div className="flex flex-wrap gap-1.5">
+              <Chip
+                active={activeCategory === null}
                 onClick={() => setActiveCategory(null)}
-                className={`shrink-0 rounded-full px-3 py-[5px] text-[11px] transition-colors ${
-                  activeCategory === null
-                    ? 'bg-burgundy font-semibold text-cream'
-                    : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-                }`}
+                amharic={hasEthiopic(t('All'))}
               >
-                All
-              </button>
-              {categories.slice(0, 3).map((c) => {
+                {t('All')}
+              </Chip>
+              {categories.map((c) => {
                 const active = activeCategory === c.name;
                 return (
-                  <button
+                  <Chip
                     key={c.id}
-                    type="button"
+                    active={active}
+                    dot={dots.get(c.name)}
+                    amharic={hasEthiopic(c.name)}
                     onClick={() => setActiveCategory(active ? null : c.name)}
-                    className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-[5px] text-[11px] transition-colors ${
-                      active
-                        ? 'bg-burgundy font-semibold text-cream'
-                        : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-                    }`}
                   >
-                    <span
-                      className="h-1.5 w-1.5 rounded-full"
-                      style={{
-                        background: colorByCategory.get(c.name) ?? '#D4A843',
-                      }}
-                    />
                     {c.name}
-                  </button>
+                  </Chip>
                 );
               })}
             </div>
@@ -149,78 +125,91 @@ export function SongbookDesktop({
                   key={song.id}
                   type="button"
                   onClick={() => setSelectedId(song.id)}
-                  className={`relative mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2 text-left transition-colors ${
+                  aria-current={active ? 'true' : undefined}
+                  className={cn(
+                    'mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-colors',
                     active
-                      ? 'bg-burgundy/[0.07] dark:bg-gold/[0.12]'
-                      : 'hover:bg-card/80'
-                  }`}
-                >
-                  {active && (
-                    <span className="absolute inset-y-2 left-0 w-[2.5px] rounded bg-gold shadow-[0_0_8px_#D4A843]" />
+                      ? 'bg-brand/[0.07] dark:bg-gold/[0.12]'
+                      : 'hover:bg-parchment-deep/60',
                   )}
+                >
                   <span
-                    className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-display text-sm font-semibold ${
+                    className={cn(
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-display text-sm font-semibold',
                       active
                         ? 'sacred-gradient border-gold/40 text-gold'
-                        : 'border-border bg-gradient-to-br from-parchment-soft to-parchment-deep text-burgundy dark:from-[#2D1B0E] dark:to-[#1A0F08] dark:text-gold'
-                    }`}
+                        : 'border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep text-brand dark:text-gold',
+                    )}
                   >
-                    {song.number != null
-                      ? String(song.number).padStart(2, '0')
-                      : ''}
+                    {songNumber(song.number)}
                   </span>
                   <span className="min-w-0 flex-1">
-                    <span className="block truncate font-ethiopic text-[13.5px] font-semibold text-burgundy-ink dark:text-cream">
+                    <span className="block truncate font-ethiopic text-[13.5px] font-semibold text-brand-ink">
                       {song.title}
                     </span>
                     {song.titleEn && (
-                      <span className="block truncate font-display text-[11.5px] italic text-muted-foreground">
+                      <span className="block truncate font-display text-[11.5px] italic text-ink-muted">
                         {song.titleEn}
                       </span>
                     )}
                   </span>
-                  <span className="shrink-0 text-[8.5px] font-semibold uppercase tracking-[0.12em] text-gold-deep dark:text-gold">
+                  <span
+                    className={cn(
+                      'shrink-0 text-[8.5px] font-semibold uppercase tracking-[0.12em] text-gold-deep',
+                      hasEthiopic(song.category) && 'font-ethiopic',
+                    )}
+                  >
                     {song.category}
                   </span>
                 </button>
               );
             })}
             {filtered.length === 0 && (
-              <p className="py-10 text-center text-sm text-muted-foreground">
-                No songs found
+              <p className="py-10 text-center text-sm text-ink-muted">
+                {t('No songs found')}
               </p>
             )}
           </div>
-        </div>
+        </Card>
 
         {/* ── Right: detail pane ── */}
-        <div className="overflow-y-auto rounded-2xl border border-border bg-card p-[30px] shadow-fy-sm">
+        <Card className="overflow-y-auto p-[30px]">
           {selected ? (
             <div className="max-w-[640px]">
               <div className="flex items-start gap-4">
-                <div className="sacred-gradient flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-[14px] border border-gold/30 shadow-fy-md">
+                <div className="sacred-gradient flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-[14px] border border-gold/30 shadow-[0_6px_16px_-8px_rgba(10,60,54,0.5)]">
                   <span className="font-display text-[26px] font-medium text-gold">
-                    {selected.number != null
-                      ? String(selected.number).padStart(2, '0')
-                      : ''}
+                    {songNumber(selected.number)}
                   </span>
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="font-ethiopic text-[28px] font-semibold leading-tight text-burgundy-ink dark:text-cream">
+                  <h1 className="font-ethiopic text-[28px] font-semibold leading-[1.15] text-brand-ink">
                     {selected.title}
-                  </div>
+                  </h1>
                   {selected.titleEn && (
-                    <div className="mt-0.5 font-display text-base italic text-muted-foreground">
+                    <div className="mt-0.5 font-display text-base italic text-ink-muted">
                       {selected.titleEn}
                     </div>
                   )}
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="mt-4 flex items-center gap-2">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-burgundy/[0.08] px-2.5 py-1 text-[11px] font-medium text-burgundy dark:bg-gold/[0.12] dark:text-gold-light">
-                  <span className="h-1.5 w-1.5 rounded-full bg-gold" />
+              {/* Category + actions */}
+              <div className="mt-4 flex items-center gap-2 print:hidden">
+                <span
+                  className={cn(
+                    'inline-flex items-center gap-1.5 rounded-full bg-brand/[0.08] px-2.5 py-1 text-[11px] font-medium text-brand dark:bg-gold/[0.12] dark:text-gold-light',
+                    hasEthiopic(selected.category) && 'font-ethiopic',
+                  )}
+                >
+                  <span
+                    className="h-1.5 w-1.5 rounded-full bg-gold"
+                    style={
+                      dots.has(selected.category)
+                        ? { background: dots.get(selected.category) }
+                        : undefined
+                    }
+                  />
                   {selected.category}
                 </span>
                 {selected.audioUrl && (
@@ -228,84 +217,38 @@ export function SongbookDesktop({
                     href={selected.audioUrl}
                     target="_blank"
                     rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-cream shadow-fy-sm hover:opacity-95"
+                    className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-brand px-3 py-1.5 text-[11px] font-semibold text-cream shadow-[0_4px_12px_-4px_rgba(10,60,54,0.4)] transition-opacity hover:opacity-95"
                   >
-                    <Play
-                      className="h-[11px] w-[11px] text-gold"
-                      fill="currentColor"
-                    />
-                    Play recording
+                    <Play className="h-[11px] w-[11px] text-gold" />
+                    {t('Play recording')}
                   </a>
                 )}
-                <Link
-                  href={`/songbook/${selected.id}`}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-gold-deep hover:bg-card/80 dark:text-gold"
-                  aria-label="Open full page"
-                >
-                  <Bookmark className="h-[13px] w-[13px]" />
-                </Link>
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-card px-2.5 py-1.5 text-gold-deep hover:bg-card/80 dark:text-gold"
-                  aria-label="Print"
+                  className="inline-flex items-center rounded-full border border-parchment-edge bg-parchment-soft px-2 py-1.5 text-gold-deep transition-colors hover:bg-parchment-deep"
+                  aria-label={t('Print')}
+                  title={t('Print')}
                 >
                   <Printer className="h-[13px] w-[13px]" />
                 </button>
               </div>
 
-              {/* Lyrics */}
-              <div className="mt-[22px] rounded-2xl border border-border bg-cream px-7 pb-7 pt-6 dark:bg-[#2D1B0E]">
-                <div className="mb-4 flex items-center justify-between">
-                  <span className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-                    Lyrics
-                  </span>
-                  <span className="font-ethiopic text-sm text-gold opacity-60">
-                    ✣
-                  </span>
-                </div>
-                <div className="font-ethiopic text-[17px] font-medium leading-[1.9] text-foreground">
-                  {verses.map((verse, i) => (
-                    <div key={i}>
-                      {i > 0 && (
-                        <div className="my-[22px] flex items-center justify-center gap-2">
-                          <span className="h-px w-9 bg-border" />
-                          <span className="flex items-center gap-1">
-                            <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
-                            <span className="h-[3px] w-[3px] rounded-full bg-gold" />
-                            <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
-                          </span>
-                          <span className="h-px w-9 bg-border" />
-                        </div>
-                      )}
-                      <p className="whitespace-pre-line">
-                        {i === 0 && verse.length > 0 ? (
-                          <>
-                            <span className="float-left mr-2.5 mt-1 font-display text-[56px] font-medium leading-[0.85] text-burgundy dark:text-gold">
-                              {verse[0]}
-                            </span>
-                            {verse.slice(1)}
-                          </>
-                        ) : (
-                          verse
-                        )}
-                      </p>
-                    </div>
-                  ))}
-                  {verses.length === 0 && (
-                    <p className="italic text-muted-foreground">
-                      No lyrics available.
-                    </p>
-                  )}
-                </div>
-              </div>
+              <LyricsCard
+                size="lg"
+                lyrics={selected.lyrics}
+                label={t('Lyrics')}
+                emptyLabel={t('No lyrics available.')}
+              />
             </div>
           ) : (
-            <p className="py-16 text-center text-sm text-muted-foreground">
-              Select a song to view lyrics.
+            <p className="py-16 text-center text-sm text-ink-muted">
+              {songs.length === 0
+                ? t('No songs yet')
+                : t('Select a song to view lyrics.')}
             </p>
           )}
-        </div>
+        </Card>
       </div>
     </div>
   );

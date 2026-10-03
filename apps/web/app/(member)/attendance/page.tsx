@@ -6,33 +6,24 @@ import {
   events,
   members,
 } from '@felege-yordanos/db/server';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
 import { Link2 } from 'lucide-react';
 import Link from 'next/link';
-import { formatShortDate } from '@/lib/format';
+import { Card, PageHead } from '@/components/ds';
+import { deptShortLabel, hhmm } from '@/lib/events';
+import { getLocale, getT } from '@/lib/i18n/server';
 import { requireUser } from '@/lib/session';
+import { cn } from '@/lib/utils';
+import { primaryBtn } from '@/components/events/event-ui';
 import {
-  AttendanceDesktopView,
+  AttendanceView,
   type AttnRow,
   type AttnStatus,
-} from './attendance-desktop';
-
-const statusBadge: Record<
-  string,
-  {
-    variant: 'default' | 'secondary' | 'destructive' | 'outline';
-    className: string;
-  }
-> = {
-  present: { variant: 'default', className: 'bg-green-600' },
-  absent: { variant: 'destructive', className: '' },
-  late: { variant: 'default', className: 'bg-yellow-600' },
-};
+} from './attendance-view';
 
 export default async function MyAttendancePage() {
   const user = await requireUser();
+  const t = await getT();
+  const locale = await getLocale();
 
   // The member record linked to this login (through the /claim flow).
   const [member] = await db
@@ -43,17 +34,25 @@ export default async function MyAttendancePage() {
 
   if (!member) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16">
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-8">
-            <Link2 className="h-8 w-8 text-muted-foreground" />
-            <p className="text-center text-sm text-muted-foreground">
-              Link your member profile to see your attendance history
-            </p>
-            <Button asChild>
-              <Link href="/claim">Link Member Profile</Link>
-            </Button>
-          </CardContent>
+      <div className="px-[18px] pb-6 pt-4 md:px-7 md:py-7">
+        <PageHead
+          en="My events"
+          am="መርሃ ግብር"
+          sub="Events you're part of and your attendance at each"
+        />
+        <Card className="mx-auto mt-6 flex max-w-md flex-col items-center gap-4 px-6 py-9 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/[0.14]">
+            <Link2 className="h-5 w-5 text-gold-deep" />
+          </div>
+          <p className="text-sm text-ink-muted">
+            {t('Link your member profile to see your attendance history')}
+          </p>
+          <Link
+            href="/claim"
+            className={cn(primaryBtn, 'px-5 py-2.5 text-[13px]')}
+          >
+            {t('Link member profile')}
+          </Link>
         </Card>
       </div>
     );
@@ -82,77 +81,55 @@ export default async function MyAttendancePage() {
       .limit(1),
   ]);
 
-  const deptName = (id: number | null) =>
-    id ? (departmentRows.find((d) => d.id === id)?.nameAm ?? 'ጠቅላላ') : 'ጠቅላላ';
+  const deptLabel = (id: number | null) =>
+    departmentRows.some((d) => d.id === id)
+      ? deptShortLabel(id, locale)
+      : deptShortLabel(null, locale);
 
-  // Desktop table rows (real attendance records, most-recent first).
+  // The signed-in member's attendance records.
   const rows: AttnRow[] = attendanceRecords.map((r) => ({
-    title: r.events?.title ?? 'Event',
-    deptAm: deptName(r.events?.departmentId ?? null),
-    date: r.events?.eventDate ?? '',
-    dateLabel: r.events?.eventDate ? formatShortDate(r.events.eventDate) : '—',
-    time: r.events?.startTime ? r.events.startTime.slice(0, 5) : '',
+    id: r.events.id,
+    title: r.events.title,
+    dept: deptLabel(r.events.departmentId),
+    date: r.events.eventDate,
+    time: hhmm(r.events.startTime),
+    end: hhmm(r.events.endTime),
     status: (r.status as AttnStatus) ?? 'absent',
   }));
 
-  const nextEventRow = upcomingData[0];
-  const nextEvent = nextEventRow
+  const next = upcomingData[0];
+  const nextEvent = next
     ? {
-        title: nextEventRow.title,
-        dateLabel: formatShortDate(nextEventRow.eventDate),
-        time: nextEventRow.startTime ? nextEventRow.startTime.slice(0, 5) : '',
+        title: next.title,
+        date: next.eventDate,
+        time: hhmm(next.startTime),
+        dept: deptLabel(next.departmentId),
       }
     : null;
 
+  // The next event is listed as "upcoming" unless it already has a record.
+  if (next && !rows.some((r) => r.id === next.id)) {
+    rows.push({
+      id: next.id,
+      title: next.title,
+      dept: deptLabel(next.departmentId),
+      date: next.eventDate,
+      time: hhmm(next.startTime),
+      end: hhmm(next.endTime),
+      status: 'upcoming',
+    });
+  }
+
+  // Most recent first by event date (the query returns them by record time).
+  rows.sort(
+    (a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time),
+  );
+
   return (
-    <>
-      {/* ─── MOBILE (< md) — simple list ─── */}
-      <div className="mx-auto max-w-2xl px-6 py-6 md:hidden">
-        <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">
-          አገልግሎት መግቢያ
-        </span>
-        <h1 className="font-headline text-3xl text-primary">My Attendance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">
-          Your attendance history across events
-        </p>
-
-        {attendanceRecords.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-muted-foreground">
-            No attendance records yet.
-          </p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {attendanceRecords.map((record) => {
-              const badge = statusBadge[record.status] ?? statusBadge.absent;
-              return (
-                <Card key={record.id}>
-                  <CardContent className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">
-                        {record.events?.title ?? 'Event'}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {record.events?.eventDate}
-                      </p>
-                    </div>
-                    <Badge variant={badge.variant} className={badge.className}>
-                      {record.status}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ─── DESKTOP (md+) — table/calendar + next-event/QR ─── */}
-      <AttendanceDesktopView
-        className="hidden px-7 py-7 md:block"
-        rows={rows}
-        nextEvent={nextEvent}
-        memberId={member.memberId}
-      />
-    </>
+    <AttendanceView
+      rows={rows}
+      nextEvent={nextEvent}
+      memberId={member.memberId}
+    />
   );
 }

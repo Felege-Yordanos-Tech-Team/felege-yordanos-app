@@ -97,6 +97,15 @@ See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BET
 Dev emails (password reset links) are printed in the terminal running the app.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
 
+## Design System, Language and Theme
+
+- Target look: the Felege Yordanos Claude Design project (ask the tech team lead for access). Match it on phone (< md) and desktop (md+). Do not commit design exports, screenshots or prototype code to the repo
+- Colors: Tailwind tokens only (`brand`, `gold`, `parchment`, `ink`, `cream`, `status-*`), defined as CSS variables in `app/global.css` for light and dark. Never hardcode hex colors in classNames
+- Fonts: `font-ethiopic` (Amharic), `font-display` (Cormorant titles), `font-body` (Inter), `font-mono` (IDs, times, amounts). Fonts are bundled with @fontsource
+- Building blocks: `components/ds` (Card, Eyebrow, Chip, PageHead, SectionHeader, StatusPill)
+- Language: Amharic by default, English toggle (cookie `fy-lang`). Write English in code and translate it: server `const t = await getT()` (`@/lib/i18n/server`), client `const t = useT()` (`@/lib/i18n/client`). Add Amharic to `lib/i18n/dict/<area>.ts`. Headings use `SectionHeader` / `PageHead` (current language big, other language as eyebrow). Dates and numbers via `Intl` with `intlLocale(locale)`
+- Theme: light/dark via next-themes (`class` on `<html>`); tokens switch automatically
+
 ## How Features Are Built
 
 - Pages are async server components: `requireUser()`, permission check from `lib/permissions.ts`, then read with Drizzle

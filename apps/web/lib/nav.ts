@@ -1,14 +1,14 @@
 import {
-  Home,
-  Music,
-  Music2,
   CalendarCheck,
-  CalendarClock,
-  DoorOpen,
   Heart,
+  Home,
+  ListMusic,
+  Megaphone,
+  Music,
+  Receipt,
+  ScanLine,
   User,
   Users,
-  Wallet,
   type LucideIcon,
 } from 'lucide-react';
 import type { Role as UserRole } from '@felege-yordanos/db/schema';
@@ -27,9 +27,16 @@ export interface NavItem {
   matchNested?: boolean;
 }
 
-/** Visible to every authenticated user. */
+/** Visible to every authenticated user. Labels follow the design system. */
 export const MEMBER_NAV: NavItem[] = [
   { href: '/dashboard', labelEn: 'Home', labelAm: 'ዋና ገጽ', icon: Home },
+  {
+    href: '/notices',
+    labelEn: 'Notices',
+    labelAm: 'ማስታወቂያ',
+    icon: Megaphone,
+    matchNested: true,
+  },
   {
     href: '/songbook',
     labelEn: 'Songbook',
@@ -39,48 +46,46 @@ export const MEMBER_NAV: NavItem[] = [
   },
   {
     href: '/attendance',
-    labelEn: 'Attendance',
-    labelAm: 'ክትትል',
+    labelEn: 'Events',
+    labelAm: 'መርሃ ግብር',
     icon: CalendarCheck,
     matchNested: true,
   },
-  { href: '/donate', labelEn: 'Donate', labelAm: 'ልገሳ', icon: Heart },
+  { href: '/donate', labelEn: 'Donate', labelAm: 'መዋጮ', icon: Heart },
   { href: '/profile', labelEn: 'Profile', labelAm: 'መገለጫ', icon: User },
 ];
 
 /**
- * Elevated-role destinations. These all live under /admin, which is hard-gated
- * by proxy.ts — the role filter below is presentation only, NOT the security
- * boundary. "Events" is the plan/manage surface (list, calendar, create);
- * "Check-in" is the focused door-duty surface (pick an event, then mark/scan).
+ * Elevated-role destinations under /admin. The role filter here is
+ * presentation only; pages enforce lib/permissions.ts.
  */
 export const ADMIN_NAV: NavItem[] = [
   {
     href: '/admin/attendance',
     labelEn: 'Events',
-    labelAm: 'መርሐ ግብር',
-    icon: CalendarClock,
+    labelAm: 'መርሃ ግብር',
+    icon: CalendarCheck,
     matchNested: true,
   },
   {
     href: '/admin/check-in',
     labelEn: 'Check-in',
     labelAm: 'መግቢያ',
-    icon: DoorOpen,
+    icon: ScanLine,
     matchNested: true,
   },
   {
     href: '/admin/songs',
     labelEn: 'Songs',
     labelAm: 'መዝሙሮች',
-    icon: Music2,
+    icon: ListMusic,
     matchNested: true,
   },
   {
     href: '/admin/donations',
     labelEn: 'Donations',
-    labelAm: 'ልገሳዎች',
-    icon: Wallet,
+    labelAm: 'መዋጮዎች',
+    icon: Receipt,
     matchNested: true,
   },
   {
@@ -119,11 +124,17 @@ export function isActivePath(item: NavItem, pathname: string): boolean {
   return !!item.matchNested && pathname.startsWith(`${item.href}/`);
 }
 
+/** Routes that are not in the menus but still need a breadcrumb. */
+const EXTRA_CRUMBS: Pick<NavItem, 'href' | 'labelEn' | 'labelAm'>[] = [
+  { href: '/admin', labelEn: 'Admin', labelAm: 'አስተዳደር' },
+  { href: '/claim', labelEn: 'Link profile', labelAm: 'መገለጫ ማገናኘት' },
+];
+
 /** The breadcrumb label for a path — the longest matching nav href wins. */
 export function breadcrumbForPath(
   pathname: string,
 ): Pick<NavItem, 'labelEn' | 'labelAm'> | null {
-  const match = [...MEMBER_NAV, ...ADMIN_NAV]
+  const match = [...MEMBER_NAV, ...ADMIN_NAV, ...EXTRA_CRUMBS]
     .filter((i) => pathname === i.href || pathname.startsWith(`${i.href}/`))
     .sort((a, b) => b.href.length - a.href.length)[0];
   return match ? { labelEn: match.labelEn, labelAm: match.labelAm } : null;

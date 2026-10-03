@@ -5,15 +5,24 @@ import {
   Check,
   ChevronLeft,
   ChevronRight,
+  Download,
   List,
   ScanLine,
   Search,
   Zap,
 } from 'lucide-react';
+import { Card, Eyebrow, PageHead, SectionHeader } from '@/components/ds';
 import { Input } from '@/components/ui/input';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useToast } from '@/hooks/use-toast';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { formatYmd, hhmm } from '@/lib/events';
+import { cn } from '@/lib/utils';
 import { markAttendance } from '../actions';
+import {
+  BackLink,
+  primaryBtn,
+  secondaryBtn,
+} from '@/components/events/event-ui';
 import { QRScanner, type ScanResult } from './qr-scanner';
 
 type AttendanceStatus = 'present' | 'absent' | 'late';
@@ -31,10 +40,26 @@ export interface CheckInAttendance {
   status: AttendanceStatus;
 }
 
+/** The event being checked in (only display fields). */
+export interface CheckInEvent {
+  title: string;
+  eventDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  description: string | null;
+}
+
 interface CheckInTabsProps {
   eventId: string;
   members: CheckInMember[];
   attendance: CheckInAttendance[];
+  event: CheckInEvent;
+  /** Phone back link (English label, translated here). */
+  back: { href: string; label: string };
+  /** Extra header control, e.g. the event picker on the Check-in hub. */
+  picker?: React.ReactNode;
+  /** Show the CSV export (only when the user may read this event's attendance). */
+  canExport?: boolean;
 }
 
 interface CheckInLog {
@@ -51,28 +76,33 @@ const STATUS_DOT: Record<AttendanceStatus, string> = {
 };
 
 const STATUS_BTN: Record<
-  Exclude<AttendanceStatus, never>,
-  { label: 'P' | 'L' | 'A'; active: string; idle: string }
+  AttendanceStatus,
+  { label: 'P' | 'L' | 'A'; name: string; active: string; idle: string }
 > = {
   present: {
     label: 'P',
+    name: 'Present',
     active:
-      'bg-status-present text-cream border-transparent shadow-[0_2px_8px_-2px_rgba(79,123,62,0.5)]',
-    idle: 'border border-border bg-card text-status-present hover:bg-status-present/[0.08]',
+      'bg-status-present text-cream shadow-[0_2px_8px_-2px_rgb(var(--fy-present)/0.5)]',
+    idle: 'border border-parchment-edge bg-parchment-soft text-status-present hover:bg-status-present-bg',
   },
   late: {
     label: 'L',
+    name: 'Late',
     active:
-      'bg-status-late text-cream border-transparent shadow-[0_2px_8px_-2px_rgba(201,123,26,0.5)]',
-    idle: 'border border-border bg-card text-status-late hover:bg-status-late/[0.08]',
+      'bg-status-late text-cream shadow-[0_2px_8px_-2px_rgb(var(--fy-late)/0.5)]',
+    idle: 'border border-parchment-edge bg-parchment-soft text-status-late hover:bg-status-late-bg',
   },
   absent: {
     label: 'A',
+    name: 'Absent',
     active:
-      'bg-status-absent text-cream border-transparent shadow-[0_2px_8px_-2px_rgba(161,40,49,0.5)]',
-    idle: 'border border-border bg-card text-status-absent hover:bg-status-absent/[0.08]',
+      'bg-status-absent text-cream shadow-[0_2px_8px_-2px_rgb(var(--fy-absent)/0.5)]',
+    idle: 'border border-parchment-edge bg-parchment-soft text-status-absent hover:bg-status-absent-bg',
   },
 };
+
+const STATUSES: AttendanceStatus[] = ['present', 'late', 'absent'];
 
 function formatTime(d: Date): string {
   return d.toLocaleTimeString('en-US', {
@@ -82,21 +112,31 @@ function formatTime(d: Date): string {
   });
 }
 
+const fullName = (m: CheckInMember) =>
+  [m.name, m.fatherName].filter(Boolean).join(' ');
+
 /** Members per page in the desktop member table. */
 const PAGE_SIZE = 12;
+
+type MobileTab = 'quick' | 'member-list' | 'qr-scan';
+type DeskEntry = 'quick' | 'qr' | 'list';
 
 export function CheckInTabs({
   eventId,
   members,
   attendance,
+  event,
+  back,
+  picker,
+  canExport = true,
 }: CheckInTabsProps) {
-  const [tab, setTab] = useState<'quick' | 'member-list' | 'qr-scan'>('quick');
+  const t = useT();
+  const locale = useLocale();
+  const [tab, setTab] = useState<MobileTab>('quick');
   const [records, setRecords] = useState<Record<number, AttendanceStatus>>(
     () => {
       const map: Record<number, AttendanceStatus> = {};
-      for (const a of attendance) {
-        map[a.memberId] = a.status;
-      }
+      for (const a of attendance) map[a.memberId] = a.status;
       return map;
     },
   );
@@ -104,9 +144,10 @@ export function CheckInTabs({
   const [quickInput, setQuickInput] = useState('');
   const [checkInLogs, setCheckInLogs] = useState<CheckInLog[]>([]);
   const [page, setPage] = useState(0);
-  const [deskEntry, setDeskEntry] = useState<'quick' | 'qr'>('quick');
+  const [deskEntry, setDeskEntry] = useState<DeskEntry>('quick');
   const quickInputRef = useRef<HTMLInputElement>(null);
   const deskQuickRef = useRef<HTMLInputElement>(null);
+  const deskSearchRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
   // Refocus whichever quick-entry input is visible (mobile tab vs desktop rail).
@@ -133,20 +174,18 @@ export function CheckInTabs({
   const upsertAttendance = useCallback(
     async (memberId: number, status: AttendanceStatus) => {
       const res = await markAttendance({ eventId, memberId, status });
-
       if (!res.ok) {
         toast({
-          title: 'Error',
-          description: res.error,
+          title: t('Error'),
+          description: t(res.error),
           variant: 'destructive',
         });
         return false;
       }
-
       setRecords((prev) => ({ ...prev, [memberId]: status }));
       return true;
     },
-    [eventId, toast],
+    [eventId, toast, t],
   );
 
   const filteredMembers = members.filter((m) => {
@@ -175,8 +214,8 @@ export function CheckInTabs({
     const member = members.find((m) => m.memberId === id);
     if (!member) {
       toast({
-        title: 'Not found',
-        description: 'Member ID not found',
+        title: t('Not found'),
+        description: t('Member ID not found'),
         variant: 'destructive',
       });
       setQuickInput('');
@@ -184,10 +223,9 @@ export function CheckInTabs({
       return;
     }
 
-    const fullName = [member.name, member.fatherName].filter(Boolean).join(' ');
-
+    const name = fullName(member);
     if (records[member.id] === 'present' || records[member.id] === 'late') {
-      toast({ title: fullName, description: 'Already checked in' });
+      toast({ title: name, description: t('Already checked in') });
       setQuickInput('');
       focusQuick();
       return;
@@ -195,10 +233,10 @@ export function CheckInTabs({
 
     const ok = await upsertAttendance(member.id, 'present');
     if (ok) {
-      toast({ title: fullName, description: 'Checked in' });
+      toast({ title: name, description: t('Checked in') });
       setCheckInLogs((prev) => [
         {
-          name: fullName,
+          name,
           memberId: member.memberId,
           time: formatTime(new Date()),
           status: 'present',
@@ -208,7 +246,7 @@ export function CheckInTabs({
     }
 
     setQuickInput('');
-    quickInputRef.current?.focus();
+    focusQuick();
   }
 
   const latest = checkInLogs[0];
@@ -216,543 +254,644 @@ export function CheckInTabs({
   async function handleQRDecoded(decoded: string): Promise<ScanResult> {
     const code = decoded.trim();
     const member = membersByMemberId.get(code);
-    if (!member) {
-      return { kind: 'invalid', code };
-    }
-    const fullName = [member.name, member.fatherName].filter(Boolean).join(' ');
+    if (!member) return { kind: 'invalid', code };
+    const name = fullName(member);
     if (records[member.id] === 'present' || records[member.id] === 'late') {
-      return { kind: 'already', name: fullName, memberId: member.memberId };
+      return { kind: 'already', name, memberId: member.memberId };
     }
     const ok = await upsertAttendance(member.id, 'present');
-    if (!ok) {
-      return { kind: 'invalid', code };
-    }
+    if (!ok) return { kind: 'invalid', code };
     const time = formatTime(new Date());
     setCheckInLogs((prev) => [
-      { name: fullName, memberId: member.memberId, time, status: 'present' },
+      { name, memberId: member.memberId, time, status: 'present' },
       ...prev.slice(0, 9),
     ]);
-    return { kind: 'success', name: fullName, memberId: member.memberId, time };
+    return { kind: 'success', name, memberId: member.memberId, time };
   }
+
+  /** CSV of this event's attendance, built from what is on the page. */
+  function exportCsv() {
+    const esc = (v: string) =>
+      /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
+    const lines = [['Member ID', 'Name', 'Status'].join(',')];
+    for (const m of members)
+      lines.push(
+        [m.memberId, fullName(m), records[m.id] ?? ''].map(esc).join(','),
+      );
+    const blob = new Blob(['﻿' + lines.join('\n')], {
+      type: 'text/csv;charset=utf-8',
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `attendance-${event.eventDate}-${event.title.replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, '') || 'event'}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  // ── Display bits ──
+  const start = hhmm(event.startTime);
+  const end = hhmm(event.endTime);
+  const timeRange = start && end ? `${start} – ${end}` : start || end;
+  const dateShort = formatYmd(event.eventDate, locale);
+  const dateLong = formatYmd(event.eventDate, locale, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  const sub = [dateShort, start, event.description].filter(Boolean).join(' · ');
+  const lastN = t('last {n}', { n: Math.min(checkInLogs.length, 10) });
+
+  const statusButtons = (m: CheckInMember, size: 'sm' | 'md') => (
+    <div className={cn('flex', size === 'sm' ? 'gap-[5px]' : 'gap-1')}>
+      {STATUSES.map((status) => {
+        const cfg = STATUS_BTN[status];
+        const active = records[m.id] === status;
+        return (
+          <button
+            key={status}
+            type="button"
+            onClick={() => upsertAttendance(m.id, status)}
+            aria-pressed={active}
+            aria-label={t('{status} for {name}', {
+              status: t(cfg.name),
+              name: m.name,
+            })}
+            className={cn(
+              'flex items-center justify-center font-bold transition-colors',
+              size === 'sm'
+                ? 'h-7 w-7 rounded-lg text-xs'
+                : 'h-8 w-8 rounded-[9px] text-[13px]',
+              active ? cfg.active : cfg.idle,
+            )}
+          >
+            {cfg.label}
+          </button>
+        );
+      })}
+    </div>
+  );
+
+  const searchBox = (
+    cls: string,
+    ref?: React.Ref<HTMLInputElement>,
+    placeholder = t('Name or ID…'),
+    soft = false,
+  ) => (
+    <div className={cn('relative', cls)}>
+      <Search className="pointer-events-none absolute left-3 top-1/2 h-3 w-3 -translate-y-1/2 text-ink-faint" />
+      <Input
+        ref={ref}
+        placeholder={placeholder}
+        value={search}
+        onChange={(e) => {
+          setSearch(e.target.value);
+          setPage(0);
+        }}
+        aria-label={t('Search members')}
+        className={cn(
+          'h-auto rounded-[10px] border border-parchment-edge pl-8 pr-3 text-[12.5px] text-ink placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30',
+          soft
+            ? 'bg-parchment-soft py-[9px]'
+            : 'bg-parchment py-[7px] dark:bg-parchment-deep',
+        )}
+      />
+      {search && (
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[9px] text-ink-muted">
+          {filteredMembers.length === 1
+            ? t('1 match')
+            : t('{n} matches', { n: filteredMembers.length })}
+        </span>
+      )}
+    </div>
+  );
+
+  const exportBtn = canExport && (
+    <button type="button" onClick={exportCsv} className={secondaryBtn}>
+      <Download className="h-[13px] w-[13px]" />
+      {t('Export')}
+    </button>
+  );
+
+  const recentRows = (variant: 'mobile' | 'desktop') =>
+    checkInLogs.length === 0 ? (
+      <p className="rounded-xl border border-dashed border-parchment-edge py-5 text-center text-xs text-ink-muted">
+        {variant === 'mobile'
+          ? t('No check-ins yet. Enter a member ID above.')
+          : t('No check-ins yet.')}
+      </p>
+    ) : variant === 'mobile' ? (
+      <div className="flex flex-col gap-1">
+        {checkInLogs.map((log, i) => (
+          <div
+            key={`${log.memberId}-${i}`}
+            className={cn(
+              'flex items-center gap-2.5 rounded-[10px] border px-3 py-[9px]',
+              i === 0
+                ? 'border-parchment-edge bg-parchment-soft'
+                : 'border-transparent',
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'h-2 w-2 shrink-0 rounded-full',
+                STATUS_DOT[log.status],
+              )}
+            />
+            <div className="min-w-0 flex-1">
+              <div className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
+                {log.name}
+              </div>
+              <div className="mt-px font-mono text-[10px] text-ink-muted">
+                {log.memberId}
+              </div>
+            </div>
+            <span className="font-mono text-[10px] tabular-nums text-ink-muted">
+              {log.time}
+            </span>
+          </div>
+        ))}
+      </div>
+    ) : (
+      <div>
+        {checkInLogs.map((log, i) => (
+          <div
+            key={`d-${log.memberId}-${i}`}
+            className={cn(
+              'flex items-center gap-2.5 py-[9px]',
+              i > 0 && 'border-t border-parchment-edge',
+            )}
+          >
+            <span
+              aria-hidden
+              className={cn(
+                'h-[7px] w-[7px] shrink-0 rounded-full',
+                STATUS_DOT[log.status],
+              )}
+            />
+            <span className="min-w-0 flex-1 truncate text-[12.5px] font-medium text-ink">
+              {log.name}
+            </span>
+            <span className="font-mono text-[10px] text-ink-faint">
+              {log.memberId}
+            </span>
+            <span className="font-mono text-[10px] text-gold-deep">
+              {log.time}
+            </span>
+          </div>
+        ))}
+      </div>
+    );
+
+  const mobileTabs: { key: MobileTab; label: string; Icon: typeof Zap }[] = [
+    { key: 'quick', label: t('Quick'), Icon: Zap },
+    { key: 'member-list', label: t('List'), Icon: List },
+    { key: 'qr-scan', label: t('QR'), Icon: ScanLine },
+  ];
+  const deskTabs: { key: DeskEntry; label: string; Icon: typeof Zap }[] = [
+    { key: 'quick', label: t('Quick ID'), Icon: Zap },
+    { key: 'qr', label: t('QR scan'), Icon: ScanLine },
+    { key: 'list', label: t('List'), Icon: List },
+  ];
 
   return (
     <>
-      {/* ─────────────── MOBILE (< md) — tabbed ─────────────── */}
-      <Tabs
-        value={tab}
-        onValueChange={(v) => setTab(v as typeof tab)}
-        className="w-full md:hidden"
-      >
-        <TabsList className="mb-3.5 grid w-full grid-cols-3 rounded-xl bg-input p-1">
-          <TabsTrigger
-            value="quick"
-            className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
-          >
-            <Zap className="h-3.5 w-3.5" />
-            Quick
-          </TabsTrigger>
-          <TabsTrigger
-            value="member-list"
-            className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
-          >
-            <List className="h-3.5 w-3.5" />
-            List
-          </TabsTrigger>
-          <TabsTrigger
-            value="qr-scan"
-            className="gap-1.5 rounded-lg text-xs font-semibold data-[state=active]:bg-card data-[state=active]:text-burgundy-ink data-[state=active]:shadow-sm data-[state=inactive]:text-muted-foreground dark:data-[state=active]:text-cream"
-          >
-            <ScanLine className="h-3.5 w-3.5" />
-            QR
-          </TabsTrigger>
-        </TabsList>
+      {/* ─────────────── PHONE (< md) ─────────────── */}
+      <div className="px-[18px] pb-6 pt-3 md:hidden">
+        <div className="mb-2.5">
+          <BackLink href={back.href}>{t(back.label)}</BackLink>
+        </div>
 
-        {/* Quick mode */}
-        <TabsContent value="quick" className="mt-0">
-          {/* Counter card */}
-          <section className="sacred-gradient relative mb-3.5 overflow-hidden rounded-2xl border border-gold/25 px-5 py-[18px] text-cream shadow-fy-lg">
-            <div className="tibeb-gold absolute inset-0 opacity-40" />
-            <div className="relative">
-              <div className="flex items-baseline justify-between">
-                <div className="font-ethiopic text-[11px] tracking-[0.06em] text-gold-light">
-                  አባላት ተገኝተዋል
-                </div>
-                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-gold-light/70">
-                  <span
-                    aria-hidden
-                    className="h-1.5 w-1.5 rounded-full bg-status-present"
-                    style={{ boxShadow: '0 0 6px #4F7B3E' }}
-                  />
-                  Live
-                </div>
-              </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="font-display text-[64px] font-medium leading-[0.95] tracking-tight tabular-nums text-gold">
-                  {presentCount}
-                </span>
-                <span className="font-display text-[28px] font-normal tabular-nums text-gold-light/50">
-                  / {total}
-                </span>
-                <span className="ml-auto text-[11px] text-cream/60">
-                  present
-                </span>
-              </div>
-              <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-cream/[0.12]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-gold to-gold-light shadow-[0_0_8px_rgba(212,168,67,0.5)] transition-all duration-300"
-                  style={{ width: `${progress}%` }}
-                />
-              </div>
-            </div>
-          </section>
+        {picker && <div className="mb-4">{picker}</div>}
 
-          {/* Scan input */}
-          <form onSubmit={handleQuickCheckIn} className="mb-3.5">
-            <div className="flex items-center gap-2.5 rounded-2xl border-2 border-gold bg-card px-3.5 py-3 shadow-[0_0_0_4px_rgba(212,168,67,0.15),0_4px_16px_-6px_rgba(212,168,67,0.3)]">
-              <ScanLine className="h-5 w-5 shrink-0 text-burgundy dark:text-gold" />
-              <Input
-                ref={quickInputRef}
-                value={quickInput}
-                onChange={(e) => setQuickInput(e.target.value)}
-                placeholder="Enter member ID…"
-                autoFocus
-                className="h-auto border-none bg-transparent p-0 font-mono text-lg font-medium tracking-[0.08em] text-foreground shadow-none placeholder:font-mono placeholder:text-base placeholder:tracking-normal focus-visible:ring-0"
-              />
-              <span className="hidden text-[9px] font-semibold uppercase tracking-[0.14em] text-gold-deep dark:text-gold sm:inline">
-                Enter ↵
+        <div className="mb-3.5">
+          <div
+            className={cn(
+              'text-[11px] tracking-[0.06em] text-gold-deep',
+              locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+            )}
+          >
+            {locale === 'am' ? 'Check-in' : 'መግቢያ'}
+          </div>
+          <h1 className="mt-0.5 font-display text-2xl font-medium leading-[1.1] text-brand-ink">
+            {event.title}
+          </h1>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <span className="rounded-[4px] bg-brand/[0.08] px-2 py-0.5 font-mono text-[10px] font-medium text-brand dark:bg-gold/[0.12] dark:text-gold-light">
+              {dateLong}
+            </span>
+            {timeRange && (
+              <span className="rounded-[4px] bg-gold/[0.16] px-2 py-0.5 font-mono text-[10px] font-medium text-gold-deep">
+                {timeRange}
               </span>
-            </div>
-          </form>
-
-          {/* Last check-in confirmation banner */}
-          {latest && (
-            <div className="mb-4 flex items-center gap-3 rounded-2xl border border-status-present/30 bg-gradient-to-br from-status-present-bg to-status-present-bg/60 px-4 py-3 dark:from-status-present/[0.25] dark:to-status-present/[0.10] dark:border-status-present/40">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-present">
-                <Check
-                  className="h-[22px] w-[22px] text-cream"
-                  strokeWidth={3}
-                />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="truncate font-display text-lg font-medium leading-tight text-burgundy-ink dark:text-foreground">
-                  {latest.name}
-                </div>
-                <div className="mt-0.5 text-[11px] font-semibold text-status-present">
-                  Checked in · {latest.memberId}
-                </div>
-              </div>
-              <div className="shrink-0 font-mono text-[11px] font-semibold text-status-present">
-                {latest.time}
-              </div>
-            </div>
-          )}
-
-          {/* Recent log */}
-          <div className="mb-2 flex items-baseline justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-              Recent
-            </div>
-            {checkInLogs.length > 0 && (
-              <span className="font-mono text-[10px] text-muted-foreground">
-                last {Math.min(checkInLogs.length, 10)}
+            )}
+            {event.description && (
+              <span className="text-[11px] italic text-ink-muted">
+                · {event.description}
               </span>
             )}
           </div>
+        </div>
 
-          {checkInLogs.length === 0 ? (
-            <p className="rounded-xl border border-dashed border-border bg-card/40 py-6 text-center text-[12px] text-muted-foreground">
-              No check-ins yet. Enter a member ID above.
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {checkInLogs.map((log, i) => (
-                <div
-                  key={`${log.memberId}-${i}`}
-                  className={`flex items-center gap-2.5 rounded-[10px] px-3 py-2.5 ${
-                    i === 0
-                      ? 'border border-border bg-card'
-                      : 'border border-transparent'
-                  }`}
-                >
-                  <span
-                    aria-hidden
-                    className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[log.status]}`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-display text-[15px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-                      {log.name}
-                    </div>
-                    <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                      {log.memberId}
-                    </div>
+        {/* Tabs */}
+        <div
+          role="tablist"
+          className="mb-3.5 flex rounded-xl bg-parchment-deep p-[3px]"
+        >
+          {mobileTabs.map(({ key, label, Icon }) => {
+            const active = tab === key;
+            return (
+              <button
+                key={key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(key)}
+                className={cn(
+                  'flex flex-1 items-center justify-center gap-1.5 rounded-[9px] p-2.5 text-xs transition-colors',
+                  active
+                    ? 'bg-parchment-soft font-semibold text-brand-ink shadow-[0_1px_2px_rgba(10,60,54,0.08)] dark:shadow-[0_1px_2px_rgba(0,0,0,0.3)]'
+                    : 'font-medium text-ink-muted',
+                )}
+              >
+                <Icon
+                  className={cn(
+                    'h-3.5 w-3.5',
+                    active ? 'text-brand dark:text-gold' : 'text-ink-muted',
+                  )}
+                />
+                {label}
+              </button>
+            );
+          })}
+        </div>
+
+        {tab === 'quick' && (
+          <div role="tabpanel">
+            {/* Counter */}
+            <section className="sacred-gradient relative mb-3.5 overflow-hidden rounded-[18px] border border-gold/25 px-5 py-[18px] text-cream shadow-[0_12px_28px_-12px_rgba(10,60,54,0.4)]">
+              <div className="tibeb-gold absolute inset-0 opacity-40" />
+              <div className="relative">
+                <div className="flex items-baseline justify-between">
+                  <div
+                    className={cn(
+                      'text-[11px] tracking-[0.06em] text-gold-light',
+                      locale === 'am' ? 'font-ethiopic' : 'font-body',
+                    )}
+                  >
+                    {t('Members present')}
                   </div>
-                  <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                    {log.time}
+                  <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-gold-light/70">
+                    <span
+                      aria-hidden
+                      className="h-1.5 w-1.5 rounded-full bg-status-present shadow-[0_0_6px_#4F7B3E]"
+                    />
+                    {t('Live')}
+                  </div>
+                </div>
+                <div className="mt-1 flex items-baseline gap-2">
+                  <span className="font-display text-[64px] font-medium leading-[0.95] tracking-[-0.02em] tabular-nums text-gold">
+                    {presentCount}
+                  </span>
+                  <span className="font-display text-[28px] font-normal tabular-nums text-gold-light/50">
+                    / {total}
+                  </span>
+                  <span className="ml-auto text-[11px] text-cream/60">
+                    {t('present')}
                   </span>
                 </div>
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* Member list mode */}
-        <TabsContent value="member-list" className="mt-0">
-          {/* Compact ratio pill */}
-          <div className="mb-3.5 flex items-center justify-end">
-            <div className="sacred-gradient inline-flex items-baseline gap-1 rounded-full border border-gold/30 px-3 py-1.5">
-              <span className="font-mono text-sm font-semibold tabular-nums text-gold">
-                {presentCount}
-              </span>
-              <span className="font-mono text-[10px] text-gold/60">
-                / {total}
-              </span>
-            </div>
-          </div>
-
-          {/* Search */}
-          <div className="relative mb-3.5">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-            <Input
-              placeholder="Search members…"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="rounded-[10px] border border-border bg-card pl-[34px] text-[12.5px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
-            />
-            {search && (
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 font-mono text-[9px] text-muted-foreground">
-                {filteredMembers.length}{' '}
-                {filteredMembers.length === 1 ? 'match' : 'matches'}
-              </span>
-            )}
-          </div>
-
-          {/* Member rows */}
-          {filteredMembers.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No members found
-            </p>
-          ) : (
-            <div className="flex flex-col gap-1">
-              {filteredMembers.map((m) => {
-                const current = records[m.id];
-                return (
+                <div className="mt-2.5 h-1 overflow-hidden rounded-sm bg-cream/[0.12]">
                   <div
-                    key={m.id}
-                    className="flex items-center gap-2.5 rounded-[10px] border border-border bg-card px-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13.5px] font-semibold leading-tight text-burgundy-ink dark:text-cream">
-                        {[m.name, m.fatherName].filter(Boolean).join(' ')}
-                      </div>
-                      <div className="mt-0.5 font-mono text-[9.5px] text-muted-foreground">
-                        {m.memberId}
-                      </div>
-                    </div>
-                    <div className="flex gap-1">
-                      {(
-                        ['present', 'late', 'absent'] as AttendanceStatus[]
-                      ).map((status) => {
-                        const cfg = STATUS_BTN[status];
-                        const active = current === status;
-                        return (
-                          <button
-                            key={status}
-                            type="button"
-                            onClick={() => upsertAttendance(m.id, status)}
-                            aria-label={`${cfg.label} for ${m.name}`}
-                            className={`flex h-8 w-8 items-center justify-center rounded-[9px] text-[13px] font-bold transition-colors ${
-                              active ? cfg.active : cfg.idle
-                            }`}
-                          >
-                            {cfg.label}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-        </TabsContent>
-
-        {/* QR scan mode */}
-        <TabsContent value="qr-scan" className="mt-0">
-          <QRScanner
-            active={tab === 'qr-scan'}
-            onMemberId={handleQRDecoded}
-            presentCount={presentCount}
-            total={total}
-          />
-        </TabsContent>
-      </Tabs>
-
-      {/* ─────────────── DESKTOP (md+) — two columns ─────────────── */}
-      <div className="hidden md:grid md:grid-cols-[minmax(0,360px)_minmax(0,1fr)] md:items-start md:gap-6">
-        {/* Left rail: counter + entry + recent */}
-        <div className="space-y-4">
-          {/* Counter */}
-          <section className="sacred-gradient relative overflow-hidden rounded-2xl border border-gold/25 px-5 py-[18px] text-cream shadow-fy-lg">
-            <div className="tibeb-gold absolute inset-0 opacity-40" />
-            <div className="relative">
-              <div className="flex items-baseline justify-between">
-                <div className="font-ethiopic text-[11px] tracking-[0.06em] text-gold-light">
-                  አባላት ተገኝተዋል
-                </div>
-                <div className="flex items-center gap-1 text-[9px] font-semibold uppercase tracking-[0.16em] text-gold-light/70">
-                  <span
-                    aria-hidden
-                    className="h-1.5 w-1.5 rounded-full bg-status-present"
-                    style={{ boxShadow: '0 0 6px #4F7B3E' }}
+                    className="h-full rounded-sm bg-gradient-to-r from-gold to-gold-light shadow-[0_0_8px_rgba(212,168,67,0.5)] transition-all duration-300"
+                    style={{ width: `${progress}%` }}
                   />
-                  Live
                 </div>
               </div>
-              <div className="mt-1 flex items-baseline gap-2">
-                <span className="font-display text-[56px] font-medium leading-[0.95] tracking-tight tabular-nums text-gold">
-                  {presentCount}
-                </span>
-                <span className="font-display text-[26px] font-normal tabular-nums text-gold-light/50">
-                  / {total}
-                </span>
-                <span className="ml-auto text-[11px] text-cream/60">
-                  present
-                </span>
-              </div>
-              <div className="mt-2.5 h-1 overflow-hidden rounded-full bg-cream/[0.12]">
-                <div
-                  className="h-full rounded-full bg-gradient-to-r from-gold to-gold-light shadow-[0_0_8px_rgba(212,168,67,0.5)] transition-all duration-300"
-                  style={{ width: `${progress}%` }}
+            </section>
+
+            {/* ID input */}
+            <form onSubmit={handleQuickCheckIn} className="mb-3.5">
+              <div className="flex items-center gap-2.5 rounded-[14px] border-2 border-gold bg-parchment-soft px-4 py-3 shadow-[0_0_0_4px_rgba(212,168,67,0.15),0_4px_16px_-6px_rgba(212,168,67,0.3)]">
+                <ScanLine className="h-5 w-5 shrink-0 text-brand dark:text-gold" />
+                <Input
+                  ref={quickInputRef}
+                  value={quickInput}
+                  onChange={(e) => setQuickInput(e.target.value)}
+                  placeholder={t('Enter member ID…')}
+                  aria-label={t('Member ID')}
+                  autoFocus
+                  className="h-auto border-none bg-transparent p-0 font-mono text-lg font-medium tracking-[0.08em] text-ink shadow-none placeholder:font-body placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus-visible:ring-0"
                 />
-              </div>
-            </div>
-          </section>
-
-          {/* Entry: Quick ID / QR scan */}
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-fy-sm">
-            <div className="mb-3 flex items-center rounded-lg border border-border bg-input p-0.5">
-              {(['quick', 'qr'] as const).map((mode) => {
-                const active = deskEntry === mode;
-                return (
-                  <button
-                    key={mode}
-                    type="button"
-                    onClick={() => setDeskEntry(mode)}
-                    className={`inline-flex flex-1 items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
-                      active
-                        ? 'bg-card text-burgundy-ink shadow-sm dark:text-cream'
-                        : 'text-muted-foreground hover:text-foreground'
-                    }`}
-                  >
-                    {mode === 'quick' ? (
-                      <>
-                        <Zap className="h-3.5 w-3.5" /> Quick ID
-                      </>
-                    ) : (
-                      <>
-                        <ScanLine className="h-3.5 w-3.5" /> QR scan
-                      </>
-                    )}
-                  </button>
-                );
-              })}
-            </div>
-
-            {deskEntry === 'quick' ? (
-              <form onSubmit={handleQuickCheckIn} className="space-y-2.5">
-                <div className="flex items-center gap-2.5 rounded-xl border-2 border-gold bg-background px-3 py-2.5 shadow-[0_0_0_4px_rgba(212,168,67,0.12)]">
-                  <ScanLine className="h-5 w-5 shrink-0 text-burgundy dark:text-gold" />
-                  <Input
-                    ref={deskQuickRef}
-                    value={quickInput}
-                    onChange={(e) => setQuickInput(e.target.value)}
-                    placeholder="Enter member ID…"
-                    className="h-auto border-none bg-transparent p-0 font-mono text-base font-medium tracking-[0.08em] text-foreground shadow-none placeholder:font-mono placeholder:text-sm placeholder:tracking-normal focus-visible:ring-0"
-                  />
-                </div>
                 <button
                   type="submit"
-                  className="sacred-gradient flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-2.5 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
+                  className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-gold-deep"
                 >
-                  <Check className="h-4 w-4" /> Check in
+                  {t('Enter ↵')}
                 </button>
-              </form>
-            ) : (
-              <QRScanner
-                active={deskEntry === 'qr'}
-                onMemberId={handleQRDecoded}
-                presentCount={presentCount}
-                total={total}
-              />
-            )}
-          </div>
-
-          {/* Recent */}
-          <div className="rounded-2xl border border-border bg-card p-4 shadow-fy-sm">
-            <div className="mb-2 flex items-baseline justify-between">
-              <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-                Recent
               </div>
+            </form>
+
+            {/* Last check-in */}
+            {latest && (
+              <div className="mb-[18px] flex items-center gap-3 rounded-[14px] border border-status-present/30 bg-status-present-bg px-4 py-3.5">
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-status-present">
+                  <Check
+                    className="h-[22px] w-[22px] text-cream"
+                    strokeWidth={3}
+                  />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-display text-lg font-medium leading-[1.1] text-brand-ink">
+                    {latest.name}
+                  </div>
+                  <div className="mt-0.5 text-[11px] font-semibold text-status-present">
+                    {t('Checked in')} · {latest.memberId}
+                  </div>
+                </div>
+                <div className="shrink-0 font-mono text-[11px] font-semibold text-status-present">
+                  {latest.time}
+                </div>
+              </div>
+            )}
+
+            <div className="mb-2 flex items-baseline justify-between">
+              <Eyebrow>{t('Recent')}</Eyebrow>
               {checkInLogs.length > 0 && (
-                <span className="font-mono text-[10px] text-muted-foreground">
-                  last {Math.min(checkInLogs.length, 10)}
+                <span className="font-mono text-[10px] text-ink-muted">
+                  {lastN}
                 </span>
               )}
             </div>
-            {checkInLogs.length === 0 ? (
-              <p className="rounded-xl border border-dashed border-border bg-card/40 py-5 text-center text-[12px] text-muted-foreground">
-                No check-ins yet.
+            {recentRows('mobile')}
+          </div>
+        )}
+
+        {tab === 'member-list' && (
+          <div role="tabpanel">
+            <div className="mb-3 flex justify-end">
+              <div className="sacred-gradient inline-flex items-baseline gap-1 rounded-full border border-gold/30 px-3 py-1.5 font-mono font-semibold text-gold">
+                <span className="text-[13px] tabular-nums">{presentCount}</span>
+                <span className="text-[10px] opacity-60">/ {total}</span>
+              </div>
+            </div>
+            {searchBox('mb-3.5', undefined, t('Search members…'), true)}
+            {filteredMembers.length === 0 ? (
+              <p className="py-8 text-center text-sm text-ink-muted">
+                {t('No members found')}
               </p>
             ) : (
               <div className="flex flex-col gap-1">
-                {checkInLogs.map((log, i) => (
+                {filteredMembers.map((m) => (
                   <div
-                    key={`d-${log.memberId}-${i}`}
-                    className="flex items-center gap-2.5 rounded-[10px] px-2.5 py-2"
+                    key={m.id}
+                    className="flex items-center gap-2.5 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3 py-2.5"
                   >
-                    <span
-                      aria-hidden
-                      className={`h-2 w-2 shrink-0 rounded-full ${STATUS_DOT[log.status]}`}
-                    />
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-display text-[14px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-                        {log.name}
+                      <div className="truncate text-[13.5px] font-semibold leading-[1.15] text-brand-ink">
+                        {fullName(m)}
                       </div>
-                      <div className="font-mono text-[10px] text-muted-foreground">
-                        {log.memberId}
+                      <div className="mt-px font-mono text-[9.5px] text-ink-muted">
+                        {m.memberId}
                       </div>
                     </div>
-                    <span className="font-mono text-[10px] tabular-nums text-muted-foreground">
-                      {log.time}
-                    </span>
+                    {statusButtons(m, 'md')}
                   </div>
                 ))}
               </div>
             )}
           </div>
-        </div>
+        )}
 
-        {/* Right: searchable, paginated member table */}
-        <div className="overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
-          <div className="flex items-center justify-between gap-3 border-b border-border p-4">
-            <div>
-              <div className="font-ethiopic text-[11px] font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-                የአባላት ዝርዝር
-              </div>
-              <h3 className="font-display text-xl font-medium leading-tight text-burgundy-ink dark:text-cream">
-                Member list
-              </h3>
-            </div>
-            <div className="relative w-60">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-ink-faint" />
-              <Input
-                placeholder="Name or ID…"
-                value={search}
-                onChange={(e) => {
-                  setSearch(e.target.value);
-                  setPage(0);
-                }}
-                className="rounded-lg border border-border bg-background pl-[34px] text-[13px] focus-visible:ring-2 focus-visible:ring-gold/30"
-              />
-            </div>
+        {tab === 'qr-scan' && (
+          <div role="tabpanel">
+            <QRScanner
+              active
+              onMemberId={handleQRDecoded}
+              presentCount={presentCount}
+              total={total}
+            />
           </div>
+        )}
+      </div>
 
-          {filteredMembers.length === 0 ? (
-            <p className="py-12 text-center text-sm text-muted-foreground">
-              No members found
-            </p>
-          ) : (
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b border-border">
-                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    ID
-                  </th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Member
-                  </th>
-                  <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                    Status
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {pageMembers.map((m) => {
-                  const current = records[m.id];
+      {/* ─────────────── DESKTOP (md+) ─────────────── */}
+      <div className="hidden px-7 py-7 md:block">
+        <PageHead
+          en={`Check-in — ${event.title}`}
+          am="መግቢያ"
+          sub={sub}
+          actions={
+            picker || exportBtn ? (
+              <>
+                {picker}
+                {exportBtn}
+              </>
+            ) : undefined
+          }
+        />
+
+        <div className="grid grid-cols-[minmax(0,380px)_minmax(0,1fr)] items-start gap-4">
+          {/* Left rail */}
+          <div className="flex flex-col gap-4">
+            {/* Counter */}
+            <section className="sacred-gradient relative overflow-hidden rounded-[18px] border border-gold/30 px-6 py-[22px] shadow-[0_10px_26px_-14px_rgba(10,60,54,0.55)]">
+              <div className="tibeb-gold absolute inset-0 opacity-[0.55]" />
+              <div className="relative">
+                <div className="flex items-center gap-1.5 text-[9.5px] font-bold uppercase tracking-[0.2em] text-gold-light">
+                  <span
+                    aria-hidden
+                    className="h-1.5 w-1.5 rounded-full bg-status-present shadow-[0_0_6px_#7BA463]"
+                  />
+                  {t('Live')} · {t('present')}
+                </div>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <span className="font-display text-[58px] font-medium leading-[0.9] tabular-nums text-cream">
+                    {presentCount}
+                  </span>
+                  <span className="font-mono text-[15px] text-gold-light/80">
+                    / {total}
+                  </span>
+                </div>
+                <div className="mt-3 h-1 rounded bg-cream/15">
+                  <div
+                    className="h-full rounded bg-gradient-to-r from-gold-deep to-gold shadow-[0_0_8px_rgba(212,168,67,0.6)] transition-all duration-300"
+                    style={{ width: `${progress}%` }}
+                  />
+                </div>
+              </div>
+            </section>
+
+            {/* Entry modes */}
+            <Card>
+              <div
+                role="tablist"
+                className="mb-3.5 flex gap-1 rounded-[10px] border border-parchment-edge bg-parchment p-[3px] dark:bg-parchment-deep"
+              >
+                {deskTabs.map(({ key, label, Icon }) => {
+                  const active = deskEntry === key;
                   return (
-                    <tr
-                      key={m.id}
-                      className="border-b border-border/50 transition-colors last:border-0 hover:bg-parchment/40 dark:hover:bg-card/60"
+                    <button
+                      key={key}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      onClick={() => {
+                        setDeskEntry(key);
+                        if (key === 'list') deskSearchRef.current?.focus();
+                      }}
+                      className={cn(
+                        'flex flex-1 items-center justify-center gap-[5px] whitespace-nowrap rounded-lg px-1 py-[7px] text-[11px] font-semibold transition-colors',
+                        active
+                          ? 'bg-brand text-cream shadow-[0_3px_8px_-3px_rgba(10,60,54,0.5)]'
+                          : 'text-ink-muted hover:text-ink',
+                      )}
                     >
-                      <td className="whitespace-nowrap px-4 py-2.5 font-mono text-[12px] text-muted-foreground">
-                        {m.memberId}
-                      </td>
-                      <td className="px-4 py-2.5 text-[13.5px] font-medium text-burgundy-ink dark:text-cream">
-                        {[m.name, m.fatherName].filter(Boolean).join(' ')}
-                      </td>
-                      <td className="px-4 py-2.5">
-                        <div className="flex justify-end gap-1">
-                          {(
-                            ['present', 'late', 'absent'] as AttendanceStatus[]
-                          ).map((status) => {
-                            const cfg = STATUS_BTN[status];
-                            const active = current === status;
-                            return (
-                              <button
-                                key={status}
-                                type="button"
-                                onClick={() => upsertAttendance(m.id, status)}
-                                aria-label={`${cfg.label} for ${m.name}`}
-                                className={`flex h-8 w-8 items-center justify-center rounded-[9px] text-[13px] font-bold transition-colors ${
-                                  active ? cfg.active : cfg.idle
-                                }`}
-                              >
-                                {cfg.label}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </td>
-                    </tr>
+                      <Icon
+                        className={cn(
+                          'h-[11px] w-[11px]',
+                          active ? 'text-gold' : 'text-ink-muted',
+                        )}
+                      />
+                      {label}
+                    </button>
                   );
                 })}
-              </tbody>
-            </table>
-          )}
-
-          {/* Pagination */}
-          {filteredMembers.length > 0 && (
-            <div className="flex items-center justify-between border-t border-border px-4 py-3">
-              <span className="text-[11px] text-muted-foreground">
-                {safePage * PAGE_SIZE + 1}–
-                {Math.min((safePage + 1) * PAGE_SIZE, filteredMembers.length)}{' '}
-                of {filteredMembers.length}
-              </span>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={safePage === 0}
-                  aria-label="Previous page"
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-40"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-                <span className="font-mono text-[11px] tabular-nums text-foreground">
-                  {safePage + 1} / {pageCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setPage((p) => Math.min(pageCount - 1, p + 1))}
-                  disabled={safePage >= pageCount - 1}
-                  aria-label="Next page"
-                  className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-muted-foreground hover:bg-background disabled:opacity-40"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
               </div>
+
+              {deskEntry === 'quick' && (
+                <form onSubmit={handleQuickCheckIn}>
+                  <Input
+                    ref={deskQuickRef}
+                    value={quickInput}
+                    onChange={(e) => setQuickInput(e.target.value)}
+                    placeholder="FY-0000"
+                    aria-label={t('Member ID')}
+                    className="h-auto rounded-xl border border-parchment-edge-strong bg-parchment px-4 py-[13px] font-mono text-xl tracking-[0.15em] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.05)] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/40 dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
+                  />
+                  <button
+                    type="submit"
+                    className={cn(
+                      primaryBtn,
+                      'mt-2.5 w-full px-5 py-3 text-[13px]',
+                    )}
+                  >
+                    <Check className="h-3.5 w-3.5 text-gold" />
+                    {t('Check in')}
+                  </button>
+                </form>
+              )}
+              {deskEntry === 'qr' && (
+                <QRScanner
+                  active
+                  onMemberId={handleQRDecoded}
+                  presentCount={presentCount}
+                  total={total}
+                />
+              )}
+              {deskEntry === 'list' && (
+                <p className="rounded-xl border border-dashed border-parchment-edge px-4 py-5 text-center text-xs leading-relaxed text-ink-muted">
+                  {t(
+                    'Mark each member present (P), late (L) or absent (A) in the member list.',
+                  )}
+                </p>
+              )}
+            </Card>
+
+            {/* Recent */}
+            <Card>
+              <div className="mb-2 flex items-baseline justify-between">
+                <Eyebrow>{t('Recent')}</Eyebrow>
+                {checkInLogs.length > 0 && (
+                  <span className="font-mono text-[10px] text-ink-muted">
+                    {lastN}
+                  </span>
+                )}
+              </div>
+              {recentRows('desktop')}
+            </Card>
+          </div>
+
+          {/* Member list */}
+          <Card className="p-[22px]">
+            <div className="mb-3.5 flex items-center justify-between gap-3">
+              <SectionHeader en="Member list" />
+              {searchBox('w-60', deskSearchRef)}
             </div>
-          )}
+
+            {filteredMembers.length === 0 ? (
+              <p className="py-12 text-center text-sm text-ink-muted">
+                {t('No members found')}
+              </p>
+            ) : (
+              <>
+                <div className="grid grid-cols-[80px_minmax(0,1fr)_auto] gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]">
+                  {[t('ID'), t('Member'), t('Status')].map((h) => (
+                    <span
+                      key={h}
+                      className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep last:w-[94px]"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+                {pageMembers.map((m) => (
+                  <div
+                    key={m.id}
+                    className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-3 border-b border-parchment-edge px-1 py-3"
+                  >
+                    <span className="font-mono text-[10.5px] text-ink-muted">
+                      {m.memberId}
+                    </span>
+                    <span className="truncate text-[13px] font-medium text-ink">
+                      {fullName(m)}
+                    </span>
+                    {statusButtons(m, 'sm')}
+                  </div>
+                ))}
+              </>
+            )}
+
+            {filteredMembers.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between pt-3">
+                <span className="text-[11px] text-ink-muted">
+                  {t('{from}–{to} of {total}', {
+                    from: safePage * PAGE_SIZE + 1,
+                    to: Math.min(
+                      (safePage + 1) * PAGE_SIZE,
+                      filteredMembers.length,
+                    ),
+                    total: filteredMembers.length,
+                  })}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={safePage === 0}
+                    aria-label={t('Previous page')}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-parchment-edge text-ink-muted hover:bg-parchment-deep disabled:opacity-40"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </button>
+                  <span className="font-mono text-[11px] tabular-nums text-ink">
+                    {safePage + 1} / {pageCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setPage((p) => Math.min(pageCount - 1, p + 1))
+                    }
+                    disabled={safePage >= pageCount - 1}
+                    aria-label={t('Next page')}
+                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-parchment-edge text-ink-muted hover:bg-parchment-deep disabled:opacity-40"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </Card>
         </div>
       </div>
     </>
