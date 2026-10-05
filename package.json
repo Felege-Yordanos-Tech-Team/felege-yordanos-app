@@ -14,7 +14,9 @@
     "build": "nx build web",
     "lint": "nx run-many -t lint",
     "typecheck": "nx run-many -t typecheck",
-    "check": "pnpm lint && pnpm typecheck && pnpm build"
+    "check": "pnpm lint && pnpm typecheck && pnpm build",
+    "docker:build": "docker build -f apps/web/Dockerfile -t felege-web .",
+    "docker:app": "docker compose --profile app up --build"
   },
   "private": true,
   "dependencies": {

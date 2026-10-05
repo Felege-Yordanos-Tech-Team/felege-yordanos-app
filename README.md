@@ -48,6 +48,18 @@ pnpm db:migrate               # Apply migrations
 docker compose down -v        # Wipe the local database (then run pnpm db:setup)
 ```
 
+## Production Image (Docker)
+
+The app ships as one Docker image, built from the repo root with `apps/web/Dockerfile`. CI builds and tests it on every pull request and publishes it to GitHub Container Registry after each merge into `dev`.
+
+To run the production image on your computer against your local database:
+
+```bash
+pnpm docker:app               # Build the image, apply migrations, start it at http://localhost:3100
+```
+
+Stop it with Ctrl+C. Use `pnpm dev` for day-to-day work: it is much faster.
+
 ## Contributing
 
 Read [CONTRIBUTING.md](CONTRIBUTING.md) before your first pull request.
