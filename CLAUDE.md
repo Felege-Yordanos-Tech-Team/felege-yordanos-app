@@ -100,11 +100,13 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 
 ## Docker Image
 
-- `apps/web/Dockerfile`, built from the repo root (`docker build -f apps/web/Dockerfile .`). Next.js `output: 'standalone'` with `outputFileTracingRoot` at the repo root
+- `apps/web/Dockerfile`, built from the repo root, base `node:22-slim`. Next.js `output: 'standalone'` with `outputFileTracingRoot` at the repo root
+- Two targets, same result: `app` (default, self-contained: installs and builds inside Docker; used by `pnpm docker:app`) and `prebuilt` (CI: packages the output of `pnpm build`, no second install or build)
+- Image layout comes from one script for both targets: `apps/web/scripts/assemble-image.sh <out-dir>`
 - Runtime: `node apps/web/server.js` as user `node`, port 3000, uploads in `/data/uploads` (volume). Health check: `GET /up` (app + database)
 - Migrations in the image: `node db/scripts/migrate.mjs` (bundled from `libs/db/scripts/migrate.mjs`, no drizzle-kit). Run before starting a new version
-- New source folders or config files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
-- CI job "Docker image" builds it, runs migrations + a smoke test, and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` and `:dev` after merges into `dev`
+- New source folders or files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
+- CI (job "Lint, typecheck, migrations, build") builds the image after `pnpm build`, runs migrations + a smoke test (health, login page, sign-in), and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` and `:dev` after merges into `dev`
 
 ## Design System, Language and Theme
 

@@ -42,6 +42,13 @@ const nextConfig = {
       'components.json',
       'project.json',
       'tsconfig.json',
+      '*.md',
+      'Dockerfile',
+      'scripts/**',
+      'dist/**',
+      // Build-time only. Next.js references it, so the tracer copies it in
+      // (19 MB, the largest package in the image).
+      '../../node_modules/.pnpm/typescript@*/**',
     ],
   },
   experimental: {

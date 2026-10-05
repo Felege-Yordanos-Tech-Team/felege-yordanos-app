@@ -17,6 +17,9 @@ jobs:
     name: Lint, typecheck, migrations, build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write # publish the image to GitHub Container Registry (push to dev only)
 
     services:
       postgres:
@@ -38,6 +41,7 @@ jobs:
       BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
       BETTER_AUTH_URL: http://localhost:3000
       NX_NO_CLOUD: true
+      IMAGE: ghcr.io/felege-yordanos-tech-team/felege-yordanos-app
 
     steps:
       - uses: actions/checkout@v4
@@ -77,58 +81,19 @@ jobs:
       - name: Build
         run: pnpm build
 
-  image:
-    name: Docker image
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    permissions:
-      contents: read
-      packages: write # publish to GitHub Container Registry (push to dev only)
+      # Docker image: package the build above (no second install or build).
+      # See apps/web/Dockerfile, target "prebuilt".
+      - name: Build Docker image
+        run: |
+          sh apps/web/scripts/assemble-image.sh "$RUNNER_TEMP/image"
+          docker build -f apps/web/Dockerfile --target prebuilt \
+            --build-context prebuilt-files="$RUNNER_TEMP/image" \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t felege-web:ci .
+          docker images felege-web:ci --format 'Image size: {{.Size}}'
 
-    services:
-      postgres:
-        image: postgres:17-alpine
-        env:
-          POSTGRES_USER: felege
-          POSTGRES_PASSWORD: felege
-          POSTGRES_DB: felege
-        ports: ['5432:5432']
-        options: >-
-          --health-cmd "pg_isready -U felege -d felege"
-          --health-interval 5s
-          --health-timeout 5s
-          --health-retries 10
-
-    env:
-      IMAGE: ghcr.io/felege-yordanos-tech-team/felege-yordanos-app
-      DATABASE_URL: postgres://felege:felege@localhost:5432/felege
-      # CI-only values. Real secrets never go in this file.
-      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
-      BETTER_AUTH_URL: http://localhost:3000
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: docker/setup-buildx-action@v3
-
-      - name: Image labels
-        id: meta
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE }}
-
-      - name: Build
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: apps/web/Dockerfile
-          load: true
-          tags: felege-web:ci
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-      - name: Smoke test (migrations, health check, sign-in page)
+      - name: Smoke test image (migrations, health check, sign-in)
         run: |
           docker run --rm --network host -e DATABASE_URL felege-web:ci node db/scripts/migrate.mjs
           docker run -d --name web --network host \
@@ -136,17 +101,21 @@ jobs:
             felege-web:ci
           for i in $(seq 1 30); do
             curl -fsS http://localhost:3000/up && break
-            sleep 2
+            sleep 1
           done
           curl -fsS http://localhost:3000/up
           curl -fsS -o /dev/null http://localhost:3000/login
+          # Seeded test login (see libs/db/scripts/seed.ts).
+          curl -fsS -o /dev/null -X POST http://localhost:3000/api/auth/sign-in/email \
+            -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+            -d '{"email":"admin@felege.test","password":"password123"}'
           echo "Smoke test passed."
 
       - name: Container logs
         if: failure()
         run: docker logs web || true
 
-      - name: Publish to GitHub Container Registry
+      - name: Publish image to GitHub Container Registry
         # Only after a merge into dev. Tags: the commit sha and "dev".
         if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
         env:

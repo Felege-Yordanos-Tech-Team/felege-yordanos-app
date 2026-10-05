@@ -50,7 +50,7 @@ docker compose down -v        # Wipe the local database (then run pnpm db:setup)
 
 ## Production Image (Docker)
 
-The app ships as one Docker image, built from the repo root with `apps/web/Dockerfile`. CI builds and tests it on every pull request and publishes it to GitHub Container Registry after each merge into `dev`.
+The app ships as one Docker image, built from the repo root with `apps/web/Dockerfile`. CI packages the output of its `pnpm build` into the image on every pull request, tests it, and publishes it to GitHub Container Registry after each merge into `dev`.
 
 To run the production image on your computer against your local database:
 
