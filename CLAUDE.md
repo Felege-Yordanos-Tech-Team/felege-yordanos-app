@@ -21,7 +21,7 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 | Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
 | Hosting    | Target: own VPS (Docker + Kamal). `main` still deploys the old Vercel + Supabase version |
-| GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (private) |
+| GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (public)  |
 
 ## Project Structure
 
@@ -84,6 +84,7 @@ pnpm db:setup             # Start local Postgres (Docker), migrate, seed
 pnpm db:generate          # Create a migration after changing libs/db/src/schema
 pnpm db:studio            # Browse the local database
 pnpm check                # Lint + typecheck + build (same as CI); run before every push
+pnpm docker:app           # Run the production Docker image locally (http://localhost:3100)
 npx nx serve web          # Start dev server
 npx nx build web          # Production build
 npx nx lint web           # Lint
@@ -96,6 +97,14 @@ See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BET
 
 Dev emails (password reset links) are printed in the terminal running the app.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
+
+## Docker Image
+
+- `apps/web/Dockerfile`, built from the repo root (`docker build -f apps/web/Dockerfile .`). Next.js `output: 'standalone'` with `outputFileTracingRoot` at the repo root
+- Runtime: `node apps/web/server.js` as user `node`, port 3000, uploads in `/data/uploads` (volume). Health check: `GET /up` (app + database)
+- Migrations in the image: `node db/scripts/migrate.mjs` (bundled from `libs/db/scripts/migrate.mjs`, no drizzle-kit). Run before starting a new version
+- New source folders or config files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
+- CI job "Docker image" builds it, runs migrations + a smoke test, and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` and `:dev` after merges into `dev`
 
 ## Design System, Language and Theme
 

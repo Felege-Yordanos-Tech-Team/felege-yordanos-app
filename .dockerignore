@@ -1,0 +1,39 @@
+# Keep the Docker build context small and free of secrets.
+# The image is built from the repo root: docker build -f apps/web/Dockerfile .
+
+# Dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/.next
+**/dist
+**/out-tsc
+.nx
+
+# Generated PWA files (rebuilt inside the image)
+**/public/sw.js
+**/public/sw.js.map
+**/public/workbox-*.js
+**/public/workbox-*.js.map
+**/public/swe-worker-*.js
+
+# Secrets and local data
+.env
+.env.*
+!.env.example
+**/.data
+
+# Not needed to build the app
+.git
+.github
+.claude
+.vscode
+.idea
+docs
+coverage
+test-results
+playwright-report
+**/*.md
+docker-compose.yml
+**/Dockerfile
+.dockerignore
+vercel.json
+.vercelignore

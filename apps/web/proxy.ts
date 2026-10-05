@@ -9,7 +9,13 @@ import { NextResponse, type NextRequest } from 'next/server';
  * still call requireUser() / requireRole() from lib/session.ts, which
  * validate the session for real.
  */
-const PUBLIC_PATHS = ['/', '/login', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = [
+  '/',
+  '/login',
+  '/forgot-password',
+  '/reset-password',
+  '/up', // health check (Kamal, uptime monitoring)
+];
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;

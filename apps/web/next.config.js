@@ -1,5 +1,6 @@
 //@ts-check
 
+const path = require('node:path');
 const { composePlugins, withNx } = require('@nx/next');
 const withPWAInit = require('@ducanh2912/next-pwa').default;
 
@@ -20,6 +21,29 @@ const withPWA = withPWAInit({
  **/
 const nextConfig = {
   nx: {},
+  // Docker image (apps/web/Dockerfile): a minimal server in .next/standalone.
+  output: 'standalone',
+  // Monorepo: trace files from the repo root so libs/* and the root
+  // node_modules are included in the standalone output.
+  outputFileTracingRoot: path.join(__dirname, '../..'),
+  // lib/storage.ts reads and writes files at runtime paths (UPLOAD_DIR). The
+  // file tracer cannot tell those apart from source files, so it would copy
+  // the app's source and local uploads into the image. None of these are
+  // needed at runtime: the compiled code is in .next.
+  outputFileTracingExcludes: {
+    '*': [
+      'app/**',
+      'components/**',
+      'hooks/**',
+      'lib/**',
+      '.data/**',
+      'proxy.ts',
+      '*.config.{js,mjs}',
+      'components.json',
+      'project.json',
+      'tsconfig.json',
+    ],
+  },
   experimental: {
     // Donation receipts (max 5 MB) are uploaded through a server action.
     serverActions: { bodySizeLimit: '6mb' },
