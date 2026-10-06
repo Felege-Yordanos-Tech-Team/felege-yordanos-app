@@ -112,7 +112,6 @@ export const people: Record<string, string> = {
   'Search name, email or member ID': 'ስም፣ ኢሜይል ወይም የአባልነት መለያ ይፈልጉ',
   'No open requests.': 'ክፍት ጥያቄ የለም።',
   Account: 'መለያ',
-  'Requested member': 'የተጠየቀው አባል',
   'phone ends in': 'ስልኩ የሚያልቀው በ',
   Approve: 'አጽድቅ',
   Reject: 'አትቀበል',

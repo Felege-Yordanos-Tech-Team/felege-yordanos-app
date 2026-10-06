@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { intlLocale } from '@/lib/i18n/config';
+import { MEMBER_ID_PREFIX } from '@/lib/member-id';
 import { cn } from '@/lib/utils';
 import {
   approveLinkRequest,
@@ -180,14 +181,29 @@ export function MemberLinks({
                   </p>
                 </div>
                 <div className="min-w-0">
-                  <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
-                    {t('Requested member')}
+                  <p className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
+                    {t('Requested member ID')}
                   </p>
-                  <p className="truncate font-ethiopic text-[13.5px] font-semibold text-brand-ink">
-                    {r.memberName}
+                  <p className="inline-flex max-w-full rounded-[10px] border border-gold/40 bg-gold/10 px-3 py-1.5 font-mono text-[15px] text-brand-ink md:text-[16px]">
+                    {r.memberId.startsWith(MEMBER_ID_PREFIX) ? (
+                      <>
+                        <span className="text-ink-muted">
+                          {MEMBER_ID_PREFIX}
+                        </span>
+                        <span className="font-semibold">
+                          {r.memberId.slice(MEMBER_ID_PREFIX.length)}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="truncate font-semibold">
+                        {r.memberId}
+                      </span>
+                    )}
                   </p>
-                  <p className="text-[11.5px] text-ink-muted">
-                    <span className="font-mono">{r.memberId}</span>
+                  <p className="mt-1.5 text-[11.5px] text-ink-muted">
+                    <span className="font-ethiopic font-semibold text-ink">
+                      {r.memberName}
+                    </span>
                     {r.phoneLast4 && (
                       <>
                         {' · '}
@@ -295,8 +311,12 @@ export function MemberLinks({
                         [r.userId]: e.target.value,
                       }))
                     }
-                    placeholder={t('Member ID')}
-                    className={cn(SMALL_INPUT, 'w-40')}
+                    aria-label={t('Member ID')}
+                    placeholder={`${MEMBER_ID_PREFIX}00042`}
+                    className={cn(
+                      SMALL_INPUT,
+                      'min-w-0 flex-1 sm:w-52 sm:flex-none',
+                    )}
                   />
                   <button
                     type="button"
