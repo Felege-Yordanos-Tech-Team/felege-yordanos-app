@@ -20,7 +20,7 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 | Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres         |
 | Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
-| Hosting    | Target: own VPS (Docker + Kamal). `main` still deploys the old Vercel + Supabase version |
+| Hosting    | Own VPS with Kamal 2 behind Cloudflare. `dev` deploys to staging.felegeyordanos.org; `main` still deploys the old Vercel + Supabase version |
 | GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (public)  |
 
 ## Project Structure
@@ -107,6 +107,15 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 - Migrations in the image: `node db/scripts/migrate.mjs` (bundled from `libs/db/scripts/migrate.mjs`, no drizzle-kit). Run before starting a new version
 - New source folders or files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
 - CI (job "Lint, typecheck, migrations, build") builds the image after `pnpm build`, runs migrations + a smoke test (health, login page, sign-in), and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` and `:dev` after merges into `dev`
+
+## Deployment (Kamal)
+
+- Config: `config/deploy.yml` (shared) + `config/deploy.staging.yml`. Secrets mapping: `.kamal/secrets.staging` (only references env vars; never real values). No server IP or secret in the repo
+- Every push to `dev` runs CI job "Deploy to staging": `kamal deploy -d staging --skip-push --version <sha>` (first run: `kamal setup`). Secrets come from the GitHub environment `staging`
+- Containers: `felege-web-staging` (app, runs migrations on start, then the server) and `felege-db-staging` (Postgres 17 accessory, no published port, volume `felege-staging-pgdata`). Uploads: volume `felege-staging-uploads`
+- Cloudflare proxies `staging.felegeyordanos.org` (SSL mode Full (strict)); kamal-proxy serves the Cloudflare origin certificate
+- Reference data that the code depends on (departments) is added by migrations, not by the seed
+- Server setup (users, firewall, Docker) lives in the private repo `felege-yordanos-infra`
 
 ## Design System, Language and Theme
 
