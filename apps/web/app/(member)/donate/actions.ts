@@ -4,7 +4,7 @@ import { revalidatePath } from 'next/cache';
 import { z } from 'zod';
 import { db, donations, PAYMENT_METHODS } from '@felege-yordanos/db/server';
 import { fail, ok, type ActionResult } from '@/lib/action-result';
-import { requireUser } from '@/lib/session';
+import { hasMemberAccess, requireUser } from '@/lib/session';
 import { deleteReceipt, saveReceipt } from '@/lib/storage';
 
 const MAX_AMOUNT = 10_000_000;
@@ -42,6 +42,8 @@ export async function createDonation(
   formData: FormData,
 ): Promise<ActionResult> {
   const user = await requireUser();
+  if (!hasMemberAccess(user))
+    return fail('Link your member ID first to use events and donations.');
 
   const parsed = donationSchema.safeParse({
     amount: text(formData, 'amount') ?? '',

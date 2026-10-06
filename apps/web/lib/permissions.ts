@@ -97,5 +97,11 @@ export const canManageUsers = (u: User) => isSuperAdmin(u);
 /** See all profiles (user list). */
 export const canViewAllProfiles = (u: User) => isAdmin(u);
 
-/** Edit any member record (claiming your own unclaimed record is always allowed). */
+/** Edit any member record. */
 export const canEditMembers = (u: User) => isAdmin(u);
+
+/**
+ * Approve or reject member link requests, and link an account to a member
+ * record directly. Member ids are sequential, so an admin always confirms.
+ */
+export const canApproveMemberLinks = (u: User) => isAdmin(u);

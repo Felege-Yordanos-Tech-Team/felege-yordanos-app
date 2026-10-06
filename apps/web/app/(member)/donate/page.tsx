@@ -1,10 +1,10 @@
 import { desc, eq } from 'drizzle-orm';
 import { db, donations } from '@felege-yordanos/db/server';
-import { requireUser } from '@/lib/session';
+import { requireLinkedMember } from '@/lib/session';
 import { DonateForm, type DonationRow } from './donate-form';
 
 export default async function DonatePage() {
-  const user = await requireUser();
+  const user = await requireLinkedMember();
 
   // Members only ever see their own donations.
   const rows = await db

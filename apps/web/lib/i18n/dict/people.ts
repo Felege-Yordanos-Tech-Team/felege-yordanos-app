@@ -73,4 +73,71 @@ export const people: Record<string, string> = {
   // Notices
   'Announcements from the parish council and departments will appear here.':
     'ከሰበካ ጉባኤው እና ከክፍሎች የሚተላለፉ ማስታወቂያዎች እዚህ ይታያሉ።',
+
+  // Member links (claim requests and admin approval)
+  'Request sent': 'ጥያቄው ተልኳል',
+  'An admin will confirm it soon.': 'አስተዳዳሪ በቅርቡ ያረጋግጣል።',
+  'Your account is linked': 'መለያዎ ተገናኝቷል',
+  'Go to dashboard': 'ወደ ዋና ገጽ',
+  'Waiting for approval': 'ማረጋገጫ በመጠባበቅ ላይ',
+  'Requested member ID': 'የተጠየቀው የአባልነት መለያ',
+  'An admin will confirm it soon. Events and donations open once it is approved.':
+    'አስተዳዳሪ በቅርቡ ያረጋግጣል። ከጸደቀ በኋላ መርሃ ግብሮች እና መዋጮዎች ይከፈታሉ።',
+  'Cancel request': 'ጥያቄውን ሰርዝ',
+  'Open the songbook meanwhile': 'እስከዚያው መዝሙር ይክፈቱ',
+  'Link your member ID first to use events and donations.':
+    'መርሃ ግብሮችን እና መዋጮዎችን ለመጠቀም መጀመሪያ የአባልነት መለያዎን ያገናኙ።',
+  'Your last request was not approved': 'የመጨረሻው ጥያቄዎ አልጸደቀም',
+  'Enter your Sunday School member ID. You can type just the number, for example 42. An admin confirms the link before it becomes active.':
+    'የሰንበት ትምህርት ቤት የአባልነት መለያዎን ያስገቡ። ቁጥሩን ብቻ (ለምሳሌ 42) መጻፍ ይችላሉ። ማገናኛው ከመሥራቱ በፊት አስተዳዳሪ ያረጋግጣል።',
+  'Sending…': 'በመላክ ላይ…',
+  'Request link': 'ማገናኛ ጠይቅ',
+  'Your account is already linked to a member record.':
+    'መለያዎ አስቀድሞ ከአባልነት መዝገብ ጋር ተገናኝቷል።',
+  'An admin will confirm your member link soon.':
+    'አስተዳዳሪ የአባልነት ማገናኛዎን በቅርቡ ያረጋግጣል።',
+  'Required for events and donations': 'ለመርሃ ግብሮች እና ለመዋጮዎች ያስፈልጋል',
+  View: 'ይመልከቱ',
+  'Only admins can approve member links.':
+    'የአባልነት ማገናኛዎችን ማጽደቅ የሚችሉት አስተዳዳሪዎች ብቻ ናቸው።',
+  'Confirm which account belongs to which member':
+    'የትኛው መለያ የየትኛው አባል እንደሆነ ያረጋግጡ',
+  'Confirm which account belongs to which registered member.':
+    'የትኛው መለያ የየትኛው የተመዘገበ አባል እንደሆነ ያረጋግጡ።',
+  'Member links': 'የአባልነት ማገናኛዎች',
+  'Review requests': 'ጥያቄዎችን ይመልከቱ',
+  Requests: 'ጥያቄዎች',
+  'Not linked': 'ያልተገናኙ',
+  Linked: 'ተገናኝቷል',
+  'Search name, email or member ID': 'ስም፣ ኢሜይል ወይም የአባልነት መለያ ይፈልጉ',
+  'No open requests.': 'ክፍት ጥያቄ የለም።',
+  Account: 'መለያ',
+  'Requested member': 'የተጠየቀው አባል',
+  'phone ends in': 'ስልኩ የሚያልቀው በ',
+  Approve: 'አጽድቅ',
+  Reject: 'አትቀበል',
+  'Reason shown to the member (optional)': 'ለአባሉ የሚታይ ምክንያት (አማራጭ)',
+  'Confirm reject': 'አለመቀበሉን አረጋግጥ',
+  'Request rejected': 'ጥያቄው ተቀባይነት አላገኘም',
+  'Accounts without a member link and without a request. Link one by typing the member ID (the number is enough).':
+    'ማገናኛ እና ጥያቄ የሌላቸው መለያዎች። የአባልነት መለያውን (ቁጥሩ በቂ ነው) በመጻፍ ያገናኙ።',
+  'Every account is linked or has a request.':
+    'ሁሉም መለያዎች ተገናኝተዋል ወይም ጥያቄ አላቸው።',
+  'Signed up': 'የተመዘገበው',
+  'No linked accounts yet.': 'እስካሁን የተገናኘ መለያ የለም።',
+  'Remove this member link?': 'ይህን የአባልነት ማገናኛ ያስወግዱ?',
+  'Link removed': 'ማገናኛው ተወግዷል',
+  Unlink: 'አቋርጥ',
+  'This member record is already linked to another account.':
+    'ይህ የአባልነት መዝገብ አስቀድሞ ከሌላ መለያ ጋር ተገናኝቷል።',
+  'This account is already linked to a member record.':
+    'ይህ መለያ አስቀድሞ ከአባልነት መዝገብ ጋር ተገናኝቷል።',
+  'This request was already handled.': 'ይህ ጥያቄ አስቀድሞ ተስተናግዷል።',
+  'Request not found.': 'ጥያቄው አልተገኘም።',
+  'Enter a member ID.': 'የአባልነት መለያ ያስገቡ።',
+  'Member ID not found.': 'የአባልነት መለያው አልተገኘም።',
+  'Account not found.': 'መለያው አልተገኘም።',
+  'This account is not linked.': 'ይህ መለያ አልተገናኘም።',
+  'Linked to another account. Contact an admin if this is your member ID.':
+    'ከሌላ መለያ ጋር ተገናኝቷል። ይህ የእርስዎ የአባልነት መለያ ከሆነ አስተዳዳሪን ያነጋግሩ።',
 };

@@ -1,11 +1,13 @@
 import { Megaphone } from 'lucide-react';
 import { Card, PageHead } from '@/components/ds';
 import { getLocale, getT } from '@/lib/i18n/server';
+import { requireLinkedMember } from '@/lib/session';
 import { cn } from '@/lib/utils';
 
 // Notice board: not built yet.
 // Header matches the design; the body is an honest empty state.
 export default async function NoticesPage() {
+  await requireLinkedMember();
   const [t, locale] = await Promise.all([getT(), getLocale()]);
   return (
     <div className="px-[22px] pb-6 pt-4 md:px-7 md:py-7">

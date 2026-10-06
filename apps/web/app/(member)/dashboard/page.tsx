@@ -4,12 +4,13 @@ import {
   departments as departmentsTable,
   donations,
   events,
+  memberLinkRequests,
   members,
   songs as songsTable,
 } from '@felege-yordanos/db/server';
 import { Card } from '@/components/ds';
 import { getLocale } from '@/lib/i18n/server';
-import { requireUser } from '@/lib/session';
+import { hasMemberAccess, requireUser } from '@/lib/session';
 import { EventFeed } from './event-feed';
 import { WelcomeBanner } from './cards/welcome-banner';
 import { MyGivingCard } from './cards/my-giving-card';
@@ -31,6 +32,8 @@ const eventColumns = {
 
 export default async function MemberDashboard() {
   const [user, locale] = await Promise.all([requireUser(), getLocale()]);
+  // Events and giving are for linked members (and staff) only.
+  const access = hasMemberAccess(user);
 
   // Same day boundary as before: the UTC date.
   const today = new Date().toISOString().split('T')[0];
@@ -65,18 +68,22 @@ export default async function MemberDashboard() {
       .from(members)
       .where(eq(members.authUserId, user.id))
       .limit(1),
-    db
-      .select(eventColumns)
-      .from(events)
-      .where(gte(events.eventDate, today))
-      .orderBy(asc(events.eventDate))
-      .limit(10),
-    db
-      .select(eventColumns)
-      .from(events)
-      .where(lt(events.eventDate, today))
-      .orderBy(desc(events.eventDate))
-      .limit(5),
+    access
+      ? db
+          .select(eventColumns)
+          .from(events)
+          .where(gte(events.eventDate, today))
+          .orderBy(asc(events.eventDate))
+          .limit(10)
+      : Promise.resolve([]),
+    access
+      ? db
+          .select(eventColumns)
+          .from(events)
+          .where(lt(events.eventDate, today))
+          .orderBy(desc(events.eventDate))
+          .limit(5)
+      : Promise.resolve([]),
     db
       .select({
         id: departmentsTable.id,
@@ -128,6 +135,17 @@ export default async function MemberDashboard() {
     db.$count(songsTable),
   ]);
 
+  // Open link request: the prompt says "waiting for approval" instead.
+  const linkPending =
+    !member &&
+    (await db.$count(
+      memberLinkRequests,
+      and(
+        eq(memberLinkRequests.userId, user.id),
+        eq(memberLinkRequests.status, 'pending'),
+      ),
+    )) > 0;
+
   const verifiedThisYear = Number(verifiedTotal?.total ?? 0);
   const givingCurrency = latestDonation?.currency ?? 'ETB';
   const nextEvent = upcoming[0] ?? null;
@@ -158,42 +176,54 @@ export default async function MemberDashboard() {
       {/* ─── PHONE (< md): hero, quick actions, event cards ─── */}
       <div className="mx-auto max-w-2xl px-[18px] pb-6 pt-[14px] md:hidden">
         <WelcomeBanner {...hero} variant="mobile" />
-        {!member && <LinkProfilePrompt className="mt-3.5" />}
+        {!member && (
+          <LinkProfilePrompt className="mt-3.5" pending={linkPending} />
+        )}
         <QuickActions songCount={songCount} />
-        <EventFeed
-          upcoming={upcoming}
-          past={past}
-          departments={depts}
-          variant="mobile"
-        />
+        {access && (
+          <EventFeed
+            upcoming={upcoming}
+            past={past}
+            departments={depts}
+            variant="mobile"
+          />
+        )}
       </div>
 
       {/* ─── DESKTOP (md+): hero band + two-column grid ─── */}
       <div className="hidden p-7 md:block">
         <WelcomeBanner {...hero} variant="desktop" />
-        {!member && <LinkProfilePrompt className="mt-4" />}
+        {!member && (
+          <LinkProfilePrompt className="mt-4" pending={linkPending} />
+        )}
 
         <div className="mt-4 grid grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] items-start gap-4">
-          <Card>
-            <EventFeed
-              upcoming={upcoming}
-              past={past}
-              departments={depts}
-              variant="desktop"
-            />
-          </Card>
+          {access ? (
+            <Card>
+              <EventFeed
+                upcoming={upcoming}
+                past={past}
+                departments={depts}
+                variant="desktop"
+              />
+            </Card>
+          ) : (
+            <SongbookPreviewCard songs={previewSongs} />
+          )}
 
           <div className="flex flex-col gap-4">
-            <SongbookPreviewCard songs={previewSongs} />
-            <MyGivingCard
-              total={verifiedThisYear}
-              currency={givingCurrency}
-              last={
-                lastVerified
-                  ? { ...lastVerified, amount: Number(lastVerified.amount) }
-                  : null
-              }
-            />
+            {access && <SongbookPreviewCard songs={previewSongs} />}
+            {access && (
+              <MyGivingCard
+                total={verifiedThisYear}
+                currency={givingCurrency}
+                last={
+                  lastVerified
+                    ? { ...lastVerified, amount: Number(lastVerified.amount) }
+                    : null
+                }
+              />
+            )}
             {member && <CheckInCard memberId={member.memberId} />}
           </div>
         </div>

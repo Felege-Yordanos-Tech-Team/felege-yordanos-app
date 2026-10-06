@@ -30,6 +30,7 @@ import {
   time,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core';
 import { authUsers } from './auth';
@@ -382,5 +383,63 @@ export const donations = pgTable(
       columns: [t.verifiedBy],
       foreignColumns: [profiles.id],
     }),
+  ],
+);
+
+/* ─── Member link requests ───────────────────────────────── */
+
+/**
+ * A signed-in user asks to be linked to a member record (members.member_id).
+ * An admin approves or rejects it; approval sets members.auth_user_id.
+ * Member ids are sequential, so linking is never automatic.
+ */
+export const LINK_REQUEST_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+] as const;
+export type LinkRequestStatus = (typeof LINK_REQUEST_STATUSES)[number];
+
+export const memberLinkRequests = pgTable(
+  'member_link_requests',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: uuid('user_id').notNull(),
+    memberId: bigintId('member_id').notNull(),
+    status: text('status')
+      .$type<LinkRequestStatus>()
+      .notNull()
+      .default('pending'),
+    // Shown to the requester when a request is rejected.
+    note: text('note'),
+    decidedBy: uuid('decided_by'),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    check(
+      'member_link_requests_status_check',
+      sql`${t.status} = ANY (ARRAY['pending'::text, 'approved'::text, 'rejected'::text])`,
+    ),
+    // At most one open request per account.
+    uniqueIndex('member_link_requests_one_pending_per_user')
+      .on(t.userId)
+      .where(sql`${t.status} = 'pending'`),
+    index('idx_member_link_requests_status').on(t.status),
+    foreignKey({
+      name: 'member_link_requests_user_id_fkey',
+      columns: [t.userId],
+      foreignColumns: [authUsers.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'member_link_requests_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'member_link_requests_decided_by_fkey',
+      columns: [t.decidedBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
   ],
 );
