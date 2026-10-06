@@ -79,7 +79,7 @@ Special departments (see `DEPARTMENT` in `lib/permissions.ts`): 3 Programs & Eve
 | Branch | Environment |
 |---|---|
 | `feat/*`, `fix/*` | local |
-| `dev` | staging (Phase 1) |
-| `main` | production |
+| `dev` | staging, https://staging.felegeyordanos.org |
+| `main` | production, https://app.felegeyordanos.org |
 
-Production on `main` still runs the old Vercel + Supabase version until the cutover. Do not merge `dev` into `main` before the new server is live.
+Both run on the same server (Kamal, behind Cloudflare), with separate app containers, databases and volumes. A push to `dev` deploys staging; a push to `main` deploys production.

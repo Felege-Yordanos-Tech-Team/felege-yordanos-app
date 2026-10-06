@@ -13,7 +13,7 @@ Single consolidated Sunday School app for Felege Yordanos (Songbook, Attendance,
 | Backend/DB | PostgreSQL 17 + Drizzle ORM |
 | Auth | Better Auth |
 | Mobile | PWA |
-| Hosting | Own server with Kamal behind Cloudflare: staging at https://staging.felegeyordanos.org; production still on Vercel |
+| Hosting | Own server with Kamal behind Cloudflare: production at https://app.felegeyordanos.org (`main`), staging at https://staging.felegeyordanos.org (`dev`) |
 
 ## Getting Started
 

@@ -20,7 +20,7 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 | Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres         |
 | Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
-| Hosting    | Own VPS with Kamal 2 behind Cloudflare. `dev` deploys to staging.felegeyordanos.org; `main` still deploys the old Vercel + Supabase version |
+| Hosting    | Own VPS with Kamal 2 behind Cloudflare. `dev` deploys to staging.felegeyordanos.org, `main` to app.felegeyordanos.org |
 | GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (public)  |
 
 ## Project Structure
@@ -106,16 +106,17 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 - Runtime: `node apps/web/server.js` as user `node`, port 3000, uploads in `/data/uploads` (volume). Health check: `GET /up` (app + database)
 - Migrations in the image: `node db/scripts/migrate.mjs` (bundled from `libs/db/scripts/migrate.mjs`, no drizzle-kit). Run before starting a new version
 - New source folders or files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
-- CI (job "Lint, typecheck, migrations, build") builds the image after `pnpm build`, runs migrations + a smoke test (health, login page, sign-in), and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` and `:dev` after merges into `dev`
+- CI (job "Lint, typecheck, migrations, build") builds the image after `pnpm build`, runs migrations + a smoke test (health, login page, sign-in), and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` plus `:dev` or `:main` after merges into `dev` or `main`
 
 ## Deployment (Kamal)
 
-- Config: `config/deploy.yml` (shared) + `config/deploy.staging.yml`. Secrets mapping: `.kamal/secrets.staging` (only references env vars; never real values). No server IP or secret in the repo
-- Every push to `dev` runs CI job "Deploy to staging": `kamal deploy -d staging --skip-push --version <sha>` (first run: `kamal setup`). Secrets come from the GitHub environment `staging`
-- Containers: `felege-web-staging` (app, runs migrations on start, then the server) and `felege-db-staging` (Postgres 17 accessory, no published port, volume `felege-staging-pgdata`). Uploads: volume `felege-staging-uploads`
-- Cloudflare proxies `staging.felegeyordanos.org` (SSL mode Full (strict)); kamal-proxy serves the Cloudflare origin certificate
-- Reference data that the code depends on (departments) is added by migrations, not by the seed
-- Server setup (users, firewall, Docker) lives in the private repo `felege-yordanos-infra`
+- Config: `config/deploy.yml` (shared) + `config/deploy.<destination>.yml` for `staging` and `production`. Secrets mapping: `.kamal/secrets.<destination>` (only references env vars; never real values). No server IP or secret in the repo
+- Every push to `dev` runs CI job "Deploy to staging", every push to `main` runs "Deploy to production": `kamal deploy -d <destination> --skip-push --version <sha>` (first run: `kamal setup`). Secrets come from the GitHub environment of the same name (`staging` only for `dev`, `production` only for `main`)
+- Containers per destination: `felege-web-<destination>` (app, waits for the database, runs migrations, then starts the server) and `felege-db-<destination>` (Postgres 17 accessory, no published port, volume `felege-<destination>-pgdata`). Uploads: volume `felege-<destination>-uploads`. Both destinations run on the same server
+- Cloudflare proxies `staging.felegeyordanos.org` and `app.felegeyordanos.org` (SSL mode Full (strict)); kamal-proxy serves the Cloudflare origin certificate (`*.felegeyordanos.org`)
+- Reference data that the code depends on (departments, member types) is added by migrations, not by the seed
+- Members come from the Sunday School register: `libs/db/scripts/members-from-register.py` (real data in production only; `--fake N` for staging). The export and the generated SQL contain personal data and never go into the repo
+- Server setup (users, firewall, Docker, database backups) lives in the private repo `felege-yordanos-infra`
 
 ## Design System, Language and Theme
 
@@ -140,7 +141,7 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 - Supabase has been removed. Do NOT add Supabase or any other hosted backend SDK
 - Every page and server action must enforce the matching rule in `lib/permissions.ts`. Add new rules there, not inline
 - Team workflow is in CONTRIBUTING.md: branch from `dev`, PR into `dev`, CI (.github/workflows/ci.yml) must pass
-- Do not merge `dev` into `main` until the new server is live (main still deploys the old Vercel + Supabase version)
+- Only maintainers merge `dev` into `main` (production), after testing on staging
 - Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
 - Do NOT create multiple apps — there is one app: `apps/web/`

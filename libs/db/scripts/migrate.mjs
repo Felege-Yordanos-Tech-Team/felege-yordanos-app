@@ -20,8 +20,38 @@ if (!url) {
   process.exit(1);
 }
 
+/**
+ * Waits until the database accepts connections. On a first deploy the
+ * database container starts at the same time as the app and needs a few
+ * seconds to initialise; without this the first migration run fails.
+ */
+async function waitForDatabase(timeoutSeconds = 40) {
+  const deadline = Date.now() + timeoutSeconds * 1000;
+  for (let attempt = 1; ; attempt++) {
+    const probe = postgres(url, {
+      max: 1,
+      connect_timeout: 5,
+      onnotice: () => undefined,
+    });
+    try {
+      await probe`select 1`;
+      return;
+    } catch (err) {
+      if (Date.now() > deadline) throw err;
+      const reason = err instanceof Error ? err.message : String(err);
+      console.log(
+        `Database not ready (attempt ${attempt}: ${reason}); retrying.`,
+      );
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+    } finally {
+      await probe.end({ timeout: 1 });
+    }
+  }
+}
+
 const client = postgres(url, { max: 1, onnotice: () => undefined });
 try {
+  await waitForDatabase();
   await migrate(drizzle(client), {
     migrationsFolder: fileURLToPath(new URL('../migrations', import.meta.url)),
   });

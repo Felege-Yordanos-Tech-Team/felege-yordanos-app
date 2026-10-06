@@ -35,5 +35,3 @@ playwright-report
 docker-compose.yml
 **/Dockerfile
 .dockerignore
-vercel.json
-.vercelignore
