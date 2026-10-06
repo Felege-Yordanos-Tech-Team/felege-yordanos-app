@@ -13,6 +13,7 @@ import {
   CalendarClock,
   DoorOpen,
   Music,
+  UserCheck,
   Users,
   Wallet,
 } from 'lucide-react';
@@ -41,6 +42,8 @@ interface AdminLinkDef {
   cta: string;
   featured?: boolean;
   songsOnly: boolean;
+  /** Admins and super admins only. */
+  adminOnly?: boolean;
   showBadge?: boolean;
 }
 
@@ -84,6 +87,16 @@ const adminLinks: AdminLinkDef[] = [
     cta: 'Verification queue',
     songsOnly: false,
     showBadge: true,
+  },
+  {
+    href: '/admin/member-links',
+    icon: UserCheck,
+    am: 'የአባልነት ማገናኛዎች',
+    en: 'Member links',
+    description: 'Confirm which account belongs to which registered member.',
+    cta: 'Review requests',
+    songsOnly: false,
+    adminOnly: true,
   },
   {
     href: '/admin/users',
@@ -158,6 +171,7 @@ export default async function AdminDashboard() {
 
   const visibleLinks = adminLinks.filter((link) => {
     if (isAdmin(user)) return true;
+    if (link.adminOnly) return false;
     // Not an admin, so this is the Songs & Celebrations dept head.
     if (canManageSongs(user)) return link.songsOnly;
     return !link.songsOnly;

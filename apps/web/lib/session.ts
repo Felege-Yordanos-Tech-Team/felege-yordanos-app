@@ -9,7 +9,7 @@ import { cache } from 'react';
 import { eq } from 'drizzle-orm';
 import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { db, profiles, type Role } from '@felege-yordanos/db/server';
+import { db, members, profiles, type Role } from '@felege-yordanos/db/server';
 import { auth } from './auth';
 
 export const getSession = cache(async () =>
@@ -22,6 +22,8 @@ export type CurrentUser = {
   displayName: string;
   role: Role;
   departmentId: number | null;
+  /** members.id of the linked member record, or null when not linked yet. */
+  memberRecordId: number | null;
 };
 
 /** The signed-in user with their profile, or null when signed out. */
@@ -29,11 +31,13 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const session = await getSession();
   if (!session) return null;
 
-  const [profile] = await db
-    .select()
+  const [row] = await db
+    .select({ profile: profiles, memberRecordId: members.id })
     .from(profiles)
+    .leftJoin(members, eq(members.authUserId, profiles.id))
     .where(eq(profiles.id, session.user.id))
     .limit(1);
+  const profile = row?.profile;
 
   return {
     id: session.user.id,
@@ -42,6 +46,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       profile?.displayName || session.user.name || session.user.email,
     role: profile?.role ?? 'member',
     departmentId: profile?.departmentId ?? null,
+    memberRecordId: row?.memberRecordId ?? null,
   };
 });
 
@@ -60,3 +65,19 @@ export async function requireRole(
   if (!roles.includes(user.role)) redirect('/dashboard');
   return user;
 }
+
+/**
+ * For member features (events, donations, notices): plain members must have a
+ * linked member record first, otherwise they are sent to /claim. Staff roles
+ * keep access without one.
+ */
+export async function requireLinkedMember(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!hasMemberAccess(user)) redirect('/claim?required=1');
+  return user;
+}
+
+/** Linked member, or a staff role. Same rule for pages and server actions. */
+export const hasMemberAccess = (
+  user: Pick<CurrentUser, 'role' | 'memberRecordId'>,
+) => user.role !== 'member' || user.memberRecordId !== null;

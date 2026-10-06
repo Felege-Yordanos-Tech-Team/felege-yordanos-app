@@ -4,7 +4,14 @@ import { getLocale, getT } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 
 /** Shown to users without a linked member record: links to /claim. */
-export async function LinkProfilePrompt({ className }: { className?: string }) {
+export async function LinkProfilePrompt({
+  className,
+  pending = false,
+}: {
+  className?: string;
+  /** An open link request is waiting for an admin. */
+  pending?: boolean;
+}) {
   const [t, locale] = await Promise.all([getT(), getLocale()]);
   return (
     <section
@@ -28,17 +35,19 @@ export async function LinkProfilePrompt({ className }: { className?: string }) {
               : 'font-display text-[17px] font-medium md:text-lg',
           )}
         >
-          {t('Link your member profile')}
+          {pending ? t('Waiting for approval') : t('Link your member profile')}
         </p>
         <p className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
-          {t('Required for attendance and donation history')}
+          {pending
+            ? t('An admin will confirm your member link soon.')
+            : t('Required for events and donations')}
         </p>
       </div>
       <Link
         href="/claim"
         className="sacred-gradient inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border border-gold/40 px-3.5 py-2 text-xs font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95"
       >
-        {t('Link')}
+        {pending ? t('View') : t('Link')}
         <ArrowRight className="h-3 w-3 text-gold" />
       </Link>
     </section>

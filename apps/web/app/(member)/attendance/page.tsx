@@ -11,7 +11,7 @@ import Link from 'next/link';
 import { Card, PageHead } from '@/components/ds';
 import { deptShortLabel, hhmm } from '@/lib/events';
 import { getLocale, getT } from '@/lib/i18n/server';
-import { requireUser } from '@/lib/session';
+import { requireLinkedMember } from '@/lib/session';
 import { cn } from '@/lib/utils';
 import { primaryBtn } from '@/components/events/event-ui';
 import {
@@ -21,7 +21,8 @@ import {
 } from './attendance-view';
 
 export default async function MyAttendancePage() {
-  const user = await requireUser();
+  // Plain members need a linked member record; staff may still open the page.
+  const user = await requireLinkedMember();
   const t = await getT();
   const locale = await getLocale();
 

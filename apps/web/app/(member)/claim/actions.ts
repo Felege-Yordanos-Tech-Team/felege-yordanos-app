@@ -1,17 +1,17 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, eq, isNull } from 'drizzle-orm';
+import { and, eq, sql } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, members, profiles } from '@felege-yordanos/db/server';
+import { db, memberLinkRequests, members } from '@felege-yordanos/db/server';
 import { fail, ok, type ActionResult } from '@/lib/action-result';
+import { normalizeMemberId } from '@/lib/member-id';
 import { requireUser } from '@/lib/session';
 
 const NOT_FOUND = 'Member ID not found. Please check your ID and try again.';
 const TAKEN =
   'This member ID is already linked to another account. Contact an admin.';
-const ALREADY_LINKED =
-  'Your account is already linked to a member record. Contact an admin.';
+const ALREADY_LINKED = 'Your account is already linked to a member record.';
 
 const memberIdSchema = z
   .string()
@@ -19,90 +19,65 @@ const memberIdSchema = z
   .min(1, 'Please enter your member ID.')
   .max(100, NOT_FOUND);
 
-/** Postgres unique violation (23505), possibly wrapped by Drizzle. Returns the constraint name. */
-function uniqueViolation(err: unknown): string | null {
-  let e: unknown = err;
-  for (let i = 0; i < 3 && e && typeof e === 'object'; i++) {
-    const o = e as {
-      code?: unknown;
-      constraint_name?: unknown;
-      cause?: unknown;
-    };
-    if (o.code === '23505') {
-      return typeof o.constraint_name === 'string' ? o.constraint_name : '';
-    }
-    e = o.cause;
-  }
-  return null;
-}
-
 /**
- * Links the signed-in user's account to their member record (members.member_id).
- * Anyone signed in may claim an unclaimed record, once.
- * Returns the new display name for the welcome toast.
+ * Asks an admin to link the signed-in account to a member record.
+ * Member ids are sequential, so nothing is linked until an admin approves
+ * (app/(admin)/admin/member-links). A new request replaces an open one.
+ * The member's name is never shown to the requester.
  */
-export async function claimMember(
+export async function requestMemberLink(
   memberIdInput: string,
-): Promise<ActionResult<{ displayName: string }>> {
+): Promise<ActionResult> {
   const user = await requireUser();
   const parsed = memberIdSchema.safeParse(memberIdInput);
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? NOT_FOUND);
   }
+  if (user.memberRecordId !== null) return fail(ALREADY_LINKED);
 
-  const [existing] = await db
-    .select({ id: members.id })
-    .from(members)
-    .where(eq(members.authUserId, user.id))
-    .limit(1);
-  if (existing) return fail(ALREADY_LINKED);
-
+  const wanted = normalizeMemberId(parsed.data);
   const [member] = await db
-    .select({
-      id: members.id,
-      authUserId: members.authUserId,
-      name: members.name,
-      fatherName: members.fatherName,
-    })
+    .select({ id: members.id, authUserId: members.authUserId })
     .from(members)
-    .where(eq(members.memberId, parsed.data))
+    .where(sql`lower(${members.memberId}) = lower(${wanted})`)
     .limit(1);
   if (!member) return fail(NOT_FOUND);
   if (member.authUserId) return fail(TAKEN);
 
-  const fullName = [member.name, member.fatherName].filter(Boolean).join(' ');
-
-  try {
-    const linked = await db.transaction(async (tx) => {
-      // Only claims a record that is still unclaimed (guards against a race).
-      const updated = await tx
-        .update(members)
-        .set({ authUserId: user.id, updatedAt: new Date() })
-        .where(and(eq(members.id, member.id), isNull(members.authUserId)))
-        .returning({ id: members.id });
-      if (updated.length === 0) return false;
-
-      if (fullName) {
-        await tx
-          .update(profiles)
-          .set({ displayName: fullName, updatedAt: new Date() })
-          .where(eq(profiles.id, user.id));
-      }
-      return true;
-    });
-    if (!linked) return fail(TAKEN);
-  } catch (err) {
-    // members.auth_user_id is unique: this account linked another record
-    // in a concurrent request.
-    if (uniqueViolation(err) !== null) return fail(ALREADY_LINKED);
-    throw err;
-  }
+  await db.transaction(async (tx) => {
+    // One open request per account: replace the old one.
+    await tx
+      .delete(memberLinkRequests)
+      .where(
+        and(
+          eq(memberLinkRequests.userId, user.id),
+          eq(memberLinkRequests.status, 'pending'),
+        ),
+      );
+    await tx
+      .insert(memberLinkRequests)
+      .values({ userId: user.id, memberId: member.id });
+  });
 
   revalidatePath('/claim');
-  revalidatePath('/profile');
   revalidatePath('/dashboard');
-  revalidatePath('/admin/users');
-  // The display name is shown in the app shell header (layouts).
-  revalidatePath('/', 'layout');
-  return ok({ displayName: fullName });
+  revalidatePath('/admin/member-links');
+  return ok();
+}
+
+/** Withdraws the signed-in user's open request. */
+export async function cancelMemberLinkRequest(): Promise<ActionResult> {
+  const user = await requireUser();
+  await db
+    .delete(memberLinkRequests)
+    .where(
+      and(
+        eq(memberLinkRequests.userId, user.id),
+        eq(memberLinkRequests.status, 'pending'),
+      ),
+    );
+  revalidatePath('/claim');
+  revalidatePath('/dashboard');
+  revalidatePath('/admin/member-links');
+  return ok();
 }

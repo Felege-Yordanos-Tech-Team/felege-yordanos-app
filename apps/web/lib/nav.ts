@@ -8,6 +8,7 @@ import {
   Receipt,
   ScanLine,
   User,
+  UserCheck,
   Users,
   type LucideIcon,
 } from 'lucide-react';
@@ -86,6 +87,13 @@ export const ADMIN_NAV: NavItem[] = [
     labelEn: 'Donations',
     labelAm: 'መዋጮዎች',
     icon: Receipt,
+    matchNested: true,
+  },
+  {
+    href: '/admin/member-links',
+    labelEn: 'Member links',
+    labelAm: 'ማገናኛዎች',
+    icon: UserCheck,
     matchNested: true,
   },
   {
