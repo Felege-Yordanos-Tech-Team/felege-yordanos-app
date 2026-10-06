@@ -1,47 +1,59 @@
-import { cookies } from 'next/headers';
-import { createServerComponentClient, getLinkedMember } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
+import { asc, desc, eq, gte } from 'drizzle-orm';
+import {
+  attendance,
+  db,
+  departments,
+  events,
+  members,
+} from '@felege-yordanos/db/server';
 import { Link2 } from 'lucide-react';
 import Link from 'next/link';
-import { formatShortDate } from '@/lib/format';
-import { AttendanceDesktopView, type AttnRow, type AttnStatus } from './attendance-desktop';
-
-type Event = Database['public']['Tables']['events']['Row'];
-type Department = Database['public']['Tables']['departments']['Row'];
-
-const statusBadge: Record<string, { variant: 'default' | 'secondary' | 'destructive' | 'outline'; className: string }> = {
-  present: { variant: 'default', className: 'bg-green-600' },
-  absent: { variant: 'destructive', className: '' },
-  late: { variant: 'default', className: 'bg-yellow-600' },
-};
+import { Card, PageHead } from '@/components/ds';
+import { deptShortLabel, hhmm } from '@/lib/events';
+import { getLocale, getT } from '@/lib/i18n/server';
+import { requireLinkedMember } from '@/lib/session';
+import { cn } from '@/lib/utils';
+import { primaryBtn } from '@/components/events/event-ui';
+import {
+  AttendanceView,
+  type AttnRow,
+  type AttnStatus,
+} from './attendance-view';
 
 export default async function MyAttendancePage() {
-  const cookieStore = await cookies();
-  const supabase = createServerComponentClient(cookieStore);
+  // Plain members need a linked member record; staff may still open the page.
+  const user = await requireLinkedMember();
+  const t = await getT();
+  const locale = await getLocale();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const member = await getLinkedMember(supabase as any, user?.id ?? '');
+  // The member record linked to this login (through the /claim flow).
+  const [member] = await db
+    .select({ id: members.id, memberId: members.memberId })
+    .from(members)
+    .where(eq(members.authUserId, user.id))
+    .limit(1);
 
   if (!member) {
     return (
-      <div className="mx-auto max-w-md px-4 py-16">
-        <Card>
-          <CardContent className="flex flex-col items-center gap-4 py-8">
-            <Link2 className="h-8 w-8 text-muted-foreground" />
-            <p className="text-center text-sm text-muted-foreground">
-              Link your member profile to see your attendance history
-            </p>
-            <Button asChild>
-              <Link href="/claim">Link Member Profile</Link>
-            </Button>
-          </CardContent>
+      <div className="px-[18px] pb-6 pt-4 md:px-7 md:py-7">
+        <PageHead
+          en="My events"
+          am="መርሃ ግብር"
+          sub="Events you're part of and your attendance at each"
+        />
+        <Card className="mx-auto mt-6 flex max-w-md flex-col items-center gap-4 px-6 py-9 text-center">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/[0.14]">
+            <Link2 className="h-5 w-5 text-gold-deep" />
+          </div>
+          <p className="text-sm text-ink-muted">
+            {t('Link your member profile to see your attendance history')}
+          </p>
+          <Link
+            href="/claim"
+            className={cn(primaryBtn, 'px-5 py-2.5 text-[13px]')}
+          >
+            {t('Link member profile')}
+          </Link>
         </Card>
       </div>
     );
@@ -49,81 +61,76 @@ export default async function MyAttendancePage() {
 
   const today = new Date().toISOString().split('T')[0];
 
-  const [{ data: records }, { data: departmentsData }, { data: upcomingData }] = await Promise.all([
-    supabase
-      .from('attendance')
-      .select('*, events(*)')
-      .eq('member_id', member.id)
-      .order('created_at', { ascending: false }),
-    supabase.from('departments').select('*').order('id'),
-    supabase.from('events').select('*').gte('event_date', today).order('event_date', { ascending: true }).limit(1),
+  const [attendanceRecords, departmentRows, upcomingData] = await Promise.all([
+    // Only the signed-in user's own records.
+    db
+      .select({
+        id: attendance.id,
+        status: attendance.status,
+        events: events,
+      })
+      .from(attendance)
+      .innerJoin(events, eq(events.id, attendance.eventId))
+      .where(eq(attendance.memberId, member.id))
+      .orderBy(desc(attendance.createdAt)),
+    db.select().from(departments).orderBy(asc(departments.id)),
+    db
+      .select()
+      .from(events)
+      .where(gte(events.eventDate, today))
+      .orderBy(asc(events.eventDate))
+      .limit(1),
   ]);
 
-  const attendanceRecords = (records ?? []) as (Database['public']['Tables']['attendance']['Row'] & {
-    events: Event;
-  })[];
-  const departments = (departmentsData ?? []) as Department[];
-  const deptName = (id: number | null) =>
-    id ? departments.find((d) => d.id === id)?.name_am ?? 'ጠቅላላ' : 'ጠቅላላ';
+  const deptLabel = (id: number | null) =>
+    departmentRows.some((d) => d.id === id)
+      ? deptShortLabel(id, locale)
+      : deptShortLabel(null, locale);
 
-  // Desktop table rows (real attendance records, most-recent first).
+  // The signed-in member's attendance records.
   const rows: AttnRow[] = attendanceRecords.map((r) => ({
-    title: r.events?.title ?? 'Event',
-    deptAm: deptName(r.events?.department_id ?? null),
-    date: r.events?.event_date ?? '',
-    dateLabel: r.events?.event_date ? formatShortDate(r.events.event_date) : '—',
-    time: r.events?.start_time ? r.events.start_time.slice(0, 5) : '',
+    id: r.events.id,
+    title: r.events.title,
+    dept: deptLabel(r.events.departmentId),
+    date: r.events.eventDate,
+    time: hhmm(r.events.startTime),
+    end: hhmm(r.events.endTime),
     status: (r.status as AttnStatus) ?? 'absent',
   }));
 
-  const nextEventRow = (upcomingData ?? [])[0] as Event | undefined;
-  const nextEvent = nextEventRow
+  const next = upcomingData[0];
+  const nextEvent = next
     ? {
-        title: nextEventRow.title,
-        dateLabel: formatShortDate(nextEventRow.event_date),
-        time: nextEventRow.start_time ? nextEventRow.start_time.slice(0, 5) : '',
+        title: next.title,
+        date: next.eventDate,
+        time: hhmm(next.startTime),
+        dept: deptLabel(next.departmentId),
       }
     : null;
 
+  // The next event is listed as "upcoming" unless it already has a record.
+  if (next && !rows.some((r) => r.id === next.id)) {
+    rows.push({
+      id: next.id,
+      title: next.title,
+      dept: deptLabel(next.departmentId),
+      date: next.eventDate,
+      time: hhmm(next.startTime),
+      end: hhmm(next.endTime),
+      status: 'upcoming',
+    });
+  }
+
+  // Most recent first by event date (the query returns them by record time).
+  rows.sort(
+    (a, b) => b.date.localeCompare(a.date) || b.time.localeCompare(a.time),
+  );
+
   return (
-    <>
-      {/* ─── MOBILE (< md) — simple list ─── */}
-      <div className="mx-auto max-w-2xl px-6 py-6 md:hidden">
-        <span className="text-secondary font-label text-[10px] tracking-widest uppercase block mb-1">አገልግሎት መግቢያ</span>
-        <h1 className="font-headline text-3xl text-primary">My Attendance</h1>
-        <p className="mt-1 text-sm text-muted-foreground">Your attendance history across events</p>
-
-        {attendanceRecords.length === 0 ? (
-          <p className="mt-8 text-center text-sm text-muted-foreground">No attendance records yet.</p>
-        ) : (
-          <div className="mt-4 space-y-2">
-            {attendanceRecords.map((record) => {
-              const badge = statusBadge[record.status] ?? statusBadge.absent;
-              return (
-                <Card key={record.id}>
-                  <CardContent className="flex items-center justify-between py-3">
-                    <div>
-                      <p className="font-medium">{record.events?.title ?? 'Event'}</p>
-                      <p className="text-xs text-muted-foreground">{record.events?.event_date}</p>
-                    </div>
-                    <Badge variant={badge.variant} className={badge.className}>
-                      {record.status}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* ─── DESKTOP (md+) — table/calendar + next-event/QR ─── */}
-      <AttendanceDesktopView
-        className="hidden px-7 py-7 md:block"
-        rows={rows}
-        nextEvent={nextEvent}
-        memberId={member.member_id}
-      />
-    </>
+    <AttendanceView
+      rows={rows}
+      nextEvent={nextEvent}
+      memberId={member.memberId}
+    />
   );
 }

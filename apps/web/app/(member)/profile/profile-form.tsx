@@ -3,58 +3,63 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { createClient } from '@felege-yordanos/db';
-import type { UserRole, Member } from '@felege-yordanos/db';
+import type { members, Role } from '@felege-yordanos/db/schema';
 import { KeyRound, Link2, LogOut, Pencil, Printer } from 'lucide-react';
+import { Card, Eyebrow, SectionHeader } from '@/components/ds';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { MemberQR } from '@/components/member-qr';
+import { authClient } from '@/lib/auth-client';
+import { useLocale, useT } from '@/lib/i18n/client';
+import type { Locale } from '@/lib/i18n/config';
+import { cn } from '@/lib/utils';
+import { initialsOf, RolePill } from '@/components/role-pill';
 import { MemberQRCard } from './member-qr-card';
+import { updateDisplayName } from './actions';
+
+type Member = typeof members.$inferSelect;
+
+/** The fields of the linked member record this screen shows. */
+export type LinkedMember = Pick<
+  Member,
+  | 'memberId'
+  | 'name'
+  | 'fatherName'
+  | 'grandfatherName'
+  | 'gender'
+  | 'addressPhone'
+>;
 
 interface ProfileFormProps {
-  profileId: string;
   email: string;
   displayName: string;
-  role: UserRole;
-  member: Member | null;
+  role: Role;
+  member: LinkedMember | null;
   /** Department display name (Amharic) for the desktop info card. */
   deptName?: string | null;
 }
 
-const ROLE_STYLES: Record<UserRole, { bg: string; text: string; label: string }> = {
-  member: {
-    bg: 'bg-parchment-deep dark:bg-ink-faint/20',
-    text: 'text-ink-muted dark:text-cream/70',
-    label: 'member',
-  },
-  dept_head: {
-    bg: 'bg-gold/[0.20] dark:bg-gold/[0.18]',
-    text: 'text-gold-deep dark:text-gold',
-    label: 'dept head',
-  },
-  admin: {
-    bg: 'bg-burgundy/[0.12] dark:bg-burgundy/30',
-    text: 'text-burgundy dark:text-gold-light',
-    label: 'admin',
-  },
-  super_admin: {
-    bg: 'bg-burgundy',
-    text: 'text-gold',
-    label: 'super admin',
-  },
-};
+const LABEL =
+  'mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep';
+const FIELD =
+  'rounded-[10px] border border-solid border-parchment-edge bg-parchment-soft px-3.5 py-[11px] text-[13px] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.04)] dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]';
+const INPUT = cn(
+  FIELD,
+  'h-auto leading-normal md:text-[13px] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30',
+);
+const SECONDARY =
+  'inline-flex items-center justify-center gap-1.5 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-[9px] text-[12.5px] font-semibold text-brand transition-colors hover:bg-parchment-deep disabled:pointer-events-none disabled:opacity-50 dark:text-gold-light';
+const AVATAR =
+  'flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display font-bold text-brand-deep';
 
-function getInitials(name: string, fallback: string): string {
-  const source = (name || fallback).trim();
-  if (!source) return '··';
-  const parts = source.split(/\s+/).slice(0, 2);
-  return parts.map((w) => w[0]?.toUpperCase() ?? '').join('') || '··';
+/** Gender is stored in Amharic (ወንድ / ሴት). */
+function genderLabel(gender: string | null, locale: Locale): string | null {
+  if (!gender) return null;
+  if (locale === 'am') return gender;
+  return gender === 'ወንድ' ? 'Male' : gender === 'ሴት' ? 'Female' : gender;
 }
 
 export function ProfileForm({
-  profileId,
   email,
   displayName,
   role,
@@ -66,318 +71,324 @@ export function ProfileForm({
   const [signingOut, setSigningOut] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
 
-  const initials = getInitials(displayName || member?.name || '', email);
+  const initials = initialsOf(displayName, member?.name, email);
   const fullName = displayName || member?.name || email;
-  const roleStyle = ROLE_STYLES[role];
+  const dirty = name !== displayName;
+  const memberLine = member
+    ? [
+        [member.name, member.fatherName, member.grandfatherName]
+          .filter(Boolean)
+          .join(' '),
+        genderLabel(member.gender, locale),
+        member.addressPhone,
+      ]
+        .filter(Boolean)
+        .join(' · ')
+    : '';
 
   async function handleSave() {
     setSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('profiles')
-      .update({ display_name: name } as never)
-      .eq('id', profileId);
+    const res = await updateDisplayName(name);
     setSaving(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
     } else {
-      toast({ title: 'Saved', description: 'Your profile has been updated.' });
+      toast({
+        title: t('Saved'),
+        description: t('Your profile has been updated.'),
+      });
       router.refresh();
     }
   }
 
   async function handleSignOut() {
     setSigningOut(true);
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await authClient.signOut();
     router.push('/login');
     router.refresh();
   }
 
+  const claimPrompt = (
+    <Card className="gold-accent-l flex items-center gap-3 px-4 py-3.5 pl-5">
+      <div className="rounded-full bg-brand/10 p-2.5 dark:bg-gold/[0.12]">
+        <Link2 className="h-4 w-4 text-brand dark:text-gold" />
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-[13px] font-semibold text-ink">
+          {t('Link your member profile')}
+        </p>
+        <p className="mt-0.5 text-[11.5px] text-ink-muted">
+          {t('Required to get your check-in QR code')}
+        </p>
+      </div>
+      <Link
+        href="/claim"
+        className="sacred-gradient shrink-0 rounded-[10px] border border-gold/40 px-3.5 py-2 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95"
+      >
+        {t('Link')}
+      </Link>
+    </Card>
+  );
+
   return (
     <>
-    {/* ─── MOBILE (< md) — single column ─── */}
-    <div className="mt-3.5 space-y-4 md:hidden">
-      {/* Avatar + name */}
-      <div className="flex items-center gap-3.5">
-        <div
-          className="flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-full font-display text-[22px] font-bold text-burgundy-deep shadow-fy-gold"
-          style={{ background: 'linear-gradient(135deg, #D4A843, #A47A18)' }}
-          aria-hidden
-        >
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-[19px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-            {fullName}
-          </div>
-          <div className="mt-0.5 truncate text-[11.5px] text-muted-foreground">
-            {email}
-          </div>
-          <span
-            className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.06em] ${roleStyle.bg} ${roleStyle.text}`}
+      {/* ─── PHONE (< md) ─── */}
+      <div className="space-y-[18px] md:hidden">
+        {/* Avatar + name */}
+        <div className="flex items-center gap-3.5">
+          <div
+            className={cn(
+              AVATAR,
+              'h-[60px] w-[60px] text-[22px] shadow-[0_4px_12px_-4px_rgba(212,168,67,0.45)]',
+            )}
+            aria-hidden
           >
-            {roleStyle.label}
-          </span>
-        </div>
-      </div>
-
-      {/* QR card — only when a member record is linked */}
-      {member && <MemberQRCard memberId={member.member_id} />}
-
-      {/* Claim prompt — when not linked */}
-      {!member && (
-        <div className="gold-accent-l rounded-2xl border border-border bg-card px-4 py-3 pl-5">
-          <div className="flex items-center gap-3">
-            <div className="rounded-full bg-burgundy/[0.10] p-2.5 dark:bg-gold/[0.12]">
-              <Link2 className="h-4 w-4 text-burgundy dark:text-gold" />
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-display text-[19px] font-medium leading-[1.1] text-brand-ink">
+              {fullName}
             </div>
-            <div className="flex-1">
-              <p className="text-sm font-medium text-foreground">
-                Link your member profile
-              </p>
-              <p className="text-[11px] text-muted-foreground">
-                Required to get your check-in QR code
-              </p>
+            <div className="mt-0.5 truncate text-[11.5px] text-ink-muted">
+              {email}
             </div>
-            <Button
-              asChild
-              size="sm"
-              className="rounded-lg bg-burgundy px-3 py-1.5 text-xs font-semibold text-cream hover:bg-burgundy-soft dark:bg-gold dark:text-burgundy-ink dark:hover:bg-gold-light"
-            >
-              <Link href="/claim">Link</Link>
-            </Button>
+            <RolePill
+              role={role}
+              t={t}
+              variant="list"
+              className="mt-1.5 px-2 py-0.5 text-[9px] tracking-[0.06em]"
+            />
           </div>
         </div>
-      )}
 
-      {/* Account section */}
-      <section>
-        <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-          Account
-        </div>
-        <div className="rounded-2xl border border-border bg-card px-4 py-3.5">
-          <div className="space-y-1.5">
-            <Label
+        {member ? <MemberQRCard memberId={member.memberId} /> : claimPrompt}
+
+        {/* Account */}
+        <section>
+          <Eyebrow className="mb-2">{t('Account')}</Eyebrow>
+          <Card className="rounded-xl px-4 py-3.5 shadow-none dark:shadow-none">
+            <label
               htmlFor="display-name"
-              className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
+              className={cn(LABEL, 'mb-1 text-[9.5px]')}
             >
-              Display name
-            </Label>
+              {t('Display name')}
+            </label>
             <Input
               id="display-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="Enter your name"
-              className="rounded-[10px] border border-border bg-background text-[13.5px] text-foreground placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30"
+              placeholder={t('Enter your name')}
+              className={cn(INPUT, 'py-[9px] text-[13.5px]')}
             />
-          </div>
 
-          {member && (
-            <div className="mt-3.5 border-t border-border pt-3.5">
-              <Label className="block text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                Member record · linked
-              </Label>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
-                <span className="rounded bg-burgundy/[0.08] px-2 py-0.5 font-mono text-[11px] font-semibold text-burgundy dark:bg-gold/[0.10] dark:text-gold-light">
-                  {member.member_id}
-                </span>
-                <Link2 className="h-3 w-3 text-status-present" />
+            {member && (
+              <div className="mt-3 border-t border-parchment-edge pt-3">
+                <div className={cn(LABEL, 'mb-1 text-[9.5px]')}>
+                  {t('Member record')} · {t('linked')}
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="rounded bg-brand/[0.08] px-2 py-0.5 font-mono text-[11px] font-semibold text-brand dark:bg-gold/10 dark:text-gold-light">
+                    {member.memberId}
+                  </span>
+                  <Link2
+                    className="h-3 w-3 text-status-present"
+                    aria-label={t('linked')}
+                  />
+                </div>
+                {memberLine && (
+                  <p className="mt-1.5 text-[11.5px] text-ink-muted">
+                    {memberLine}
+                  </p>
+                )}
               </div>
-              <p className="mt-1.5 text-[11.5px] text-muted-foreground">
-                {[member.name, member.father_name, member.grandfather_name]
-                  .filter(Boolean)
-                  .join(' ')}
-                {member.gender ? ` · ${member.gender}` : ''}
-                {member.address_phone ? ` · ${member.address_phone}` : ''}
-              </p>
-            </div>
-          )}
+            )}
 
-          <Button
-            onClick={handleSave}
-            disabled={saving || name === displayName}
-            className="sacred-gradient mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-2.5 text-sm font-semibold text-cream shadow-fy-md transition-opacity hover:opacity-95 disabled:opacity-60"
-          >
-            {saving ? 'Saving…' : 'Save changes'}
-          </Button>
-        </div>
-      </section>
+            <button
+              type="button"
+              onClick={handleSave}
+              disabled={saving || !dirty}
+              className="sacred-gradient mt-3.5 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-2.5 text-[13px] font-semibold text-cream shadow-fy-md transition-opacity hover:opacity-95 disabled:opacity-60"
+            >
+              {saving ? t('Saving…') : t('Save changes')}
+            </button>
+          </Card>
+        </section>
 
-      {/* Sign out */}
-      <button
-        type="button"
-        onClick={handleSignOut}
-        disabled={signingOut}
-        className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-transparent py-2.5 text-[13px] font-medium text-status-absent transition-colors hover:bg-status-absent/[0.06] disabled:opacity-60"
-      >
-        <LogOut className="h-3.5 w-3.5" />
-        {signingOut ? 'Signing out…' : 'Sign out'}
-      </button>
-    </div>
-
-    {/* ─── DESKTOP (md+) — two-column: info card + QR card ─── */}
-    <div className="hidden md:block">
-      {/* Page head */}
-      <div className="mb-4">
-        <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-          መገለጫ
-        </div>
-        <h1 className="mt-0.5 font-display text-[30px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream">
-          My profile
-        </h1>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          className="inline-flex w-full items-center justify-center gap-2 rounded-[10px] border border-parchment-edge bg-transparent py-[11px] text-[13px] font-medium text-status-absent transition-colors hover:bg-status-absent/[0.06] disabled:opacity-60"
+        >
+          <LogOut className="h-3.5 w-3.5" />
+          {signingOut ? t('Signing out…') : t('Sign out')}
+        </button>
       </div>
 
-      <div className="grid grid-cols-[1fr_380px] items-start gap-4">
+      {/* ─── DESKTOP (md+) ─── */}
+      <div className="hidden grid-cols-[1fr_380px] items-start gap-4 md:grid">
         {/* Info card */}
-        <div className="rounded-2xl border border-border bg-card p-6 shadow-fy-sm">
-          {/* Avatar + name */}
+        <Card className="p-[26px]">
           <div className="mb-5 flex items-center gap-4">
             <div
-              className="flex h-[58px] w-[58px] shrink-0 items-center justify-center rounded-full font-display text-[22px] font-bold text-burgundy-deep shadow-fy-gold"
-              style={{ background: 'linear-gradient(135deg, #D4A843, #A47A18)' }}
+              className={cn(
+                AVATAR,
+                'h-[58px] w-[58px] text-[22px] shadow-[0_6px_16px_-8px_rgba(164,122,24,0.6)]',
+              )}
               aria-hidden
             >
               {initials}
             </div>
             <div className="min-w-0">
-              <h3 className="font-display text-2xl font-medium leading-tight text-burgundy-ink dark:text-cream">
+              <h2 className="truncate font-display text-2xl font-medium leading-[1.1] text-brand-ink">
                 {fullName}
-              </h3>
-              <div className="mt-1.5 flex items-center gap-2">
+              </h2>
+              <div className="mt-[5px] flex flex-wrap items-center gap-2">
                 {member && (
-                  <span className="rounded-full border border-gold/30 bg-gold/[0.14] px-2 py-0.5 font-mono text-[10.5px] font-semibold text-gold-deep dark:text-gold">
-                    {member.member_id}
+                  <span className="rounded-full border border-gold/30 bg-gold/[0.14] px-2 py-0.5 font-mono text-[10.5px] text-gold-deep">
+                    {member.memberId}
                   </span>
                 )}
                 {deptName ? (
-                  <span className="font-ethiopic text-[11px] text-muted-foreground">
-                    {deptName} ክፍል
+                  <span className="font-ethiopic text-[11px] text-ink-muted">
+                    {deptName}
                   </span>
                 ) : (
-                  <span className="text-[11px] uppercase tracking-[0.06em] text-muted-foreground">
-                    {roleStyle.label}
-                  </span>
+                  <RolePill role={role} t={t} />
                 )}
               </div>
             </div>
           </div>
 
           {/* Ornament rule */}
-          <div className="flex items-center gap-2.5">
-            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge dark:to-ink-muted/40" />
+          <div className="flex items-center gap-2.5" aria-hidden>
+            <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge" />
             <span className="flex items-center gap-1">
               <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
               <span className="h-[3px] w-[3px] rounded-full bg-gold" />
               <span className="h-[3px] w-[3px] rounded-full bg-gold opacity-40" />
             </span>
-            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge dark:to-ink-muted/40" />
+            <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge" />
           </div>
 
-          {/* Fields */}
           <div className="mt-5 grid grid-cols-2 gap-3.5">
             <div>
-              <Label
-                htmlFor="desk-display-name"
-                className="mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold"
-              >
-                Full name
-              </Label>
+              <label htmlFor="desk-display-name" className={LABEL}>
+                {t('Full name')}
+              </label>
               <Input
                 id="desk-display-name"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                className="rounded-[10px] border border-border bg-card text-[13px] text-foreground focus-visible:ring-2 focus-visible:ring-gold/30"
+                placeholder={t('Enter your name')}
+                className={INPUT}
               />
             </div>
-            <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                Phone
-              </div>
-              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] font-mono text-[13px] text-foreground">
-                {member?.address_phone || '—'}
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                Department
-              </div>
-              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] text-[13px] text-foreground">
-                {deptName || '—'}
-              </div>
-            </div>
-            <div>
-              <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                Member since
-              </div>
-              <div className="rounded-[10px] border border-border bg-card px-3.5 py-[9px] font-mono text-[13px] text-foreground">
-                —
-              </div>
-            </div>
+            <ReadOnlyField
+              label={t('Phone')}
+              value={member?.addressPhone}
+              mono
+            />
+            <ReadOnlyField label={t('Department')} value={deptName} />
+            <ReadOnlyField label={t('Email')} value={email} />
           </div>
 
-          {/* Actions */}
           <div className="mt-5 flex gap-2">
-            <Button
+            <button
+              type="button"
               onClick={handleSave}
-              disabled={saving || name === displayName}
-              className="sacred-gradient inline-flex items-center gap-2 rounded-[10px] border border-gold/40 px-4 py-2.5 text-[13px] font-semibold text-cream shadow-fy-sm transition-opacity hover:opacity-95 disabled:opacity-60"
+              disabled={saving || !dirty}
+              className={SECONDARY}
             >
-              <Pencil className="h-3.5 w-3.5 text-gold" />
-              {saving ? 'Saving…' : 'Save changes'}
-            </Button>
-            <Button
-              asChild
-              variant="outline"
-              className="inline-flex items-center gap-2 rounded-[10px] border border-border bg-card px-4 py-2.5 text-[13px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
-            >
-              <Link href="/forgot-password">
-                <KeyRound className="h-3.5 w-3.5" />
-                Change password
-              </Link>
-            </Button>
+              <Pencil className="h-[13px] w-[13px]" />
+              {saving ? t('Saving…') : t('Save changes')}
+            </button>
+            <Link href="/forgot-password" className={SECONDARY}>
+              <KeyRound className="h-[13px] w-[13px]" />
+              {t('Change password')}
+            </Link>
           </div>
-        </div>
+        </Card>
 
-        {/* QR card */}
-        <div className="rounded-2xl border border-border bg-card p-6 text-center shadow-fy-sm">
-          <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-            የመግቢያ ኮድ
-          </div>
-          <h3 className="mt-0.5 font-display text-[22px] font-medium text-burgundy-ink dark:text-cream">
-            Check-in code
-          </h3>
+        {/* Check-in code */}
+        <Card className="p-[26px] text-center">
+          <SectionHeader
+            en="Check-in code"
+            am="የመግቢያ ኮድ"
+            as="h2"
+            className="[&>div]:mb-0.5"
+          />
           {member ? (
             <>
-              <div className="mx-auto mt-4 w-fit rounded-[14px] border border-border bg-parchment-soft p-3 shadow-[0_8px_20px_-12px_rgba(74,14,24,0.35)]">
-                <MemberQR value={member.member_id} size={168} />
+              <div className="mx-auto mt-4 w-fit rounded-[14px] border border-parchment-edge bg-parchment-soft p-3 shadow-[0_8px_20px_-12px_rgba(10,60,54,0.35)] dark:bg-cream">
+                <MemberQR value={member.memberId} size={168} />
               </div>
-              <div className="mt-3 font-mono text-[13px] tracking-[0.08em] text-foreground">
-                {member.member_id}
+              <div className="mt-3 font-mono text-[13px] tracking-[0.08em] text-ink">
+                {member.memberId}
               </div>
-              <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted-foreground">
-                Show this code at the door to check in.
+              <p className="mt-1.5 text-[11.5px] leading-normal text-ink-muted">
+                {t('Show this code at the door to check in.')}
               </p>
               <div className="mt-3.5 flex justify-center">
                 <button
                   type="button"
                   onClick={() => window.print()}
-                  className="inline-flex items-center gap-1.5 rounded-[10px] border border-border bg-card px-4 py-2 text-[12.5px] font-semibold text-burgundy hover:bg-card/80 dark:text-gold"
+                  className={SECONDARY}
                 >
-                  <Printer className="h-3.5 w-3.5" />
-                  Print card
+                  <Printer className="h-[13px] w-[13px]" />
+                  {t('Print card')}
                 </button>
               </div>
             </>
           ) : (
-            <p className="mt-6 text-sm text-muted-foreground">
-              Link your member profile to get a check-in QR code.
-            </p>
+            <div className="mt-5 flex flex-col items-center">
+              <div className="rounded-full border border-gold/30 bg-gold/10 p-3 text-gold-deep">
+                <Link2 className="h-5 w-5" />
+              </div>
+              <p className="mt-3 text-[12.5px] leading-normal text-ink-muted">
+                {t('Link your member profile to get a check-in QR code.')}
+              </p>
+              <Link href="/claim" className={cn(SECONDARY, 'mt-3.5')}>
+                <Link2 className="h-[13px] w-[13px]" />
+                {t('Link your member profile')}
+              </Link>
+            </div>
           )}
-        </div>
+        </Card>
+      </div>
+    </>
+  );
+}
+
+function ReadOnlyField({
+  label,
+  value,
+  mono,
+}: {
+  label: string;
+  value?: string | null;
+  mono?: boolean;
+}) {
+  return (
+    <div>
+      <div className={LABEL}>{label}</div>
+      <div
+        className={cn(
+          FIELD,
+          'truncate',
+          mono && 'font-mono',
+          !value && 'text-ink-faint',
+        )}
+      >
+        {value || '—'}
       </div>
     </div>
-    </>
   );
 }

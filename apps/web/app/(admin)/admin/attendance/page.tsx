@@ -1,55 +1,55 @@
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
+import { asc, count, desc } from 'drizzle-orm';
+import {
+  attendance,
+  db,
+  departments,
+  events,
+} from '@felege-yordanos/db/server';
+import { canEditEvent, canViewEventAttendance } from '@/lib/permissions';
+import { requireUser } from '@/lib/session';
 import { EventsList } from './events-list';
 
-type Profile = Database['public']['Tables']['profiles']['Row'];
-type Department = Database['public']['Tables']['departments']['Row'];
-
 export default async function ManageAttendancePage() {
-  const cookieStore = await cookies();
-  const supabase = createServerComponentClient(cookieStore);
+  const user = await requireUser();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const [
-    { data: profileData },
-    { data: events },
-    { data: departments },
-    { data: attendanceCounts },
-  ] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user?.id ?? '').single(),
-    supabase.from('events').select('*').order('event_date', { ascending: false }),
-    supabase.from('departments').select('*').order('id'),
-    supabase.from('attendance').select('event_id, status'),
+  const [eventRows, departmentRows, attendanceRows] = await Promise.all([
+    db.select().from(events).orderBy(desc(events.eventDate)),
+    db.select().from(departments).orderBy(asc(departments.id)),
+    db
+      .select({
+        eventId: attendance.eventId,
+        status: attendance.status,
+        n: count(),
+      })
+      .from(attendance)
+      .groupBy(attendance.eventId, attendance.status),
   ]);
 
-  const profile = profileData as Profile | null;
-
-  // Per-event present/late counts + the set of events that have ANY attendance
-  // (the latter freezes those occurrences against series delete/regeneration).
+  // Attendance counts only for events whose attendance this user may read
+  // (canViewEventAttendance). The "has attendance" flag, which freezes an
+  // occurrence against delete/series changes, is also given for events the
+  // user may edit, so the edit dialog shows it.
+  const byId = new Map(eventRows.map((e) => [e.id, e]));
   const countMap: Record<string, number> = {};
   const attendedIds = new Set<string>();
-  if (attendanceCounts) {
-    for (const a of attendanceCounts as { event_id: string; status: string }[]) {
-      attendedIds.add(a.event_id);
-      if (a.status === 'present' || a.status === 'late') {
-        countMap[a.event_id] = (countMap[a.event_id] ?? 0) + 1;
-      }
+  for (const a of attendanceRows) {
+    const event = byId.get(a.eventId);
+    if (!event) continue;
+    const canView = canViewEventAttendance(user, event);
+    if (canView || canEditEvent(user, event)) attendedIds.add(a.eventId);
+    if (canView && (a.status === 'present' || a.status === 'late')) {
+      countMap[a.eventId] = (countMap[a.eventId] ?? 0) + a.n;
     }
   }
 
   return (
     <EventsList
-      events={(events as Database['public']['Tables']['events']['Row'][]) ?? []}
-      departments={(departments as Department[]) ?? []}
+      events={eventRows}
+      departments={departmentRows}
       attendanceCounts={countMap}
       attendedIds={[...attendedIds]}
-      userRole={profile?.role ?? 'member'}
-      userDeptId={profile?.department_id ? Number(profile.department_id) : null}
-      userId={user?.id ?? ''}
+      userRole={user.role}
+      userDeptId={user.departmentId}
     />
   );
 }

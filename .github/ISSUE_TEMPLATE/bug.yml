@@ -1,0 +1,32 @@
+name: Bug report
+description: Something is broken or behaves wrongly
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you see, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Sign in as songs.head@felege.test
+        2. Open /admin/songs
+        3. Click ...
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: Where?
+      multiple: true
+      options: [Phone, Desktop, Installed app (PWA)]
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots
+      description: Paste screenshots here (remove any real member data first).

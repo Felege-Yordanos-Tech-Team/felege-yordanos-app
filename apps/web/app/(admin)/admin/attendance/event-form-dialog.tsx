@@ -2,15 +2,14 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createClient } from '@felege-yordanos/db';
-import type { Database, UserRole, Department } from '@felege-yordanos/db';
-import { CalendarClock, Repeat, Trash2, TriangleAlert } from 'lucide-react';
+import type { departments, events, Role } from '@felege-yordanos/db/schema';
+import { Info, Repeat, Trash2, TriangleAlert, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
 import {
   Dialog,
+  DialogClose,
   DialogContent,
   DialogDescription,
   DialogTitle,
@@ -23,17 +22,29 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
 import {
   type Recurrence,
   cadencePhrase,
+  deptColor,
   generateOccurrences,
   maxRecurrenceUntil,
+  formatYmd,
   parseYmd,
   toYmd,
   todayYmd,
 } from '@/lib/events';
+import {
+  createEvent,
+  deleteEvent,
+  updateEvent,
+  updateSeriesEnd,
+} from './actions';
+import { primaryBtn } from '@/components/events/event-ui';
 
-type EventRow = Database['public']['Tables']['events']['Row'];
+type EventRow = typeof events.$inferSelect;
+type Department = typeof departments.$inferSelect;
 
 type RepeatChoice = 'none' | Recurrence;
 
@@ -44,6 +55,14 @@ const REPEAT_OPTIONS: { value: RepeatChoice; label: string }[] = [
   { value: 'monthly', label: 'Monthly' },
 ];
 
+/** Amharic for each repeat option (shown as the small second line in English). */
+const REPEAT_AM: Record<RepeatChoice, string> = {
+  none: 'የለም',
+  weekly: 'ሳምንታዊ',
+  biweekly: 'በየሁለት ሳምንቱ',
+  monthly: 'ወርሃዊ',
+};
+
 interface EventFormDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -51,9 +70,8 @@ interface EventFormDialogProps {
   event: EventRow | null;
   defaultDate?: string | null;
   departments: Department[];
-  userRole: UserRole;
+  userRole: Role;
   userDeptId: number | null;
-  userId: string;
   /** All occurrences sharing the edited event's recurrence_group. */
   seriesEvents: EventRow[];
   /** Event ids that already have attendance — never delete/regenerate these. */
@@ -61,26 +79,25 @@ interface EventFormDialogProps {
 }
 
 const labelCls =
-  'text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold';
+  'mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep';
+
+/** Recessed parchment field. */
+const fieldCls =
+  'h-auto rounded-[10px] border border-parchment-edge bg-parchment-soft px-[13px] py-2.5 text-[13px] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.04)] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]';
+const monoCls = `${fieldCls} font-mono`;
 
 /** Add whole months, clamping the day. Used for the default Until. */
 function addMonths(ymd: string, months: number): string {
   const d = parseYmd(ymd);
   const first = new Date(d.getFullYear(), d.getMonth() + months, 1);
   const days = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
-  return toYmd(new Date(first.getFullYear(), first.getMonth(), Math.min(d.getDate(), days)));
-}
-
-function formatLong(ymd: string): string {
-  try {
-    return parseYmd(ymd).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-    });
-  } catch {
-    return ymd;
-  }
+  return toYmd(
+    new Date(
+      first.getFullYear(),
+      first.getMonth(),
+      Math.min(d.getDate(), days),
+    ),
+  );
 }
 
 export function EventFormDialog({
@@ -92,12 +109,15 @@ export function EventFormDialog({
   departments,
   userRole,
   userDeptId,
-  userId,
   seriesEvents,
   attendedIds,
 }: EventFormDialogProps) {
   const { toast } = useToast();
   const router = useRouter();
+  const t = useT();
+  const locale = useLocale();
+  const fmtLong = (ymd: string) =>
+    formatYmd(ymd, locale, { month: 'short', day: 'numeric', year: 'numeric' });
   const isDeptHead = userRole === 'dept_head';
 
   const [title, setTitle] = useState('');
@@ -111,7 +131,7 @@ export function EventFormDialog({
   const [seriesUntil, setSeriesUntil] = useState('');
   const [busy, setBusy] = useState(false);
 
-  const inSeries = mode === 'edit' && !!event?.recurrence_group;
+  const inSeries = mode === 'edit' && !!event?.recurrenceGroup;
 
   // Reset the form whenever the dialog opens for a new target.
   useEffect(() => {
@@ -119,13 +139,13 @@ export function EventFormDialog({
     if (mode === 'edit' && event) {
       setTitle(event.title);
       setDescription(event.description ?? '');
-      setEventDate(event.event_date);
-      setStartTime(event.start_time?.slice(0, 5) ?? '');
-      setEndTime(event.end_time?.slice(0, 5) ?? '');
-      setDeptId(event.department_id ? String(event.department_id) : '');
+      setEventDate(event.eventDate);
+      setStartTime(event.startTime?.slice(0, 5) ?? '');
+      setEndTime(event.endTime?.slice(0, 5) ?? '');
+      setDeptId(event.departmentId ? String(event.departmentId) : '');
       setRepeat('none');
       setUntil('');
-      setSeriesUntil(event.recurrence_until ?? '');
+      setSeriesUntil(event.recurrenceUntil ?? '');
     } else {
       setTitle('');
       setDescription('');
@@ -140,8 +160,10 @@ export function EventFormDialog({
   }, [open, mode, event, defaultDate, userDeptId]);
 
   function getDeptName(id: number | null): string {
-    if (!id) return 'General';
-    return departments.find((d) => d.id === id)?.name_am ?? 'Unknown';
+    if (!id) return t('General');
+    const d = departments.find((x) => x.id === id);
+    if (!d) return t('Unknown');
+    return locale === 'am' ? d.nameAm : d.nameEn;
   }
 
   // ── Create: live recurrence preview ─────────────────────────────────────────
@@ -160,7 +182,11 @@ export function EventFormDialog({
     if (next !== 'none' && eventDate && !until) {
       // Sensible default: 3 months out, clamped to the 12-month cap.
       const def = addMonths(eventDate, 3);
-      setUntil(def > maxRecurrenceUntil(eventDate) ? maxRecurrenceUntil(eventDate) : def);
+      setUntil(
+        def > maxRecurrenceUntil(eventDate)
+          ? maxRecurrenceUntil(eventDate)
+          : def,
+      );
     }
   }
 
@@ -168,44 +194,30 @@ export function EventFormDialog({
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
     setBusy(true);
-    const supabase = createClient();
-
-    const base = {
+    const res = await createEvent({
       title,
       description: description || null,
-      start_time: startTime || null,
-      end_time: endTime || null,
-      department_id: deptId ? Number(deptId) : null,
-      created_by: userId,
-    };
-
-    let error;
-    if (!recurring) {
-      ({ error } = await supabase
-        .from('events')
-        .insert({ ...base, event_date: eventDate } as never));
-    } else {
-      const group =
-        typeof crypto !== 'undefined' && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
-      const rows = occurrences.map((date) => ({
-        ...base,
-        event_date: date,
-        recurrence_group: group,
-        recurrence: repeat,
-        recurrence_until: cappedUntil,
-      }));
-      ({ error } = await supabase.from('events').insert(rows as never));
-    }
+      eventDate,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      departmentId: deptId ? Number(deptId) : null,
+      recurrence: recurring ? (repeat as Recurrence) : null,
+      until: recurring ? cappedUntil || null : null,
+    });
 
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
       return;
     }
     toast({
-      title: recurring ? `${occCount} events created` : 'Event created',
+      title: recurring
+        ? t('{n} events created', { n: res.data.count })
+        : t('Event created'),
       description: title,
     });
     onOpenChange(false);
@@ -216,110 +228,64 @@ export function EventFormDialog({
   async function handleUpdate() {
     if (!event) return;
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from('events')
-      .update({
-        title,
-        description: description || null,
-        event_date: eventDate,
-        start_time: startTime || null,
-        end_time: endTime || null,
-        department_id: deptId ? Number(deptId) : null,
-      } as never)
-      .eq('id', event.id);
+    const res = await updateEvent(event.id, {
+      title,
+      description: description || null,
+      eventDate,
+      startTime: startTime || null,
+      endTime: endTime || null,
+      departmentId: deptId ? Number(deptId) : null,
+    });
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
       return;
     }
-    toast({ title: 'Event updated', description: title });
+    toast({ title: t('Event updated'), description: title });
     onOpenChange(false);
     router.refresh();
   }
 
   // ── Series: extend / shorten the end date ───────────────────────────────────
   async function handleSeriesEnd() {
-    if (!event?.recurrence_group || !event.recurrence) return;
-    const group = event.recurrence_group;
-    const cadence = event.recurrence as Recurrence;
+    if (!event?.recurrenceGroup || !event.recurrence) return;
     const newUntil = seriesUntil;
     if (!newUntil) return;
 
-    const start = seriesEvents
-      .map((e) => e.event_date)
-      .reduce((min, d) => (d < min ? d : min), seriesEvents[0]?.event_date ?? event.event_date);
-    const cap = maxRecurrenceUntil(start);
-    const boundedUntil = newUntil > cap ? cap : newUntil;
-
-    const existing = new Set(seriesEvents.map((e) => e.event_date));
-    const desired = generateOccurrences(start, cadence, boundedUntil);
-    const toInsert = desired.filter((d) => !existing.has(d));
-    // Shorten: drop occurrences past the new end that carry no attendance.
-    const toDelete = seriesEvents.filter(
-      (e) => e.event_date > boundedUntil && !attendedIds.has(e.id),
-    );
-    const blocked = seriesEvents.filter(
-      (e) => e.event_date > boundedUntil && attendedIds.has(e.id),
-    );
-
-    if (toInsert.length === 0 && toDelete.length === 0) {
-      toast({ title: 'No change', description: 'Series already ends there.' });
+    setBusy(true);
+    const res = await updateSeriesEnd({ eventId: event.id, until: newUntil });
+    setBusy(false);
+    if (!res.ok) {
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
       return;
     }
 
-    setBusy(true);
-    const supabase = createClient();
-
-    if (toInsert.length > 0) {
-      const rows = toInsert.map((date) => ({
-        title: event.title,
-        description: event.description,
-        event_date: date,
-        start_time: event.start_time,
-        end_time: event.end_time,
-        department_id: event.department_id,
-        created_by: userId,
-        recurrence_group: group,
-        recurrence: cadence,
-        recurrence_until: boundedUntil,
-      }));
-      const { error } = await supabase.from('events').insert(rows as never);
-      if (error) {
-        setBusy(false);
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
+    const { added, removed, kept } = res.data;
+    if (added === 0 && removed === 0) {
+      toast({
+        title: t('No change'),
+        description: t('Series already ends there.'),
+      });
+      return;
     }
 
-    if (toDelete.length > 0) {
-      const { error } = await supabase
-        .from('events')
-        .delete()
-        .in(
-          'id',
-          toDelete.map((e) => e.id),
-        );
-      if (error) {
-        setBusy(false);
-        toast({ title: 'Error', description: error.message, variant: 'destructive' });
-        return;
-      }
-    }
-
-    // Keep the recorded end in sync across the surviving series rows.
-    await supabase
-      .from('events')
-      .update({ recurrence_until: boundedUntil } as never)
-      .eq('recurrence_group', group);
-
-    setBusy(false);
     toast({
-      title: 'Series updated',
-      description:
-        (toInsert.length ? `+${toInsert.length} added. ` : '') +
-        (toDelete.length ? `${toDelete.length} removed. ` : '') +
-        (blocked.length ? `${blocked.length} kept (has attendance).` : ''),
+      title: t('Series updated'),
+      description: [
+        added ? t('+{n} added.', { n: added }) : '',
+        removed ? t('{n} removed.', { n: removed }) : '',
+        kept ? t('{n} kept (has attendance).', { n: kept }) : '',
+      ]
+        .filter(Boolean)
+        .join(' '),
     });
     onOpenChange(false);
     router.refresh();
@@ -330,74 +296,120 @@ export function EventFormDialog({
     if (!event) return;
     if (attendedIds.has(event.id)) {
       toast({
-        title: 'Cannot delete',
-        description: 'This event already has attendance recorded.',
+        title: t('Cannot delete'),
+        description: t('This event already has attendance recorded.'),
         variant: 'destructive',
       });
       return;
     }
     setBusy(true);
-    const supabase = createClient();
-    const { error } = await supabase.from('events').delete().eq('id', event.id);
+    const res = await deleteEvent(event.id);
     setBusy(false);
-    if (error) {
-      toast({ title: 'Error', description: error.message, variant: 'destructive' });
+    if (!res.ok) {
+      toast({
+        title: t('Error'),
+        description: t(res.error),
+        variant: 'destructive',
+      });
       return;
     }
-    toast({ title: 'Event deleted', description: event.title });
+    toast({ title: t('Event deleted'), description: event.title });
     onOpenChange(false);
     router.refresh();
   }
 
+  /** Renders a translated sentence with `{count}` set in bold. */
+  function withBoldCount(
+    template: string,
+    count: string,
+    vars: Record<string, string>,
+  ) {
+    const [before, after = ''] = t(template, vars).split('{count}');
+    return (
+      <>
+        {before}
+        <strong className="font-mono font-semibold text-brand dark:text-gold">
+          {count}
+        </strong>
+        {after}
+      </>
+    );
+  }
+
+  const hasAttendance = attendedIds.has(event?.id ?? '');
+  const otherLang = (en: string, am: string) => (locale === 'am' ? en : am);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 border-border bg-background p-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-auto max-sm:!bottom-0 max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-3xl max-sm:!rounded-b-none sm:max-w-md">
+      <DialogContent className="gap-0 overflow-hidden rounded-[20px] border-parchment-edge bg-parchment bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.10)_0%,transparent_55%)] p-0 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.6)] dark:bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.06)_0%,transparent_55%)] sm:max-w-[560px] sm:rounded-[20px] [&>button:last-child]:hidden max-sm:!bottom-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-auto max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-b-none max-sm:!rounded-t-3xl">
         {/* Mobile drag handle */}
         <div className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-ink-faint/30 sm:hidden" />
 
-        <div className="max-h-[85vh] overflow-y-auto px-5 pb-5 pt-3 sm:px-6 sm:pt-5">
-          {/* Header */}
-          <div className="mb-4">
-            <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-              {mode === 'create' ? 'አዲስ ስብሰባ' : 'ስብሰባ አርትዕ'}
+        {/* Header */}
+        <div className="flex items-start justify-between border-b border-parchment-edge px-6 pb-4 pt-3 sm:pt-5">
+          <div>
+            <div
+              className={cn(
+                'text-[11px] tracking-[0.06em] text-gold-deep',
+                locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+              )}
+            >
+              {mode === 'create'
+                ? otherLang('New event', 'አዲስ ስብሰባ')
+                : otherLang('Edit event', 'ስብሰባ አርትዕ')}
             </div>
-            <DialogTitle className="font-display text-2xl font-medium leading-tight text-burgundy-ink dark:text-cream">
-              {mode === 'create' ? 'Create event' : 'Edit event'}
+            <DialogTitle
+              className={cn(
+                'mt-0.5 leading-[1.05] text-brand-ink',
+                locale === 'am'
+                  ? 'font-ethiopic text-[22px] font-semibold'
+                  : 'font-display text-2xl font-medium',
+              )}
+            >
+              {mode === 'create' ? t('Create event') : t('Edit event')}
             </DialogTitle>
             <DialogDescription className="sr-only">
               {mode === 'create'
-                ? 'Create a new event, optionally recurring.'
-                : 'Edit this event or manage its recurring series.'}
+                ? t('Create a new event, optionally recurring.')
+                : t('Edit this event or manage its recurring series.')}
             </DialogDescription>
           </div>
+          <DialogClose
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-parchment-edge bg-parchment-soft text-ink-muted transition-colors hover:text-ink"
+            aria-label={t('Close')}
+          >
+            <X className="h-[15px] w-[15px]" />
+          </DialogClose>
+        </div>
 
+        <div className="max-h-[78vh] overflow-y-auto px-6 pb-6 pt-[18px]">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               if (mode === 'create') handleCreate(e);
               else handleUpdate();
             }}
-            className="space-y-3.5"
           >
             {/* Title */}
-            <div className="space-y-1.5">
+            <div>
               <Label htmlFor="ev-title" className={labelCls}>
-                Title
+                {t('Title')}
               </Label>
               <Input
                 id="ev-title"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g. Sunday Service"
+                placeholder={t('e.g. Sunday Service')}
                 required
+                className={fieldCls}
               />
             </div>
 
             {/* Date / Start / End */}
-            <div className="grid grid-cols-3 gap-2.5">
-              <div className="space-y-1.5">
+            <div className="mt-3.5 grid grid-cols-2 gap-2.5 sm:grid-cols-[1.4fr_1fr_1fr]">
+              <div className="col-span-2 min-w-0 sm:col-span-1">
                 <Label htmlFor="ev-date" className={labelCls}>
-                  Date
+                  {t('Date')}
                 </Label>
                 <Input
                   id="ev-date"
@@ -405,46 +417,73 @@ export function EventFormDialog({
                   value={eventDate}
                   onChange={(e) => setEventDate(e.target.value)}
                   required
+                  className={cn(monoCls, 'px-2.5')}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="min-w-0">
                 <Label htmlFor="ev-start" className={labelCls}>
-                  Start
+                  {t('Start')}
                 </Label>
                 <Input
                   id="ev-start"
                   type="time"
                   value={startTime}
                   onChange={(e) => setStartTime(e.target.value)}
+                  className={cn(monoCls, 'px-2.5')}
                 />
               </div>
-              <div className="space-y-1.5">
+              <div className="min-w-0">
                 <Label htmlFor="ev-end" className={labelCls}>
-                  End
+                  {t('End')}
                 </Label>
                 <Input
                   id="ev-end"
                   type="time"
                   value={endTime}
                   onChange={(e) => setEndTime(e.target.value)}
+                  className={cn(monoCls, 'px-2.5')}
                 />
               </div>
             </div>
 
             {/* Department */}
-            <div className="space-y-1.5">
-              <Label className={labelCls}>Department</Label>
+            <div className="mt-3.5">
+              <Label className={labelCls}>{t('Department')}</Label>
               {isDeptHead ? (
-                <p className="text-sm text-muted-foreground">{getDeptName(userDeptId)}</p>
+                <div className={cn(fieldCls, 'flex items-center gap-2')}>
+                  <span
+                    className="h-2 w-2 rounded-full"
+                    style={{ background: deptColor(userDeptId) }}
+                  />
+                  <span
+                    className={locale === 'am' ? 'font-ethiopic' : 'font-body'}
+                  >
+                    {getDeptName(userDeptId)}
+                  </span>
+                </div>
               ) : (
                 <Select value={deptId} onValueChange={setDeptId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select department (optional)" />
+                  <SelectTrigger className={cn(fieldCls, 'h-[42px]')}>
+                    <SelectValue
+                      placeholder={t('Select department (optional)')}
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {departments.map((d) => (
                       <SelectItem key={d.id} value={String(d.id)}>
-                        {d.name_am}
+                        <span className="flex items-center gap-2">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ background: deptColor(d.id) }}
+                          />
+                          <span
+                            className={
+                              locale === 'am' ? 'font-ethiopic' : 'font-body'
+                            }
+                          >
+                            {locale === 'am' ? d.nameAm : d.nameEn}
+                          </span>
+                        </span>
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -453,28 +492,37 @@ export function EventFormDialog({
             </div>
 
             {/* Description */}
-            <div className="space-y-1.5">
+            <div className="mt-3.5">
               <Label htmlFor="ev-desc" className={labelCls}>
-                Description <span className="font-normal text-ink-faint">· optional</span>
+                {t('Description')}{' '}
+                <span className="font-normal normal-case tracking-normal text-ink-faint">
+                  · {t('optional')}
+                </span>
               </Label>
               <Textarea
                 id="ev-desc"
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                placeholder="Optional details"
+                placeholder={t('Optional details')}
                 rows={2}
+                className={cn(fieldCls, 'min-h-0')}
               />
             </div>
 
-            {/* Repeat — create only */}
+            {/* Repeat (create only) */}
             {mode === 'create' && (
-              <div className="rounded-xl border border-border bg-card/60 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                    <Repeat className="h-3 w-3" /> Repeat
+              <div className="mt-4 rounded-[14px] border border-dashed border-gold bg-gold/10 px-4 py-3.5 dark:bg-gold/[0.06]">
+                <div className="mb-2.5 flex items-center justify-between">
+                  <span className="flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
+                    <Repeat className="h-3.5 w-3.5" /> {t('Repeat')}
                   </span>
-                  <span className="font-ethiopic text-[10px] text-muted-foreground">
-                    ድግግሞሽ
+                  <span
+                    className={cn(
+                      'text-[10px] text-ink-muted',
+                      locale === 'am' ? 'font-body' : 'font-ethiopic',
+                    )}
+                  >
+                    {otherLang('Repeat', 'ድግግሞሽ')}
                   </span>
                 </div>
                 <div className="grid grid-cols-4 gap-1.5">
@@ -485,22 +533,39 @@ export function EventFormDialog({
                         key={o.value}
                         type="button"
                         onClick={() => onRepeatChange(o.value)}
-                        className={`rounded-lg py-1.5 text-[11px] font-semibold transition-colors ${
+                        aria-pressed={active}
+                        className={cn(
+                          'flex flex-col items-center gap-0.5 rounded-lg px-1.5 py-2 text-[11px] transition-colors',
                           active
-                            ? 'bg-burgundy text-cream dark:bg-gold dark:text-burgundy-ink'
-                            : 'border border-border bg-background text-foreground hover:bg-card'
-                        }`}
+                            ? 'bg-brand font-semibold text-cream shadow-[0_2px_6px_-2px_rgba(10,60,54,0.4)]'
+                            : 'border border-parchment-edge bg-parchment-soft font-medium text-ink hover:bg-parchment-deep',
+                        )}
                       >
-                        {o.label}
+                        <span
+                          className={
+                            locale === 'am' ? 'font-ethiopic' : undefined
+                          }
+                        >
+                          {locale === 'am' ? REPEAT_AM[o.value] : o.label}
+                        </span>
+                        <span
+                          className={cn(
+                            'text-[8.5px]',
+                            locale === 'am' ? 'font-body' : 'font-ethiopic',
+                            active ? 'opacity-85' : 'opacity-60',
+                          )}
+                        >
+                          {locale === 'am' ? o.label : REPEAT_AM[o.value]}
+                        </span>
                       </button>
                     );
                   })}
                 </div>
 
                 {recurring && (
-                  <div className="mt-3 space-y-1.5">
+                  <div className="mt-3">
                     <Label htmlFor="ev-until" className={labelCls}>
-                      Until
+                      {t('Until')}
                     </Label>
                     <Input
                       id="ev-until"
@@ -509,101 +574,128 @@ export function EventFormDialog({
                       min={eventDate || undefined}
                       max={maxUntil || undefined}
                       onChange={(e) => setUntil(e.target.value)}
+                      className={monoCls}
                     />
-                    {eventDate && cappedUntil && occCount > 0 && (
-                      <div className="mt-1.5 flex items-start gap-2 rounded-lg bg-gold/[0.1] px-2.5 py-2 text-[11.5px] leading-snug text-burgundy-ink dark:text-cream">
-                        <CalendarClock className="mt-px h-3.5 w-3.5 shrink-0 text-gold-deep dark:text-gold" />
-                        <span>
-                          Will create{' '}
-                          <strong className="font-semibold">{occCount} events</strong>{' '}
-                          {cadencePhrase(repeat as Recurrence, eventDate)} from{' '}
-                          {formatLong(eventDate)} until {formatLong(cappedUntil)}.
-                          {isCapped && (
-                            <span className="mt-0.5 block text-[10.5px] text-status-late">
-                              Capped at 12 months from the start date.
-                            </span>
+                  </div>
+                )}
+
+                {eventDate && (!recurring || (cappedUntil && occCount > 0)) && (
+                  <div className="mt-3 flex items-start gap-2 rounded-[10px] border border-parchment-edge bg-parchment px-3 py-2.5">
+                    <Info className="mt-0.5 h-[13px] w-[13px] shrink-0 text-gold-deep" />
+                    <div className="text-[11.5px] leading-[1.45] text-ink">
+                      {recurring
+                        ? withBoldCount(
+                            'Will create {count} {cadence} from {from} until {until}.',
+                            t('{n} events', { n: occCount }),
+                            {
+                              cadence: cadencePhrase(
+                                repeat as Recurrence,
+                                eventDate,
+                                locale,
+                              ),
+                              from: fmtLong(eventDate),
+                              until: fmtLong(cappedUntil),
+                            },
+                          )
+                        : withBoldCount(
+                            'Creates {count} on {date}.',
+                            t('1 event'),
+                            { date: fmtLong(eventDate) },
                           )}
+                      {recurring && isCapped && (
+                        <span className="mt-0.5 block text-[10.5px] text-status-late">
+                          {t('Capped at 12 months from the start date.')}
                         </span>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Series controls — edit of a recurring occurrence */}
+            {/* Series controls (edit of a recurring occurrence) */}
             {inSeries && event && (
-              <div className="rounded-xl border border-dashed border-gold bg-gold/[0.06] p-3">
-                <div className="mb-2 flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep dark:text-gold">
-                  <Repeat className="h-3 w-3" /> Recurring series
+              <div className="mt-4 rounded-[14px] border border-dashed border-gold bg-gold/10 px-4 py-3.5 dark:bg-gold/[0.06]">
+                <div className="mb-2 flex items-center gap-2 text-[10.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
+                  <Repeat className="h-3.5 w-3.5" /> {t('Recurring series')}
                 </div>
-                <p className="mb-2.5 text-[11.5px] leading-snug text-muted-foreground">
-                  This is one of {seriesEvents.length} occurrences. Editing above
-                  changes only this one. To move where the series ends, set a new
-                  end date — past and attended events are never touched.
+                <p className="mb-2.5 text-[11.5px] leading-snug text-ink-muted">
+                  {t(
+                    'This is one of {n} occurrences. Editing above changes only this one. To move where the series ends, set a new end date. Past and attended events are never touched.',
+                    { n: seriesEvents.length },
+                  )}
                 </p>
                 <Label htmlFor="ev-series-until" className={labelCls}>
-                  Series ends
+                  {t('Series ends')}
                 </Label>
-                <div className="mt-1.5 flex gap-2">
+                <div className="flex gap-2">
                   <Input
                     id="ev-series-until"
                     type="date"
                     value={seriesUntil}
                     min={todayYmd()}
                     onChange={(e) => setSeriesUntil(e.target.value)}
+                    className={monoCls}
                   />
-                  <Button
+                  <button
                     type="button"
-                    variant="outline"
                     disabled={busy || !seriesUntil}
                     onClick={handleSeriesEnd}
-                    className="shrink-0 border-gold/50 text-xs font-semibold text-gold-deep dark:text-gold"
+                    className="shrink-0 rounded-[10px] border border-gold/50 bg-parchment-soft px-3.5 text-xs font-semibold text-gold-deep transition-colors hover:bg-parchment-deep disabled:opacity-50"
                   >
-                    Update end
-                  </Button>
+                    {t('Update end')}
+                  </button>
                 </div>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex items-center gap-2.5 pt-1">
+            <div className="mt-[18px] flex items-center gap-2.5">
               {mode === 'edit' && (
                 <button
                   type="button"
                   onClick={handleDelete}
-                  disabled={busy || attendedIds.has(event?.id ?? '')}
+                  disabled={busy || hasAttendance}
                   title={
-                    attendedIds.has(event?.id ?? '')
-                      ? 'Has attendance — cannot delete'
-                      : 'Delete this event'
+                    hasAttendance
+                      ? t('Has attendance, cannot delete')
+                      : t('Delete this event')
                   }
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border border-border text-status-absent transition-colors hover:bg-status-absent-bg disabled:opacity-40"
+                  aria-label={t('Delete this event')}
+                  className="flex h-[46px] w-[46px] shrink-0 items-center justify-center rounded-xl border border-parchment-edge bg-parchment-soft text-status-absent transition-colors hover:bg-status-absent-bg disabled:opacity-40"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
               )}
-              <Button
+              <DialogClose
+                type="button"
+                className="flex-1 rounded-xl border border-parchment-edge bg-parchment-soft py-3 text-[13px] font-semibold text-brand transition-colors hover:bg-parchment-deep dark:text-gold-light"
+              >
+                {t('Cancel')}
+              </DialogClose>
+              <button
                 type="submit"
                 disabled={busy}
-                className="sacred-gradient flex flex-1 items-center justify-center gap-2 rounded-xl border border-gold/40 py-3 text-sm font-semibold text-cream shadow-fy-md hover:opacity-95"
+                className={cn(primaryBtn, 'flex-[2] px-5 py-3 text-[13px]')}
               >
                 {mode === 'create'
                   ? busy
-                    ? 'Creating…'
+                    ? t('Creating…')
                     : recurring
-                      ? `Create ${occCount} events`
-                      : 'Create event'
+                      ? t('Create {n} events', { n: occCount })
+                      : t('Create event')
                   : busy
-                    ? 'Saving…'
-                    : 'Save changes'}
-              </Button>
+                    ? t('Saving…')
+                    : t('Save changes')}
+              </button>
             </div>
 
-            {mode === 'edit' && attendedIds.has(event?.id ?? '') && (
-              <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
-                <TriangleAlert className="h-3 w-3 text-status-late" />
-                This event has attendance recorded and is protected from deletion.
+            {mode === 'edit' && hasAttendance && (
+              <p className="mt-3 flex items-center gap-1.5 text-[11px] text-ink-muted">
+                <TriangleAlert className="h-3 w-3 shrink-0 text-status-late" />
+                {t(
+                  'This event has attendance recorded and is protected from deletion.',
+                )}
               </p>
             )}
           </form>

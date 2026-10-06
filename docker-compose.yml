@@ -1,0 +1,61 @@
+# Local development services.
+# Start:  docker compose up -d
+# Stop:   docker compose down        (keeps data)
+# Reset:  docker compose down -v     (deletes all local data)
+#
+# Optional: run the production image against the same database
+# (profile "app", started with `pnpm docker:app`, http://localhost:3100).
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: felege-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: felege
+      POSTGRES_PASSWORD: felege
+      POSTGRES_DB: felege
+    ports:
+      - '${POSTGRES_PORT:-5432}:5432'
+    volumes:
+      - felege-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U felege -d felege']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Production image: applies migrations, then starts the app.
+  migrate:
+    profiles: [app]
+    build: &web-build
+      context: .
+      dockerfile: apps/web/Dockerfile
+    image: felege-web:local
+    command: ['node', 'db/scripts/migrate.mjs']
+    environment:
+      DATABASE_URL: postgres://felege:felege@postgres:5432/felege
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  web:
+    profiles: [app]
+    build: *web-build
+    image: felege-web:local
+    environment:
+      DATABASE_URL: postgres://felege:felege@postgres:5432/felege
+      # Local only. Staging and production get their own secret.
+      BETTER_AUTH_SECRET: local-docker-only-secret-change-me-0123456789
+      BETTER_AUTH_URL: http://localhost:${WEB_PORT:-3100}
+      EMAIL_TRANSPORT: console
+    ports:
+      - '${WEB_PORT:-3100}:3000'
+    volumes:
+      - felege-uploads:/data/uploads
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+volumes:
+  felege-pgdata:
+  felege-uploads:

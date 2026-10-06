@@ -1,13 +1,17 @@
 import Link from 'next/link';
-import { BadgeCheck, ArrowRight } from 'lucide-react';
-import { formatMoney, formatShortDate, paymentMethodLabel } from '@/lib/format';
+import { ArrowRight } from 'lucide-react';
+import type { DonationStatus } from '@felege-yordanos/db/schema';
+import { Card, SectionHeader, StatusPill } from '@/components/ds';
+import { paymentMethodLabel } from '@/lib/format';
+import { getLocale, getT } from '@/lib/i18n/server';
+import { formatAmount, shortDateTime } from '../format';
 
 interface LastDonation {
   amount: number;
-  currency: string;
-  payment_method: string | null;
-  created_at: string;
-  status: 'pending' | 'verified' | 'rejected';
+  currency: string | null;
+  paymentMethod: string | null;
+  createdAt: Date | null;
+  status: DonationStatus;
 }
 
 interface MyGivingCardProps {
@@ -16,54 +20,46 @@ interface MyGivingCardProps {
   last: LastDonation | null;
 }
 
-/** Right-column card: verified giving total + most recent donation. */
-export function MyGivingCard({ total, currency, last }: MyGivingCardProps) {
+/** Right-column card: verified giving total + most recent verified donation. */
+export async function MyGivingCard({
+  total,
+  currency,
+  last,
+}: MyGivingCardProps) {
+  const [t, locale] = await Promise.all([getT(), getLocale()]);
   return (
-    <section className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-      <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-        ልገሳ
-      </div>
-      <h2 className="mb-3 font-display text-[22px] font-medium leading-none text-burgundy-ink dark:text-cream">
-        My giving
-      </h2>
-
-      <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[28px] font-semibold tracking-tight text-burgundy dark:text-gold">
-          {currency} {formatMoney(total)}
+    <Card>
+      <SectionHeader en="My giving" am="መዋጮ" />
+      <div className="mt-2.5 flex flex-wrap items-baseline gap-1.5">
+        <span className="font-mono text-[22px] font-medium text-brand dark:text-gold-light">
+          {formatAmount(total, currency, locale)}
         </span>
-        <span className="text-xs text-muted-foreground">verified this year</span>
+        <span className="text-[10.5px] text-ink-muted">
+          {t('verified this year')}
+        </span>
       </div>
 
       {last ? (
-        <div className="mt-4 flex items-center justify-between gap-3 border-t border-border pt-3">
-          <div className="min-w-0 text-[13px] text-foreground">
-            <span className="text-muted-foreground">Last: </span>
-            <span className="font-mono">
-              {last.currency} {formatMoney(last.amount)}
-            </span>
-            <span className="text-muted-foreground">
-              {' · '}
-              {paymentMethodLabel(last.payment_method)}
-              {' · '}
-              {formatShortDate(last.created_at)}
-            </span>
-          </div>
+        <div className="mt-2.5 flex items-center justify-between gap-3 border-t border-parchment-edge pt-2.5">
+          <span className="min-w-0 truncate text-[11.5px] text-ink-muted">
+            {t('Last:')} {formatAmount(last.amount, last.currency, locale)}
+            {' · '}
+            {t(paymentMethodLabel(last.paymentMethod))}
+            {last.createdAt && ` · ${shortDateTime(last.createdAt, locale)}`}
+          </span>
           {last.status === 'verified' && (
-            <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-status-present-bg px-2 py-0.5 text-[10px] font-semibold text-status-present">
-              <BadgeCheck className="h-3 w-3" />
-              verified
-            </span>
+            <StatusPill tone="verified">{t('verified')}</StatusPill>
           )}
         </div>
       ) : (
         <Link
           href="/donate"
-          className="mt-4 inline-flex items-center gap-1 border-t border-border pt-3 text-[13px] font-medium text-gold-deep hover:underline dark:text-gold"
+          className="mt-2.5 flex items-center gap-1 border-t border-parchment-edge pt-2.5 text-[12px] font-semibold text-gold-deep hover:underline"
         >
-          Make your first donation
-          <ArrowRight className="h-3.5 w-3.5" />
+          {t('Make your first donation')}
+          <ArrowRight className="h-3 w-3" />
         </Link>
       )}
-    </section>
+    </Card>
   );
 }

@@ -1,64 +1,83 @@
 import Link from 'next/link';
-import { Play, ArrowRight } from 'lucide-react';
+import { ArrowRight, ChevronRight, Play } from 'lucide-react';
+import { Card, SectionHeader } from '@/components/ds';
+import { getT } from '@/lib/i18n/server';
+
+export interface SongbookPreviewSong {
+  id: string;
+  number: number | null;
+  title: string;
+  titleEn: string | null;
+  audioUrl: string | null;
+}
 
 /**
- * PLACEHOLDER — "recent songs" history isn't tracked yet, so this shows a
- * static preview. Swap `PLACEHOLDER_SONGS` for a real recent/continue query
- * once play history exists. UI is intentionally kept simple so that's a
- * drop-in change.
+ * Right-column songbook card. Play history is
+ * not tracked, so this honestly shows the first songs of the songbook by
+ * number instead of a "continue" list.
  */
-const PLACEHOLDER_SONGS = [
-  { no: '07', titleAm: 'መድኃኒዓለም', titleEn: 'Saviour of the World' },
-  { no: '12', titleAm: 'ለማርያም ምስጋና', titleEn: 'Praise to Mary' },
-  { no: '18', titleAm: 'ኪዳነ ምሕረት', titleEn: 'Covenant of Mercy' },
-];
-
-export function ContinueSingingCard() {
+export async function SongbookPreviewCard({
+  songs,
+}: {
+  songs: SongbookPreviewSong[];
+}) {
+  const t = await getT();
   return (
-    <section className="gold-accent-t rounded-2xl border border-border bg-card p-5 shadow-fy-sm">
-      <div className="mb-3 flex items-baseline justify-between">
-        <div>
-          <div className="font-ethiopic text-[11px] font-medium tracking-[0.08em] text-gold-deep dark:text-gold">
-            መዝሙር
-          </div>
-          <h2 className="font-display text-[22px] font-medium leading-none text-burgundy-ink dark:text-cream">
-            Continue singing
-          </h2>
-        </div>
+    <Card>
+      <div className="mb-2.5 flex items-center justify-between gap-3">
+        <SectionHeader en="From the songbook" am="ከመዝሙር መጽሐፍ" />
         <Link
           href="/songbook"
-          className="inline-flex items-center gap-1 text-xs font-medium text-gold-deep hover:underline dark:text-gold"
+          className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-gold-deep hover:underline"
         >
-          Open songbook
-          <ArrowRight className="h-3.5 w-3.5" />
+          {t('Open songbook')}
+          <ArrowRight className="h-[11px] w-[11px]" />
         </Link>
       </div>
 
-      <ul className="space-y-1">
-        {PLACEHOLDER_SONGS.map((song) => (
-          <li key={song.no}>
-            <Link
-              href="/songbook"
-              className="group flex items-center gap-3 rounded-xl px-2 py-2 transition-colors hover:bg-burgundy/[0.04] dark:hover:bg-gold/[0.06]"
+      {songs.length === 0 ? (
+        <p className="py-6 text-center text-[12.5px] text-ink-muted">
+          {t('No songs yet')}
+        </p>
+      ) : (
+        <ul>
+          {songs.map((song, i) => (
+            <li
+              key={song.id}
+              className={i > 0 ? 'border-t border-parchment-edge' : undefined}
             >
-              <span className="w-6 shrink-0 text-center font-mono text-[11px] text-muted-foreground">
-                {song.no}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block truncate font-ethiopic text-[15px] font-medium text-burgundy-ink dark:text-cream">
-                  {song.titleAm}
+              <Link
+                href={`/songbook/${song.id}`}
+                className="group -mx-1.5 flex items-center gap-2.5 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-gold/[0.06]"
+              >
+                <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep font-display text-[13px] font-semibold text-brand dark:text-gold">
+                  {song.number != null
+                    ? String(song.number).padStart(2, '0')
+                    : '—'}
                 </span>
-                <span className="block truncate font-display text-[12px] italic text-muted-foreground">
-                  {song.titleEn}
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-ethiopic text-[13px] font-semibold text-brand-ink">
+                    {song.title}
+                  </span>
+                  {song.titleEn && (
+                    <span className="block truncate font-display text-[11.5px] italic text-ink-muted">
+                      {song.titleEn}
+                    </span>
+                  )}
                 </span>
-              </span>
-              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-burgundy/[0.06] text-burgundy transition-colors group-hover:bg-gold group-hover:text-burgundy-ink dark:bg-gold/[0.12] dark:text-gold">
-                <Play className="h-3.5 w-3.5 translate-x-[1px]" fill="currentColor" />
-              </span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </section>
+                {song.audioUrl ? (
+                  <Play
+                    className="h-3 w-3 shrink-0 text-gold-deep"
+                    aria-label={t('Play recording')}
+                  />
+                ) : (
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0 text-ink-faint transition-colors group-hover:text-gold-deep" />
+                )}
+              </Link>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }

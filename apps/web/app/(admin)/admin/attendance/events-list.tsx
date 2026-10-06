@@ -3,97 +3,55 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { Database, UserRole, Department } from '@felege-yordanos/db';
+import type { departments, events, Role } from '@felege-yordanos/db/schema';
+import { ChevronRight, Pencil, Plus, Repeat, Users } from 'lucide-react';
+import { Card, PageHead, StatusPill } from '@/components/ds';
+import { useLocale, useT } from '@/lib/i18n/client';
 import {
-  ArrowLeft,
-  BookOpen,
-  CalendarDays,
-  ChevronRight,
-  Church,
-  List,
-  Pencil,
-  Plus,
-  Repeat,
-  Users,
-} from 'lucide-react';
-import { formatShortDate } from '@/lib/format';
-import { deptColor, RECURRENCE_LABELS, todayYmd, type Recurrence } from '@/lib/events';
+  deptColor,
+  deptShortLabel,
+  formatYmd,
+  hhmm,
+  parseYmd,
+  todayYmd,
+} from '@/lib/events';
+import { cn } from '@/lib/utils';
 import { EventFormDialog } from './event-form-dialog';
-import { EventsCalendar } from './events-calendar';
+import {
+  EventsCalendar,
+  type CalEvent,
+  type CalLegendItem,
+} from '@/components/events/events-calendar';
+import {
+  BackLink,
+  DeptChip,
+  ListLabel,
+  RecurBadge,
+  ViewToggle,
+  primaryBtn,
+  type ListCalView,
+} from '@/components/events/event-ui';
 
-type EventRow = Database['public']['Tables']['events']['Row'];
+type EventRow = typeof events.$inferSelect;
+type Department = typeof departments.$inferSelect;
 
 interface EventsListProps {
   events: EventRow[];
   departments: Department[];
   attendanceCounts: Record<string, number>;
   attendedIds: string[];
-  userRole: UserRole;
+  userRole: Role;
   userDeptId: number | null;
-  userId: string;
 }
 
-type View = 'list' | 'calendar';
-type DialogState = { mode: 'create' | 'edit'; event: EventRow | null; date?: string };
+type DialogState = {
+  mode: 'create' | 'edit';
+  event: EventRow | null;
+  date?: string;
+};
 
-const MONTH_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-function splitDate(d: string): { day: string; month: string } {
-  const date = new Date(d);
-  return {
-    day: String(date.getUTCDate()).padStart(2, '0'),
-    month: MONTH_SHORT[date.getUTCMonth()] ?? '',
-  };
-}
-
-function ViewToggle({
-  view,
-  onChange,
-  full = false,
-}: {
-  view: View;
-  onChange: (v: View) => void;
-  full?: boolean;
-}) {
-  return (
-    <div
-      className={`items-center rounded-lg border border-border bg-card p-0.5 ${
-        full ? 'flex w-full' : 'inline-flex'
-      }`}
-    >
-      {(['list', 'calendar'] as View[]).map((v) => {
-        const active = view === v;
-        const Icon = v === 'list' ? List : CalendarDays;
-        return (
-          <button
-            key={v}
-            onClick={() => onChange(v)}
-            className={`inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold capitalize transition-colors ${
-              full ? 'flex-1' : ''
-            } ${
-              active
-                ? 'bg-burgundy text-cream shadow-sm dark:bg-gold dark:text-burgundy-ink'
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
-          >
-            <Icon className="h-3.5 w-3.5" />
-            {v}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function RecurBadge({ recurrence }: { recurrence: string | null }) {
-  if (!recurrence) return null;
-  return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold text-gold-deep dark:text-gold">
-      <Repeat className="h-2.5 w-2.5" />
-      {RECURRENCE_LABELS[recurrence as Recurrence] ?? 'Repeats'}
-    </span>
-  );
-}
+/** Desktop table columns. */
+const COLS = 'grid-cols-[minmax(0,1.7fr)_130px_90px_80px_150px_56px]';
 
 export function EventsList({
   events,
@@ -102,350 +60,373 @@ export function EventsList({
   attendedIds,
   userRole,
   userDeptId,
-  userId,
 }: EventsListProps) {
   const router = useRouter();
-  const [view, setView] = useState<View>('list');
+  const t = useT();
+  const locale = useLocale();
+  const [view, setView] = useState<ListCalView>('list');
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
   const today = todayYmd();
   const attendedSet = useMemo(() => new Set(attendedIds), [attendedIds]);
 
-  const upcoming = events.filter((e) => e.event_date >= today);
-  const past = events.filter((e) => e.event_date < today);
+  // Upcoming soonest first, then past most recent first (events arrive newest first).
+  const upcoming = useMemo(
+    () => events.filter((e) => e.eventDate >= today).reverse(),
+    [events, today],
+  );
+  const past = useMemo(
+    () => events.filter((e) => e.eventDate < today),
+    [events, today],
+  );
+  const rows = useMemo(() => [...upcoming, ...past], [upcoming, past]);
 
   const seriesEvents = useMemo(() => {
-    const g = dialog?.event?.recurrence_group;
+    const g = dialog?.event?.recurrenceGroup;
     if (!g) return dialog?.event ? [dialog.event] : [];
-    return events.filter((e) => e.recurrence_group === g);
+    return events.filter((e) => e.recurrenceGroup === g);
   }, [dialog, events]);
 
-  function deptName(id: number | null): string {
-    if (!id) return 'General';
-    return departments.find((d) => d.id === id)?.name_am ?? 'Unknown';
+  function deptFullName(id: number | null): string {
+    if (!id) return t('General');
+    const d = departments.find((x) => x.id === id);
+    if (!d) return deptShortLabel(id, locale);
+    return locale === 'am' ? d.nameAm : d.nameEn;
   }
-  const fmtTime = (t: string | null) => (t ? t.slice(0, 5) : '—');
 
-  const openCreate = (date?: string) => setDialog({ mode: 'create', event: null, date });
+  const openCreate = (date?: string) =>
+    setDialog({ mode: 'create', event: null, date });
   const openEdit = (event: EventRow) => setDialog({ mode: 'edit', event });
 
-  const titleBlock = (
-    <div>
-      <div className="font-ethiopic text-xs font-medium tracking-[0.06em] text-gold-deep dark:text-gold">
-        የስብሰባ ክትትል
-      </div>
-      <h1 className="mt-0.5 font-display text-[28px] font-medium leading-[1.05] text-burgundy-ink dark:text-cream md:text-[34px]">
-        Events &amp; attendance
-      </h1>
-      <p className="mt-1 text-xs text-muted-foreground md:text-sm">
-        Create events and manage attendance records
-      </p>
-    </div>
+  // Calendar data: coloured by department, recurring series marked.
+  const calEvents: CalEvent[] = useMemo(
+    () =>
+      events.map((e) => ({
+        id: e.id,
+        date: e.eventDate,
+        start: hhmm(e.startTime),
+        end: hhmm(e.endTime),
+        title: e.title,
+        color: deptColor(e.departmentId),
+        sub: deptShortLabel(e.departmentId, 'am'),
+        recur: !!e.recurrenceGroup,
+      })),
+    [events],
+  );
+  const legend: CalLegendItem[] = useMemo(() => {
+    const ids = [...new Set(events.map((e) => e.departmentId))].sort(
+      (a, b) => (a ?? 99) - (b ?? 99),
+    );
+    return ids.map((id) => ({
+      label: deptShortLabel(id, 'en'),
+      sub: deptShortLabel(id, 'am'),
+      color: deptColor(id),
+    }));
+  }, [events]);
+  const byId = useMemo(() => new Map(events.map((e) => [e.id, e])), [events]);
+
+  const dayMonth = (ymd: string) => ({
+    day: String(parseYmd(ymd).getDate()).padStart(2, '0'),
+    month: formatYmd(ymd, locale, { month: 'short' }),
+  });
+
+  const newEventBtn = (label: string) => (
+    <button
+      type="button"
+      onClick={() => openCreate()}
+      className={cn(primaryBtn, 'px-4 py-[9px] text-[13px]')}
+    >
+      <Plus className="h-3.5 w-3.5 text-gold" />
+      {label}
+    </button>
   );
 
-  const newEventBtn = (
-    <button
-      onClick={() => openCreate()}
-      className="sacred-gradient inline-flex items-center gap-1.5 rounded-xl border border-gold/40 px-4 py-2 text-xs font-semibold text-cream shadow-fy-md hover:opacity-95 md:text-sm"
-    >
-      <Plus className="h-4 w-4 text-gold" />
-      <span className="max-md:hidden">New event</span>
-      <span className="md:hidden">Event</span>
-    </button>
+  const empty = (
+    <p className="py-12 text-center text-sm text-ink-muted">
+      {t('No events yet. Create one to get started.')}
+    </p>
+  );
+
+  const calendar = (
+    <EventsCalendar
+      events={calEvents}
+      legend={legend}
+      legendNote={
+        <span className="inline-flex items-center gap-1 text-[10.5px] text-ink-muted">
+          <Repeat className="h-2.5 w-2.5 text-gold-deep" /> {t('recurring')}
+        </span>
+      }
+      onSelectEvent={(id) => {
+        const ev = byId.get(id);
+        if (ev) openEdit(ev);
+      }}
+      onCreateAt={openCreate}
+    />
   );
 
   return (
     <>
-      {/* ───────────── MOBILE frame ───────────── */}
-      <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:hidden">
-        <Link
-          href="/admin"
-          className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-gold-deep transition-colors hover:text-burgundy dark:text-gold dark:hover:text-gold-light"
-        >
-          <ArrowLeft className="h-3.5 w-3.5" />
-          Admin panel
-        </Link>
-
-        <div className="flex items-start justify-between gap-3">
-          {titleBlock}
-          {newEventBtn}
+      {/* ───────────── PHONE ───────────── */}
+      <div className="px-[18px] pb-6 pt-3.5 md:hidden">
+        <div className="mb-2.5">
+          <BackLink href="/admin">{t('Admin panel')}</BackLink>
+        </div>
+        <PageHead
+          en="Events & attendance"
+          am="የስብሰባ ክትትል"
+          className="mb-0 items-end [&_h1]:text-[26px]"
+          actions={newEventBtn(t('Event'))}
+        />
+        <div className="my-3.5">
+          <ViewToggle view={view} onChange={setView} variant="mobile" />
         </div>
 
-        <div className="mt-3">
-          <ViewToggle view={view} onChange={setView} full />
-        </div>
-
-        {/* Ornament rule */}
-        <div className="my-4 flex items-center gap-2.5">
-          <span className="h-px flex-1 bg-gradient-to-r from-transparent to-parchment-edge dark:to-ink-muted/40" />
-          <span className="flex items-center gap-1">
-            <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
-            <span className="h-1 w-1 rounded-full bg-gold" />
-            <span className="h-1 w-1 rounded-full bg-gold opacity-40" />
-          </span>
-          <span className="h-px flex-1 bg-gradient-to-l from-transparent to-parchment-edge dark:to-ink-muted/40" />
-        </div>
-
-        {view === 'list' &&
-          (events.length === 0 ? (
-            <p className="py-8 text-center text-sm text-muted-foreground">
-              No events yet. Create one to get started.
-            </p>
-          ) : (
-            <>
-              {upcoming.length > 0 && (
-                <>
-                  <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-                    Upcoming
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    {upcoming.map((event) => {
-                      const { day, month } = splitDate(event.event_date);
-                      return (
-                        <div
-                          key={event.id}
-                          className="relative flex items-center gap-2.5 rounded-xl border border-border bg-card px-3.5 py-3 pl-[18px]"
-                          style={{ borderLeftColor: deptColor(event.department_id), borderLeftWidth: 3 }}
-                        >
-                          <div className="w-11 shrink-0 border-r border-border pr-2.5 text-center">
-                            <div className="font-display text-lg font-medium leading-none tabular-nums text-burgundy dark:text-gold-light">
-                              {day}
-                            </div>
-                            <div className="mt-0.5 text-[8.5px] uppercase tracking-[0.16em] text-muted-foreground">
-                              {month}
-                            </div>
-                          </div>
-                          <Link href={`/admin/attendance/${event.id}`} className="min-w-0 flex-1">
-                            <div className="flex items-center gap-1.5">
-                              <span className="truncate font-display text-[17px] font-medium leading-tight text-burgundy-ink dark:text-cream">
-                                {event.title}
-                              </span>
-                              <RecurBadge recurrence={event.recurrence} />
-                            </div>
-                            <div className="mt-0.5 flex items-center gap-1.5">
-                              <span className="font-ethiopic text-[10px] text-gold-deep dark:text-gold">
-                                {deptName(event.department_id)}
-                              </span>
-                              {event.start_time && (
-                                <>
-                                  <span className="h-0.5 w-0.5 rounded-full bg-ink-faint" />
-                                  <span className="font-mono text-[10px] text-muted-foreground">
-                                    {fmtTime(event.start_time)}
-                                  </span>
-                                </>
-                              )}
-                            </div>
-                          </Link>
-                          <button
-                            type="button"
-                            onClick={() => openEdit(event)}
-                            className="rounded-md p-1 text-muted-foreground hover:bg-card hover:text-foreground"
-                            aria-label="Edit event"
-                          >
-                            <Pencil className="h-3.5 w-3.5" />
-                          </button>
-                          <Link
-                            href={`/admin/attendance/${event.id}`}
-                            className="text-ink-faint"
-                            aria-label="Open event"
-                          >
-                            <ChevronRight className="h-4 w-4" />
-                          </Link>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-
-              {past.length > 0 && (
-                <>
-                  <div className="mb-2 mt-5 text-[10px] font-semibold uppercase tracking-[0.18em] text-gold-deep dark:text-gold">
-                    Past
-                  </div>
-                  <div className="overflow-hidden rounded-xl border border-border bg-card">
-                    {past.map((event, i) => (
-                      <Link
+        {view === 'calendar' ? (
+          calendar
+        ) : events.length === 0 ? (
+          empty
+        ) : (
+          <>
+            {upcoming.length > 0 && (
+              <>
+                <ListLabel
+                  right={
+                    upcoming.length === 1
+                      ? t('1 event')
+                      : t('{n} events', { n: upcoming.length })
+                  }
+                >
+                  {t('Upcoming')}
+                </ListLabel>
+                <div className="flex flex-col gap-1.5">
+                  {upcoming.map((event) => {
+                    const { day, month } = dayMonth(event.eventDate);
+                    return (
+                      <div
                         key={event.id}
-                        href={`/admin/attendance/${event.id}`}
-                        className={`flex items-center gap-2.5 px-3.5 py-3 hover:bg-card/80 ${
-                          i < past.length - 1 ? 'border-b border-border' : ''
-                        }`}
+                        className="flex items-center gap-2.5 rounded-xl border border-parchment-edge bg-parchment-soft py-[11px] pl-[18px] pr-3"
                       >
-                        <div className="min-w-0 flex-1">
+                        <div className="w-10 shrink-0 border-r border-parchment-edge pr-2.5 text-center">
+                          <div className="font-display text-[17px] font-medium leading-none tabular-nums text-brand dark:text-gold-light">
+                            {day}
+                          </div>
+                          <div className="mt-0.5 text-[8px] uppercase tracking-[0.16em] text-ink-muted">
+                            {month}
+                          </div>
+                        </div>
+                        <Link
+                          href={`/admin/attendance/${event.id}`}
+                          className="min-w-0 flex-1"
+                        >
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate font-display text-[15px] font-medium leading-tight text-burgundy-ink dark:text-cream">
+                            <span className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
                               {event.title}
                             </span>
-                            <RecurBadge recurrence={event.recurrence} />
+                            {event.recurrenceGroup && (
+                              <Repeat className="h-[11px] w-[11px] shrink-0 text-gold" />
+                            )}
                           </div>
-                          <div className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                            {event.event_date}
+                          <div className="mt-0.5 flex items-center gap-[5px]">
+                            <span
+                              className={cn(
+                                'truncate text-[10px] text-gold-deep',
+                                locale === 'am' ? 'font-ethiopic' : 'font-body',
+                              )}
+                            >
+                              {deptShortLabel(event.departmentId, locale)}
+                            </span>
+                            {event.startTime && (
+                              <>
+                                <span className="h-0.5 w-0.5 shrink-0 rounded-full bg-ink-faint" />
+                                <span className="font-mono text-[10px] text-ink-muted">
+                                  {hhmm(event.startTime)}
+                                </span>
+                              </>
+                            )}
                           </div>
+                        </Link>
+                        <button
+                          type="button"
+                          onClick={() => openEdit(event)}
+                          className="rounded-md p-1.5 text-ink-faint hover:bg-parchment-deep hover:text-ink"
+                          aria-label={t('Edit event')}
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <Link
+                          href={`/admin/attendance/${event.id}`}
+                          className="text-ink-faint"
+                          aria-label={t('Open event')}
+                        >
+                          <ChevronRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            )}
+
+            {past.length > 0 && (
+              <>
+                <ListLabel className={upcoming.length > 0 ? 'mt-5' : undefined}>
+                  {t('Past')}
+                </ListLabel>
+                <div className="overflow-hidden rounded-xl border border-parchment-edge bg-parchment-soft">
+                  {past.map((event, i) => (
+                    <Link
+                      key={event.id}
+                      href={`/admin/attendance/${event.id}`}
+                      className={cn(
+                        'flex items-center gap-2.5 px-3.5 py-[11px] transition-colors hover:bg-parchment-deep/50',
+                        i < past.length - 1 && 'border-b border-parchment-edge',
+                      )}
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <span className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
+                            {event.title}
+                          </span>
+                          {event.recurrenceGroup && (
+                            <Repeat className="h-[11px] w-[11px] shrink-0 text-gold" />
+                          )}
                         </div>
-                        <span className="inline-flex items-center gap-1 rounded-md bg-gold/[0.14] px-2 py-1">
-                          <Users className="h-2.5 w-2.5 text-gold-deep dark:text-gold" />
-                          <span className="font-mono text-[11px] font-semibold text-gold-deep dark:text-gold">
-                            {attendanceCounts[event.id] ?? 0}
+                        <div className="mt-0.5 font-mono text-[10px] text-ink-muted">
+                          {formatYmd(event.eventDate, locale, {
+                            month: 'short',
+                            day: '2-digit',
+                          })}
+                        </div>
+                      </div>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-gold/[0.14] px-[9px] py-1 dark:bg-gold/10">
+                        <Users className="h-[11px] w-[11px] text-gold-deep" />
+                        <span className="font-mono text-[11px] font-semibold text-gold-deep">
+                          {attendanceCounts[event.id] ?? 0}
+                        </span>
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              </>
+            )}
+          </>
+        )}
+      </div>
+
+      {/* ───────────── DESKTOP ───────────── */}
+      <div className="hidden px-7 py-7 md:block">
+        <PageHead
+          en="Events & attendance"
+          am="የስብሰባ ክትትል"
+          sub="Create events and manage attendance records"
+          actions={
+            <>
+              <ViewToggle view={view} onChange={setView} variant="desktop" />
+              {newEventBtn(t('New event'))}
+            </>
+          }
+        />
+
+        {view === 'calendar' ? (
+          calendar
+        ) : (
+          <Card>
+            {events.length === 0 ? (
+              empty
+            ) : (
+              <>
+                <div
+                  className={cn(
+                    'grid gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]',
+                    COLS,
+                  )}
+                >
+                  {[
+                    t('Event'),
+                    t('Department'),
+                    t('Date'),
+                    t('Time'),
+                    t('Attendance'),
+                    '',
+                  ].map((h, i) => (
+                    <span
+                      key={i}
+                      className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
+                    >
+                      {h}
+                    </span>
+                  ))}
+                </div>
+                {rows.map((event) => {
+                  const isUpcoming = event.eventDate >= today;
+                  return (
+                    <div
+                      key={event.id}
+                      role="link"
+                      tabIndex={0}
+                      onClick={() =>
+                        router.push(`/admin/attendance/${event.id}`)
+                      }
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter')
+                          router.push(`/admin/attendance/${event.id}`);
+                      }}
+                      className={cn(
+                        'group grid cursor-pointer items-center gap-3 border-b border-parchment-edge px-1 py-3 transition-colors hover:bg-gold/[0.06]',
+                        COLS,
+                      )}
+                    >
+                      <div className="flex min-w-0 items-center gap-2 pl-3">
+                        <span className="truncate font-display text-base font-medium text-brand-ink">
+                          {event.title}
+                        </span>
+                        <RecurBadge recurrence={event.recurrence} />
+                      </div>
+                      <DeptChip
+                        label={deptShortLabel(event.departmentId, locale)}
+                        title={deptFullName(event.departmentId)}
+                      />
+                      <span className="font-mono text-[11px] text-ink">
+                        {formatYmd(event.eventDate, locale, {
+                          month: 'short',
+                          day: '2-digit',
+                        })}
+                      </span>
+                      <span className="font-mono text-[11px] text-ink-muted">
+                        {hhmm(event.startTime) || '—'}
+                      </span>
+                      {isUpcoming ? (
+                        <StatusPill tone="upcoming">{t('upcoming')}</StatusPill>
+                      ) : (
+                        <span className="font-mono text-[11.5px] text-ink">
+                          {attendanceCounts[event.id] ?? 0}{' '}
+                          <span className="font-body text-[10px] text-ink-faint">
+                            {t('present')}
                           </span>
                         </span>
-                      </Link>
-                    ))}
-                  </div>
-                </>
-              )}
-            </>
-          ))}
-      </div>
-
-      {/* ───────────── DESKTOP frame ───────────── */}
-      <div className="hidden md:block">
-        <div className="px-7 py-7">
-          <div className="flex items-end justify-between">
-            {titleBlock}
-            <div className="flex items-center gap-3">
-              <ViewToggle view={view} onChange={setView} />
-              {newEventBtn}
-            </div>
-          </div>
-
-          {view === 'list' && (
-            <div className="mt-6 grid grid-cols-3 gap-3">
-              {[
-                { am: 'ሳምንታዊ ትምህርት', en: 'Weekly Lesson', Icon: BookOpen, recur: 'Weekly' },
-                { am: 'ወርሃዊ ስብሰባ', en: 'Monthly Meeting', Icon: Users, recur: 'Monthly' },
-                { am: 'የሰንበት አገልግሎት', en: 'Sunday Service', Icon: Church, recur: 'Weekly' },
-              ].map((t) => (
-                <button
-                  key={t.en}
-                  type="button"
-                  onClick={() => openCreate()}
-                  className="flex items-center gap-3 rounded-[14px] border-[1.5px] border-dashed border-parchment-edge bg-card px-3.5 py-3 text-left transition-colors hover:bg-card/70 dark:border-ink-muted/40"
-                >
-                  <div className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-[10px] bg-burgundy/[0.08] dark:bg-gold/[0.12]">
-                    <t.Icon className="h-4 w-4 text-burgundy dark:text-gold" strokeWidth={1.75} />
-                  </div>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold text-burgundy-ink dark:text-cream">{t.en}</div>
-                    <div className="font-ethiopic text-[10.5px] text-gold-deep dark:text-gold">{t.am}</div>
-                  </div>
-                  <span className="inline-flex items-center gap-1 rounded-full bg-gold/[0.14] px-2 py-[3px] text-[9.5px] font-semibold text-gold-deep dark:text-gold">
-                    <Repeat className="h-[9px] w-[9px]" />
-                    {t.recur}
-                  </span>
-                </button>
-              ))}
-            </div>
-          )}
-
-          {view === 'list' && (
-            <div className="mt-4 overflow-hidden rounded-2xl border border-border bg-card shadow-fy-sm">
-              {events.length === 0 ? (
-                <p className="py-16 text-center text-sm text-muted-foreground">
-                  No events yet. Create one to get started.
-                </p>
-              ) : (
-                <table className="w-full border-collapse">
-                  <thead>
-                    <tr className="border-b border-border">
-                      <th className="px-5 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Event
-                      </th>
-                      <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Department
-                      </th>
-                      <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Date
-                      </th>
-                      <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Time
-                      </th>
-                      <th className="px-3 py-3 text-left text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
-                        Attendance
-                      </th>
-                      <th className="w-16 px-3 py-3" />
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {[...upcoming, ...past].map((event, i, arr) => {
-                      const isUpcoming = event.event_date >= today;
-                      return (
-                        <tr
-                          key={event.id}
-                          onClick={() => router.push(`/admin/attendance/${event.id}`)}
-                          className={`group cursor-pointer transition-colors hover:bg-parchment/40 dark:hover:bg-card/60 ${
-                            i < arr.length - 1 ? 'border-b border-border/60' : ''
-                          }`}
+                      )}
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openEdit(event);
+                          }}
+                          className="rounded-md p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-parchment-deep hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                          aria-label={t('Edit event')}
                         >
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className="h-6 w-1 shrink-0 rounded-full"
-                                style={{ background: deptColor(event.department_id) }}
-                              />
-                              <span className="font-display text-[15px] font-medium text-burgundy-ink dark:text-cream">
-                                {event.title}
-                              </span>
-                              <RecurBadge recurrence={event.recurrence} />
-                            </div>
-                          </td>
-                          <td className="px-3 py-3.5 font-ethiopic text-[13px] text-muted-foreground">
-                            {deptName(event.department_id)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3.5 font-mono text-[13px] text-foreground">
-                            {formatShortDate(event.event_date)}
-                          </td>
-                          <td className="whitespace-nowrap px-3 py-3.5 font-mono text-[13px] text-muted-foreground">
-                            {fmtTime(event.start_time)}
-                          </td>
-                          <td className="px-3 py-3.5">
-                            {isUpcoming ? (
-                              <span className="inline-flex items-center gap-1.5 text-[12px] text-gold-deep dark:text-gold">
-                                <span className="h-1.5 w-1.5 rounded-full bg-gold" />
-                                upcoming
-                              </span>
-                            ) : (
-                              <span className="text-[13px] text-foreground">
-                                <span className="font-mono font-semibold text-status-present">
-                                  {attendanceCounts[event.id] ?? 0}
-                                </span>{' '}
-                                <span className="text-muted-foreground">present</span>
-                              </span>
-                            )}
-                          </td>
-                          <td className="px-3 py-3.5">
-                            <div className="flex items-center justify-end gap-1">
-                              <button
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  openEdit(event);
-                                }}
-                                className="rounded-md p-1.5 text-muted-foreground opacity-0 transition-opacity hover:bg-background hover:text-foreground group-hover:opacity-100"
-                                aria-label="Edit event"
-                              >
-                                <Pencil className="h-3.5 w-3.5" />
-                              </button>
-                              <ChevronRight className="h-4 w-4 text-ink-faint" />
-                            </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              )}
-            </div>
-          )}
-        </div>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
+                      </div>
+                    </div>
+                  );
+                })}
+              </>
+            )}
+          </Card>
+        )}
       </div>
-
-      {/* ───────────── CALENDAR (self-responsive) ───────────── */}
-      {view === 'calendar' && (
-        <div className="mx-auto w-full px-[22px] pb-8 md:max-w-[1180px] md:px-8 md:pb-10">
-          <EventsCalendar events={events} onSelectEvent={openEdit} onCreateAt={openCreate} />
-        </div>
-      )}
 
       {/* ───────────── Create / Edit dialog ───────────── */}
       <EventFormDialog
@@ -457,7 +438,6 @@ export function EventsList({
         departments={departments}
         userRole={userRole}
         userDeptId={userDeptId}
-        userId={userId}
         seriesEvents={seriesEvents}
         attendedIds={attendedSet}
       />

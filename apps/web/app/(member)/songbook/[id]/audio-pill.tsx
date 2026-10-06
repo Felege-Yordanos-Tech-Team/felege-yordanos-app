@@ -2,8 +2,11 @@
 
 import { useRef, useState } from 'react';
 import { Pause, Play } from 'lucide-react';
+import { useT } from '@/lib/i18n/client';
 
+/** "Play recording" pill that plays the song's audio in place. */
 export function AudioPill({ src }: { src: string }) {
+  const t = useT();
   const ref = useRef<HTMLAudioElement | null>(null);
   const [playing, setPlaying] = useState(false);
 
@@ -24,14 +27,15 @@ export function AudioPill({ src }: { src: string }) {
       <button
         type="button"
         onClick={toggle}
-        className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-burgundy px-3 py-1.5 text-[11px] font-semibold text-cream shadow-fy-md transition-opacity hover:opacity-95"
+        aria-pressed={playing}
+        className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-brand px-3 py-1.5 text-[11px] font-semibold text-cream shadow-[0_4px_12px_-4px_rgba(10,60,54,0.4)] transition-opacity hover:opacity-95"
       >
         {playing ? (
-          <Pause className="h-2.5 w-2.5 text-gold" />
+          <Pause className="h-[11px] w-[11px] text-gold" />
         ) : (
-          <Play className="h-2.5 w-2.5 text-gold" />
+          <Play className="h-[11px] w-[11px] text-gold" />
         )}
-        {playing ? 'Pause' : 'Play recording'}
+        {playing ? t('Pause') : t('Play recording')}
       </button>
       <audio
         ref={ref}

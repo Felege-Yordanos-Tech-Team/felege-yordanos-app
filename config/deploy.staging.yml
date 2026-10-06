@@ -1,0 +1,35 @@
+# Staging: https://staging.felegeyordanos.org, deployed on every push to dev.
+# Behind Cloudflare (proxied, SSL mode "Full (strict)"); kamal-proxy serves
+# the Cloudflare origin certificate.
+
+proxy:
+  host: staging.felegeyordanos.org
+  ssl:
+    certificate_pem: CLOUDFLARE_ORIGIN_CERT
+    private_key_pem: CLOUDFLARE_ORIGIN_KEY
+
+env:
+  clear:
+    BETTER_AUTH_URL: https://staging.felegeyordanos.org
+    # No email provider yet: emails (password reset links) go to the app log.
+    EMAIL_TRANSPORT: console
+
+volumes:
+  - felege-staging-uploads:/data/uploads
+
+accessories:
+  # Container (and hostname on the kamal network): felege-db-staging.
+  # No published port: only containers on the server can reach it.
+  db-staging:
+    image: postgres:17
+    host: <%= ENV.fetch("DEPLOY_HOST") %>
+    env:
+      clear:
+        POSTGRES_USER: felege
+        POSTGRES_DB: felege
+      secret:
+        - POSTGRES_PASSWORD
+    volumes:
+      - felege-staging-pgdata:/var/lib/postgresql/data
+    options:
+      memory: 512m

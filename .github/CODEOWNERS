@@ -1,0 +1,14 @@
+# Changes to these paths need a review from a maintainer.
+# Everything else can be reviewed by any team member.
+# Security-sensitive code: authentication, sessions, permissions, file access
+/apps/web/lib/auth.ts           @leykun-gizaw
+/apps/web/lib/session.ts        @leykun-gizaw
+/apps/web/lib/permissions.ts    @leykun-gizaw
+/apps/web/lib/storage.ts        @leykun-gizaw
+/apps/web/proxy.ts              @leykun-gizaw
+/apps/web/app/api/              @leykun-gizaw
+# Database schema and migrations
+/libs/db/                       @leykun-gizaw
+# CI, deployment and repository settings
+/.github/                       @leykun-gizaw
+/docker-compose.yml             @leykun-gizaw

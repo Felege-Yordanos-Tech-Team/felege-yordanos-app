@@ -1,163 +1,40 @@
-# Database Schema & Migrations
+# Database
 
-## Overview
+PostgreSQL 17 with Drizzle ORM. Everything lives in `libs/db`:
 
-The app uses Supabase (PostgreSQL + Storage) with Row Level Security (RLS). SQL migrations are stored in `supabase/migrations/` and run manually via the Supabase SQL Editor.
+| Path | What |
+|---|---|
+| `src/schema/app.ts` | application tables (mirrors the original production schema) |
+| `src/schema/auth.ts` | Better Auth tables |
+| `src/server.ts` | server-only `db` client: `import { db } from '@felege-yordanos/db/server'` |
+| `migrations/` | generated SQL migrations (never edit applied ones) |
+| `scripts/seed.ts` | sample data and test logins |
 
-## Entity Relationship
+## Tables
 
-```mermaid
-erDiagram
-    AUTH_USERS["auth.users"] {
-        uuid id PK
-        text email
-    }
+| Table | Purpose |
+|---|---|
+| departments | the 9 departments (ids set explicitly) |
+| profiles | one per login: role, department, display name |
+| members, member_types, member_jobs, member_academic_education, member_spiritual_education | parish member register |
+| categories, songs | songbook |
+| events, attendance | events (incl. recurring series) and check-ins |
+| donations | donations; receipt file key in `receipt_url` |
+| auth_users, auth_sessions, auth_accounts, auth_verifications | Better Auth |
 
-    PROFILES["profiles"] {
-        uuid id PK "FK → auth.users"
-        text display_name
-        text role "member|dept_head|admin|super_admin"
-        bigint department_id "FK → departments"
-    }
+`members.auth_user_id` links a login to a member record (set by the `/claim` flow).
 
-    MEMBERS["members"] {
-        bigint id PK
-        text member_id UK "e.g. ssu/01/03/05/0578"
-        text name
-        text father_name
-        uuid auth_user_id UK "FK → auth.users"
-        text status "Active|Inactive"
-    }
+## Workflow
 
-    DEPARTMENTS["departments"] {
-        serial id PK
-        text name_am
-        text name_en
-    }
-
-    CATEGORIES["categories"] {
-        uuid id PK
-        text name UK
-        text emoji
-    }
-
-    SONGS["songs"] {
-        uuid id PK
-        integer number UK
-        text title
-        text category "FK → categories.name"
-        text lyrics
-    }
-
-    EVENTS["events"] {
-        uuid id PK
-        text title
-        text description
-        date event_date
-        time start_time
-        time end_time
-        bigint department_id "FK → departments"
-        uuid created_by "FK → profiles"
-    }
-
-    ATTENDANCE["attendance"] {
-        uuid id PK
-        uuid event_id "FK → events"
-        bigint member_id "FK → members"
-        text status "present|absent|late"
-        uuid marked_by "FK → profiles"
-    }
-
-    DONATIONS["donations"] {
-        uuid id PK
-        uuid donor_id "FK → profiles"
-        decimal amount
-        text payment_method
-        text receipt_url "Storage path"
-        text status "pending|verified|rejected"
-        text rejection_reason
-        uuid verified_by "FK → profiles"
-    }
-
-    AUTH_USERS ||--|| PROFILES : "trigger creates"
-    AUTH_USERS ||--o| MEMBERS : "linked via claim"
-    DEPARTMENTS ||--o{ PROFILES : "department_id"
-    DEPARTMENTS ||--o{ EVENTS : "department_id"
-    CATEGORIES ||--o{ SONGS : "category"
-    EVENTS ||--o{ ATTENDANCE : "event_id"
-    MEMBERS ||--o{ ATTENDANCE : "member_id"
-    PROFILES ||--o{ DONATIONS : "donor_id"
-    PROFILES ||--o{ EVENTS : "created_by"
+```bash
+pnpm db:setup        # start Postgres (Docker), migrate, seed
+# edit libs/db/src/schema/*.ts
+pnpm db:generate     # creates libs/db/migrations/NNNN_name.sql; commit it
+pnpm db:migrate      # apply
+pnpm db:studio       # browse data
+docker compose down -v && pnpm db:setup   # wipe and start over
 ```
 
-## Migrations
+## Files
 
-### 001_create_profile_trigger.sql
-- Creates `profiles` table with role CHECK constraint
-- `handle_new_user()` trigger: auto-creates profile on signup with `role='member'`
-
-### 002_profiles_rls.sql
-- `get_my_role()` SECURITY DEFINER helper (prevents RLS recursion)
-- SELECT: own profile + admins read all
-- UPDATE: own profile + super_admin update any
-
-### 003_seed_songs.sql
-- Creates `categories` table (name, emoji, color, sort_order)
-- Creates `songs` table (number, title, title_en, category FK, lyrics)
-- Seeds 3 categories (ምስጋና, ዝማሬ, ተስፋ) and 5 sample songs
-
-### 004_songs_rls.sql
-- SELECT: authenticated users on both tables
-- INSERT/UPDATE/DELETE on songs: admin/super_admin only
-
-### 004b_member_auth_link.sql
-- Adds `auth_user_id` column to `members` table
-- SELECT: all authenticated users can read members
-- UPDATE: users can claim unclaimed records, admins update any
-
-### 005_departments.sql
-- Creates `departments` table, seeds 9 SS departments
-- FK from profiles.department_id to departments.id
-- SELECT: authenticated users; manage: super_admin only
-
-### 006_attendance_tables.sql
-- Creates `events` table (title, description, date, start_time, end_time, department_id, created_by)
-- Creates `attendance` table (event_id, member_id, status, marked_by, unique constraint)
-- Indexes for fast lookups
-
-### 007_attendance_rls.sql
-- Events SELECT: all authenticated users
-- Events INSERT: dept_head (own dept) + admin/super_admin
-- Events UPDATE/DELETE: creator + admin/super_admin
-- Attendance SELECT: own records + dept_head/admin/super_admin
-- Attendance INSERT/UPDATE: dept_head (own dept events) + admin/super_admin
-
-### 008_donations_table.sql
-- Creates `donations` table (donor_id, amount, currency, payment_method, receipt_url, status, rejection_reason, verified_by/at)
-- Indexes on donor_id and status
-
-### 008b_storage_policies.sql
-- Storage bucket: `receipts` (private, 5MB, JPEG/PNG/PDF)
-- Upload: users to own folder (`receipts/[uid]/*`)
-- Read: own receipts + admin/super_admin + Budget dept head (dept 9)
-
-### 009_donations_rls.sql
-- SELECT: own donations + admin/super_admin + Budget dept head
-- INSERT: authenticated users (own donor_id)
-- UPDATE: admin/super_admin + Budget dept head (for verify/reject)
-
-## Helper Functions
-
-### get_my_role() (SQL)
-SECURITY DEFINER function that reads the current user's role bypassing RLS. Used by all policies that check role to prevent infinite recursion.
-
-### getLinkedMember() (TypeScript)
-`libs/db/src/members.ts` — queries `members WHERE auth_user_id = authUserId`. Used by dashboard, profile, attendance history.
-
-## Supabase Storage
-
-| Bucket | Access | Types | Max Size |
-|--------|--------|-------|----------|
-| `receipts` | Private | JPEG, PNG, PDF | 5MB |
-
-Files stored at `receipts/[user-id]/[timestamp].[ext]`. Signed URLs generated for admin viewing (300s expiry).
+Receipts are stored on disk under `UPLOAD_DIR` (default `apps/web/.data/uploads`, git-ignored) and served by `app/api/receipts/[...key]` after a permission check. On the server this folder is a Docker volume that must be included in backups.

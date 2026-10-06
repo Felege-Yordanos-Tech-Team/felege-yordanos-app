@@ -3,97 +3,88 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import type { Database } from '@felege-yordanos/db';
+import type {
+  categories as categoriesTable,
+  songs as songsTable,
+} from '@felege-yordanos/db/schema';
+import { Chip } from '@/components/ds';
+import { useT } from '@/lib/i18n/client';
+import { cn } from '@/lib/utils';
+import {
+  categoryDotMap,
+  hasEthiopic,
+  matchesSongSearch,
+  songNumber,
+} from '@/lib/category-color';
 
-type Song = Database['public']['Tables']['songs']['Row'];
-type Category = Database['public']['Tables']['categories']['Row'];
+type Song = typeof songsTable.$inferSelect;
+type Category = typeof categoriesTable.$inferSelect;
 
 interface SongListProps {
   songs: Song[];
   categories: Category[];
 }
 
-const FALLBACK_DOTS = ['#D4A843', '#6B1D2A', '#8B2F3F', '#4F7B3E', '#C97B1A', '#A47A18'];
-
+/** Phone songbook: search, category pills, song cards. */
 export function SongList({ songs, categories }: SongListProps) {
+  const t = useT();
   const [search, setSearch] = useState('');
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
 
-  const colorByCategory = useMemo(() => {
-    const map = new Map<string, string>();
-    categories.forEach((cat, i) => {
-      map.set(cat.name, cat.color || FALLBACK_DOTS[i % FALLBACK_DOTS.length]);
-    });
-    return map;
-  }, [categories]);
+  const dots = useMemo(() => categoryDotMap(categories), [categories]);
 
-  const filtered = songs.filter((song) => {
-    const matchesSearch =
-      !search ||
-      song.title.toLowerCase().includes(search.toLowerCase()) ||
-      song.title_en?.toLowerCase().includes(search.toLowerCase()) ||
-      song.number.toString() === search;
-
-    const matchesCategory =
-      !activeCategory || song.category === activeCategory;
-
-    return matchesSearch && matchesCategory;
-  });
+  const filtered = songs.filter(
+    (song) =>
+      matchesSongSearch(song, search) &&
+      (!activeCategory || song.category === activeCategory),
+  );
 
   return (
-    <div className="space-y-3.5">
+    <div>
       {/* Search */}
-      <div className="relative">
+      <div className="relative mb-3.5">
         <Search className="pointer-events-none absolute left-3.5 top-1/2 h-[15px] w-[15px] -translate-y-1/2 text-ink-faint" />
-        <Input
-          placeholder="Search by title, number, or lyrics…"
+        <input
+          type="text"
+          aria-label={t('Search songs')}
+          placeholder={t('Search by title, number, or lyrics…')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="rounded-xl border border-border bg-card py-[11px] pl-[38px] pr-3.5 text-[13px] text-foreground placeholder:text-ink-faint shadow-[inset_0_1px_2px_rgba(74,14,24,0.04)] focus-visible:ring-2 focus-visible:ring-gold/30"
+          className="w-full rounded-xl border border-parchment-edge bg-parchment-soft py-[11px] pl-[38px] pr-3.5 text-[13px] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.04)] outline-none placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30 dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
         />
       </div>
 
       {/* Category pills */}
-      <div className="flex gap-1.5 overflow-x-auto pb-0.5">
-        <button
-          type="button"
+      <div className="-mx-[22px] mb-4 flex gap-1.5 overflow-x-auto px-[22px] pb-0.5">
+        <Chip
+          active={activeCategory === null}
           onClick={() => setActiveCategory(null)}
-          className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11.5px] transition-colors ${
-            activeCategory === null
-              ? 'border-transparent bg-burgundy font-semibold text-cream'
-              : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-          }`}
+          amharic={hasEthiopic(t('All'))}
+          className="px-3.5 py-1.5 text-[11.5px]"
         >
-          All
-        </button>
+          {t('All')}
+        </Chip>
         {categories.map((cat) => {
           const active = activeCategory === cat.name;
           return (
-            <button
+            <Chip
               key={cat.id}
-              type="button"
+              active={active}
+              dot={dots.get(cat.name)}
+              amharic={hasEthiopic(cat.name)}
               onClick={() => setActiveCategory(active ? null : cat.name)}
-              className={`shrink-0 rounded-full px-3.5 py-1.5 text-[11.5px] transition-colors ${
-                active
-                  ? 'border-transparent bg-burgundy font-semibold text-cream'
-                  : 'border border-border bg-card font-medium text-foreground hover:bg-card/80'
-              } flex items-center gap-1.5`}
+              className="px-3.5 py-1.5 text-[11.5px]"
             >
-              <span
-                className="h-1.5 w-1.5 rounded-full"
-                style={{ background: colorByCategory.get(cat.name) ?? '#D4A843' }}
-              />
               {cat.name}
-            </button>
+            </Chip>
           );
         })}
       </div>
 
-      {/* Song list */}
+      {/* Songs */}
       {filtered.length === 0 ? (
-        <p className="py-12 text-center text-sm text-muted-foreground">
-          No songs found
+        <p className="py-12 text-center text-sm text-ink-muted">
+          {t('No songs found')}
         </p>
       ) : (
         <div className="flex flex-col gap-1.5">
@@ -101,24 +92,29 @@ export function SongList({ songs, categories }: SongListProps) {
             <Link
               key={song.id}
               href={`/songbook/${song.id}`}
-              className="gold-accent-l relative flex items-center gap-3 rounded-xl border border-border bg-card px-3.5 py-3 pl-4 transition-colors hover:bg-card/80"
+              className="flex items-center gap-3 rounded-xl border border-parchment-edge bg-parchment-soft py-[11px] pl-3 pr-3.5 transition-colors hover:bg-parchment-deep"
             >
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-border bg-gradient-to-br from-parchment-soft to-parchment-deep dark:from-[#2D1B0E] dark:to-[#1A0F08]">
-                <span className="font-display text-[18px] font-semibold tabular-nums text-burgundy dark:text-gold">
-                  {String(song.number).padStart(2, '0')}
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-[10px] border border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep">
+                <span className="font-display text-[18px] font-semibold tabular-nums text-brand dark:text-gold">
+                  {songNumber(song.number)}
                 </span>
               </div>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-ethiopic text-[16px] font-semibold leading-tight text-burgundy-ink dark:text-cream">
+                <div className="truncate font-ethiopic text-base font-semibold leading-[1.15] text-brand-ink">
                   {song.title}
                 </div>
-                {song.title_en && (
-                  <div className="font-display text-[12.5px] italic text-muted-foreground">
-                    {song.title_en}
+                {song.titleEn && (
+                  <div className="truncate font-display text-[12.5px] italic text-ink-muted">
+                    {song.titleEn}
                   </div>
                 )}
               </div>
-              <span className="shrink-0 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-gold-deep dark:text-gold">
+              <span
+                className={cn(
+                  'shrink-0 text-[9.5px] font-semibold uppercase tracking-[0.12em] text-gold-deep',
+                  hasEthiopic(song.category) && 'font-ethiopic',
+                )}
+              >
                 {song.category}
               </span>
             </Link>

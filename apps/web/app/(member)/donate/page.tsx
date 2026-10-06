@@ -1,28 +1,32 @@
-import { cookies } from 'next/headers';
-import { createServerComponentClient } from '@felege-yordanos/db';
-import type { Database } from '@felege-yordanos/db';
-import { DonateForm } from './donate-form';
-
-type Donation = Database['public']['Tables']['donations']['Row'];
+import { desc, eq } from 'drizzle-orm';
+import { db, donations } from '@felege-yordanos/db/server';
+import { requireLinkedMember } from '@/lib/session';
+import { DonateForm, type DonationRow } from './donate-form';
 
 export default async function DonatePage() {
-  const cookieStore = await cookies();
-  const supabase = createServerComponentClient(cookieStore);
+  const user = await requireLinkedMember();
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // Members only ever see their own donations.
+  const rows = await db
+    .select({
+      id: donations.id,
+      amount: donations.amount,
+      currency: donations.currency,
+      paymentMethod: donations.paymentMethod,
+      status: donations.status,
+      rejectionReason: donations.rejectionReason,
+      createdAt: donations.createdAt,
+      notes: donations.notes,
+    })
+    .from(donations)
+    .where(eq(donations.donorId, user.id))
+    .orderBy(desc(donations.createdAt));
 
-  const { data: donations } = await supabase
-    .from('donations')
-    .select('*')
-    .eq('donor_id', user?.id ?? '')
-    .order('created_at', { ascending: false });
+  const pastDonations: DonationRow[] = rows.map((d) => ({
+    ...d,
+    currency: d.currency ?? 'ETB',
+    createdAt: d.createdAt?.toISOString() ?? '',
+  }));
 
-  return (
-    <DonateForm
-      userId={user?.id ?? ''}
-      pastDonations={(donations as Donation[]) ?? []}
-    />
-  );
+  return <DonateForm pastDonations={pastDonations} />;
 }

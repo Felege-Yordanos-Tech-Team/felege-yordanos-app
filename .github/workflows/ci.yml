@@ -1,0 +1,347 @@
+name: CI
+
+# Runs on every pull request into dev or main, and on every push to dev or main.
+# A PR can only be merged when the check job passes.
+# A push to dev publishes the image and deploys it to staging; a push to main
+# publishes it and deploys it to production.
+on:
+  pull_request:
+    branches: [dev, main]
+  push:
+    branches: [dev, main]
+  # Manual re-run of a branch pipeline (redeploys staging from dev, production
+  # from main).
+  workflow_dispatch:
+
+# A newer push to a PR cancels the older run. Runs on dev and main are never
+# cancelled, so a deploy is never interrupted halfway.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  check:
+    name: Lint, typecheck, migrations, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write # publish the image to GitHub Container Registry (push to dev or main only)
+
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: felege
+          POSTGRES_PASSWORD: felege
+          POSTGRES_DB: felege
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U felege -d felege"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://felege:felege@localhost:5432/felege
+      # CI-only values. Real secrets never go in this file.
+      BETTER_AUTH_SECRET: ci-only-secret-not-used-anywhere-else-000000
+      BETTER_AUTH_URL: http://localhost:3000
+      NX_NO_CLOUD: true
+      IMAGE: ghcr.io/felege-yordanos-tech-team/felege-yordanos-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Check schema changes have a migration
+        # Fails when someone edited libs/db/src/schema but forgot `pnpm db:generate`.
+        run: |
+          pnpm db:generate
+          if [ -n "$(git status --porcelain libs/db/migrations)" ]; then
+            echo "::error::The database schema changed but no migration was committed. Run 'pnpm db:generate' and commit the new file in libs/db/migrations."
+            git status --porcelain libs/db/migrations
+            exit 1
+          fi
+
+      - name: Seed database
+        run: pnpm db:seed
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Build
+        run: pnpm build
+
+      # Docker image: package the build above (no second install or build).
+      # See apps/web/Dockerfile, target "prebuilt".
+      - name: Build Docker image
+        run: |
+          sh apps/web/scripts/assemble-image.sh "$RUNNER_TEMP/image"
+          # Never ship env files or private keys.
+          sh apps/web/scripts/scan-image-files.sh "$RUNNER_TEMP/image"
+          # "service=felege" is required by Kamal (config/deploy.yml: service).
+          docker build -f apps/web/Dockerfile --target prebuilt \
+            --build-context prebuilt-files="$RUNNER_TEMP/image" \
+            --label service=felege \
+            --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
+            --label org.opencontainers.image.revision=${{ github.sha }} \
+            -t felege-web:ci .
+          docker images felege-web:ci --format 'Image size: {{.Size}}'
+
+      - name: Smoke test image (migrations, health check, sign-in)
+        run: |
+          docker run --rm --network host -e DATABASE_URL felege-web:ci node db/scripts/migrate.mjs
+          docker run -d --name web --network host \
+            -e DATABASE_URL -e BETTER_AUTH_SECRET -e BETTER_AUTH_URL -e EMAIL_TRANSPORT=console \
+            felege-web:ci
+          for _ in $(seq 1 30); do
+            curl -fsS http://localhost:3000/up && break
+            sleep 1
+          done
+          curl -fsS http://localhost:3000/up
+          curl -fsS -o /dev/null http://localhost:3000/login
+          # Seeded test login (see libs/db/scripts/seed.ts).
+          curl -fsS -o /dev/null -X POST http://localhost:3000/api/auth/sign-in/email \
+            -H 'Origin: http://localhost:3000' -H 'Content-Type: application/json' \
+            -d '{"email":"admin@felege.test","password":"password123"}'
+          echo "Smoke test passed."
+
+      - name: Container logs
+        if: failure()
+        run: docker logs web || true
+
+      - name: Publish image to GitHub Container Registry
+        # Only on dev or main (merge or manual run). Tags: the commit sha and
+        # the branch name ("dev" or "main").
+        if: (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && github.event_name != 'pull_request'
+        env:
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GHCR_TOKEN" | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+          for tag in "$IMAGE:${GITHUB_SHA}" "$IMAGE:${GITHUB_REF_NAME}"; do
+            docker tag felege-web:ci "$tag"
+            docker push "$tag"
+          done
+
+  # Validates the Kamal config on every PR, with placeholder values.
+  kamal-config:
+    name: Kamal config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: 192.0.2.10 # documentation IP, never contacted
+      KAMAL_REGISTRY_USERNAME: ci
+      KAMAL_REGISTRY_PASSWORD: ci
+      STAGING_POSTGRES_PASSWORD: ci
+      STAGING_BETTER_AUTH_SECRET: ci
+      PRODUCTION_POSTGRES_PASSWORD: ci
+      PRODUCTION_BETTER_AUTH_SECRET: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install Kamal
+        run: gem install kamal -v 2.12.0 --no-document
+      - name: Validate config/deploy.yml + deploy.staging.yml + deploy.production.yml
+        run: |
+          printf 'placeholder\n' > "$RUNNER_TEMP/cert.pem"
+          printf 'placeholder\n' > "$RUNNER_TEMP/key.pem"
+          export CLOUDFLARE_ORIGIN_CERT_FILE="$RUNNER_TEMP/cert.pem" CLOUDFLARE_ORIGIN_KEY_FILE="$RUNNER_TEMP/key.pem"
+          for destination in staging production; do
+            kamal config -d "$destination" > /dev/null
+            echo "Kamal config ($destination) is valid."
+          done
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: check
+    if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Secrets live in the GitHub environment "staging" (Settings > Environments).
+    environment:
+      name: staging
+      url: https://staging.felegeyordanos.org
+    # One staging deploy at a time; a newer push waits instead of cancelling.
+    # (Kamal locks per destination, so staging and production never block
+    # each other.)
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # the server pulls the private image with this job's token
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+      STAGING_BETTER_AUTH_SECRET: ${{ secrets.STAGING_BETTER_AUTH_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Kamal
+        run: gem install kamal -v 2.12.0 --no-document
+
+      - name: SSH key and known host
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Cloudflare origin certificate
+        env:
+          CLOUDFLARE_ORIGIN_CERT: ${{ secrets.CLOUDFLARE_ORIGIN_CERT }}
+          CLOUDFLARE_ORIGIN_KEY: ${{ secrets.CLOUDFLARE_ORIGIN_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_CERT" > "$RUNNER_TEMP/origin-cert.pem"
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_KEY" > "$RUNNER_TEMP/origin-key.pem"
+          # A truncated secret gives Cloudflare error 525; fail here instead.
+          cert="$RUNNER_TEMP/origin-cert.pem" key="$RUNNER_TEMP/origin-key.pem"
+          if ! grep -q -- '-----BEGIN CERTIFICATE-----' "$cert" || ! grep -q -- '-----END CERTIFICATE-----' "$cert"; then
+            echo "::error::CLOUDFLARE_ORIGIN_CERT is not a complete PEM certificate."
+            exit 1
+          fi
+          if ! grep -Eq -- '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----' "$key" || ! grep -Eq -- '-----END ([A-Z]+ )?PRIVATE KEY-----' "$key"; then
+            echo "::error::CLOUDFLARE_ORIGIN_KEY is not a complete PEM private key."
+            exit 1
+          fi
+          echo "CLOUDFLARE_ORIGIN_CERT_FILE=$RUNNER_TEMP/origin-cert.pem" >> "$GITHUB_ENV"
+          echo "CLOUDFLARE_ORIGIN_KEY_FILE=$RUNNER_TEMP/origin-key.pem" >> "$GITHUB_ENV"
+
+      - name: Deploy (first run sets up the database and proxy)
+        run: |
+          if ssh deploy@"$DEPLOY_HOST" "docker ps -a --format '{{.Names}}'" | grep -qx felege-db-staging; then
+            kamal deploy -d staging --skip-push --version "$GITHUB_SHA"
+          else
+            echo "First deploy: running kamal setup."
+            kamal setup -d staging --skip-push --version "$GITHUB_SHA"
+          fi
+
+      - name: Check https://staging.felegeyordanos.org/up
+        run: |
+          for _ in $(seq 1 10); do
+            curl -fsS https://staging.felegeyordanos.org/up && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Remove certificate files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/origin-cert.pem" "$RUNNER_TEMP/origin-key.pem"
+
+  deploy-production:
+    name: Deploy to production
+    needs: check
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Secrets live in the GitHub environment "production" (Settings >
+    # Environments), which only the main branch can use.
+    environment:
+      name: production
+      url: https://app.felegeyordanos.org
+    # One production deploy at a time; a newer push waits instead of cancelling.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # the server pulls the private image with this job's token
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      PRODUCTION_POSTGRES_PASSWORD: ${{ secrets.PRODUCTION_POSTGRES_PASSWORD }}
+      PRODUCTION_BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Kamal
+        run: gem install kamal -v 2.12.0 --no-document
+
+      - name: SSH key and known host
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Cloudflare origin certificate
+        env:
+          CLOUDFLARE_ORIGIN_CERT: ${{ secrets.CLOUDFLARE_ORIGIN_CERT }}
+          CLOUDFLARE_ORIGIN_KEY: ${{ secrets.CLOUDFLARE_ORIGIN_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_CERT" > "$RUNNER_TEMP/origin-cert.pem"
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_KEY" > "$RUNNER_TEMP/origin-key.pem"
+          # A truncated secret gives Cloudflare error 525; fail here instead.
+          cert="$RUNNER_TEMP/origin-cert.pem" key="$RUNNER_TEMP/origin-key.pem"
+          if ! grep -q -- '-----BEGIN CERTIFICATE-----' "$cert" || ! grep -q -- '-----END CERTIFICATE-----' "$cert"; then
+            echo "::error::CLOUDFLARE_ORIGIN_CERT is not a complete PEM certificate."
+            exit 1
+          fi
+          if ! grep -Eq -- '-----BEGIN ([A-Z]+ )?PRIVATE KEY-----' "$key" || ! grep -Eq -- '-----END ([A-Z]+ )?PRIVATE KEY-----' "$key"; then
+            echo "::error::CLOUDFLARE_ORIGIN_KEY is not a complete PEM private key."
+            exit 1
+          fi
+          echo "CLOUDFLARE_ORIGIN_CERT_FILE=$RUNNER_TEMP/origin-cert.pem" >> "$GITHUB_ENV"
+          echo "CLOUDFLARE_ORIGIN_KEY_FILE=$RUNNER_TEMP/origin-key.pem" >> "$GITHUB_ENV"
+
+      - name: Deploy (first run sets up the database)
+        run: |
+          if ssh deploy@"$DEPLOY_HOST" "docker ps -a --format '{{.Names}}'" | grep -qx felege-db-production; then
+            kamal deploy -d production --skip-push --version "$GITHUB_SHA"
+          else
+            echo "First deploy: running kamal setup."
+            kamal setup -d production --skip-push --version "$GITHUB_SHA"
+          fi
+
+      - name: Check https://app.felegeyordanos.org/up
+        run: |
+          for _ in $(seq 1 10); do
+            curl -fsS https://app.felegeyordanos.org/up && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Remove certificate files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/origin-cert.pem" "$RUNNER_TEMP/origin-key.pem"

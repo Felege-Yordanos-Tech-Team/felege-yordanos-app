@@ -1,0 +1,55 @@
+# Kamal deploy config for the Felege Yordanos app (https://kamal-deploy.org).
+#
+# Shared settings for every destination. Per-destination settings:
+#   config/deploy.staging.yml     staging.felegeyordanos.org (from the dev branch)
+#   config/deploy.production.yml  app.felegeyordanos.org (from the main branch)
+#
+# Deploys run from GitHub Actions (.github/workflows/ci.yml, jobs "Deploy to
+# staging" and "Deploy to production"). CI builds and publishes the image;
+# Kamal only deploys it (--skip-push --version <commit sha>). The server
+# address and all secrets come from the GitHub environment. Nothing secret
+# belongs in this file.
+service: felege
+image: felege-yordanos-tech-team/felege-yordanos-app
+
+registry:
+  server: ghcr.io
+  username: <%= ENV.fetch("KAMAL_REGISTRY_USERNAME") %>
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+# Required by Kamal. Images are built in CI, not by Kamal.
+builder:
+  arch: amd64
+
+ssh:
+  user: deploy
+
+servers:
+  web:
+    hosts:
+      - <%= ENV.fetch("DEPLOY_HOST") %>
+    # Wait for the database, apply pending migrations, then start the server.
+    # If a migration fails, the new container never passes the health check
+    # and the previous version keeps serving traffic.
+    cmd: sh -c "node db/scripts/migrate.mjs && exec node apps/web/server.js"
+
+proxy:
+  app_port: 3000
+  # Cloudflare and kamal-proxy add X-Forwarded-For / -Proto; the app needs
+  # them for client IPs (sign-in rate limiting) and https detection.
+  forward_headers: true
+  healthcheck:
+    path: /up
+    interval: 3
+    timeout: 3
+
+env:
+  clear:
+    UPLOAD_DIR: /data/uploads
+  secret:
+    - DATABASE_URL
+    - BETTER_AUTH_SECRET
+
+# Seconds a new version may take to pass /up (includes migrations).
+deploy_timeout: 60

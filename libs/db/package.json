@@ -11,7 +11,30 @@
       "import": "./src/index.ts",
       "default": "./src/index.ts"
     },
+    "./server": {
+      "types": "./src/server.ts",
+      "import": "./src/server.ts",
+      "default": "./src/server.ts"
+    },
+    "./schema": {
+      "types": "./src/schema/index.ts",
+      "import": "./src/schema/index.ts",
+      "default": "./src/schema/index.ts"
+    },
     "./package.json": "./package.json"
   },
-  "dependencies": {}
+  "dependencies": {
+    "drizzle-orm": "0.45.3",
+    "postgres": "3.4.9",
+    "server-only": "0.0.1"
+  },
+  "scripts": {
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx scripts/seed.ts"
+  },
+  "devDependencies": {
+    "better-auth": "1.7.7"
+  }
 }

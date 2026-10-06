@@ -10,7 +10,7 @@ import {
   Shield,
   User,
 } from 'lucide-react';
-import type { UserRole } from '@felege-yordanos/db';
+import type { Role as UserRole } from '@felege-yordanos/db';
 
 const memberLinks = [
   { href: '/dashboard', icon: Home, label: 'Home' },
@@ -35,7 +35,7 @@ export function BottomNav({ role }: BottomNavProps) {
     : [...memberLinks, profileLink];
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#601924] shadow-[0_-2px_12px_rgba(0,0,0,0.15)]">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-brand shadow-[0_-2px_12px_rgba(0,0,0,0.15)]">
       <div className="mx-auto flex max-w-md justify-around">
         {links.map((link) => {
           const Icon = link.icon;
@@ -53,8 +53,8 @@ export function BottomNav({ role }: BottomNavProps) {
               prefetch
               className={`flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-label transition-colors ${
                 isActive
-                  ? 'text-[#fed65b]'
-                  : 'text-[#fef9ea]/50 hover:text-[#fef9ea]/70'
+                  ? 'text-gold-light'
+                  : 'text-cream/50 hover:text-cream/70'
               }`}
             >
               <Icon className="h-5 w-5" />

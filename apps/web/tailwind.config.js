@@ -17,13 +17,13 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        headline: ['Cormorant Garamond', 'Noto Serif Ethiopic', 'serif'],
-        body: ['Inter', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
-        sans: ['Inter', 'Noto Sans Ethiopic', 'system-ui', 'sans-serif'],
-        display: ['Cormorant Garamond', 'Noto Serif Ethiopic', 'serif'],
-        label: ['Inter', 'system-ui', 'sans-serif'],
-        ethiopic: ['Noto Serif Ethiopic', 'Noto Sans Ethiopic', 'serif'],
-        mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+        headline: ['var(--font-display)'],
+        display: ['var(--font-display)'],
+        body: ['var(--font-body)'],
+        sans: ['var(--font-body)'],
+        label: ['var(--font-body)'],
+        ethiopic: ['var(--font-ethiopic)'],
+        mono: ['var(--font-mono)'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -66,46 +66,45 @@ module.exports = {
         'surface-container-high': 'hsl(var(--surface-container-high))',
         'outline-variant': 'hsl(var(--outline-variant))',
 
-        /* Ethiopian Orthodox palette — direct refs for hand-tuned screens */
-        burgundy: {
-          DEFAULT: '#6B1D2A',
-          soft: '#8B2F3F',
-          deep: '#4A0E18',
-          ink: '#2C0810',
-          legacy: '#601924', /* the previous header burgundy — still in use */
+        /* Design-system palette. Values live in global.css as
+           CSS variables so dark mode can switch them. */
+        brand: {
+          DEFAULT: 'rgb(var(--fy-brand) / <alpha-value>)',
+          soft: 'rgb(var(--fy-brand-soft) / <alpha-value>)',
+          mid: 'rgb(var(--fy-brand-mid) / <alpha-value>)',
+          deep: 'rgb(var(--fy-brand-deep) / <alpha-value>)',
+          ink: 'rgb(var(--fy-brand-ink) / <alpha-value>)', /* strongest text: teal-black, gold-cream in dark mode */
         },
         gold: {
-          DEFAULT: '#D4A843',
-          deep: '#A47A18', /* AAA contrast on parchment */
-          light: '#E8C77B',
-          faint: '#F4E2A5',
-          legacy: '#735c00', /* the previous gold — still in use */
-          bright: '#fed65b', /* previous accent — still in use */
+          DEFAULT: 'rgb(var(--fy-gold) / <alpha-value>)',
+          deep: 'rgb(var(--fy-gold-deep) / <alpha-value>)', /* gold used as text */
+          light: 'rgb(var(--fy-gold-light) / <alpha-value>)',
+          faint: 'rgb(var(--fy-gold-faint) / <alpha-value>)',
         },
         parchment: {
-          DEFAULT: '#F7EEDA',
-          soft: '#FBF6E4',
-          deep: '#EFE2BE',
-          edge: '#E5D6AC',
+          DEFAULT: 'rgb(var(--fy-page) / <alpha-value>)',
+          soft: 'rgb(var(--fy-card) / <alpha-value>)',
+          deep: 'rgb(var(--fy-sunken) / <alpha-value>)',
+          edge: 'rgb(var(--fy-edge) / <alpha-value>)',
+          'edge-strong': 'rgb(var(--fy-edge-strong) / <alpha-value>)',
         },
         cream: {
-          DEFAULT: '#FEF9EA',
-          dim: 'rgba(254, 249, 234, 0.72)',
+          DEFAULT: 'rgb(var(--fy-cream) / <alpha-value>)',
+          dim: 'rgb(var(--fy-cream) / 0.72)',
         },
         ink: {
-          DEFAULT: '#2A1F12',
-          muted: '#75664A',
-          faint: '#A89673',
+          DEFAULT: 'rgb(var(--fy-ink) / <alpha-value>)',
+          muted: 'rgb(var(--fy-ink-muted) / <alpha-value>)',
+          faint: 'rgb(var(--fy-ink-faint) / <alpha-value>)',
         },
         status: {
-          present: '#4F7B3E',
-          'present-bg': '#E4EED9',
-          absent: '#A12831',
-          'absent-bg': '#F2D8DA',
-          late: '#C97B1A',
-          'late-bg': '#F6E3C5',
+          present: 'rgb(var(--fy-present) / <alpha-value>)',
+          'present-bg': 'rgb(var(--fy-present-bg) / <alpha-value>)',
+          absent: 'rgb(var(--fy-absent) / <alpha-value>)',
+          'absent-bg': 'rgb(var(--fy-absent-bg) / <alpha-value>)',
+          late: 'rgb(var(--fy-late) / <alpha-value>)',
+          'late-bg': 'rgb(var(--fy-late-bg) / <alpha-value>)',
         },
-        navy: '#1A2744',
       },
       borderRadius: {
         /* Reserved, consistent scale — driven by the --radius-* tokens in

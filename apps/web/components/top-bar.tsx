@@ -2,10 +2,13 @@
 
 import { usePathname } from 'next/navigation';
 import { Bell, PanelLeft, Search } from 'lucide-react';
-import type { UserRole } from '@felege-yordanos/db';
-import { Badge } from '@/components/ui/badge';
-import { breadcrumbForPath } from '@/lib/nav';
-import { initials } from '@/lib/utils';
+import type { Role as UserRole } from '@felege-yordanos/db/schema';
+import { useLocale, useT } from '@/lib/i18n/client';
+import { breadcrumbForPath, isElevated } from '@/lib/nav';
+import { LangToggle } from '@/components/lang-toggle';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { RoleBadge } from '@/components/role-badge';
+import { Avatar } from './sidebar/sidebar-nav';
 import { useSidebar } from './sidebar/sidebar-provider';
 
 interface TopBarProps {
@@ -13,73 +16,96 @@ interface TopBarProps {
   role: UserRole;
 }
 
-/** Desktop-only top bar: breadcrumb, (placeholder) search, notifications, user. */
+/** Desktop top bar. */
 export function TopBar({ displayName, role }: TopBarProps) {
   const pathname = usePathname();
   const { toggle } = useSidebar();
-  const crumb = breadcrumbForPath(pathname);
+  const locale = useLocale();
+  const t = useT();
+  const crumb = breadcrumbForPath(pathname) ?? {
+    labelEn: 'Home',
+    labelAm: 'ዋና ገጽ',
+  };
 
   return (
-    <header className="sticky top-0 z-30 hidden h-16 items-center gap-4 border-b border-parchment-edge bg-parchment/80 px-6 backdrop-blur md:flex">
+    <header className="print:hidden sticky top-0 z-30 hidden h-[54px] shrink-0 items-center gap-3.5 border-b border-parchment-edge bg-parchment-soft px-[18px] md:flex">
       <button
         type="button"
         onClick={toggle}
-        aria-label="Toggle sidebar"
-        className="text-ink-muted transition-colors hover:text-burgundy"
+        aria-label={t('Toggle sidebar')}
+        className="flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-parchment-deep"
       >
-        <PanelLeft className="h-[18px] w-[18px]" />
+        <PanelLeft className="h-[17px] w-[17px]" />
       </button>
 
-      {/* Breadcrumb */}
-      <nav aria-label="Breadcrumb" className="flex items-center gap-2 text-sm">
-        {crumb ? (
+      {/* Breadcrumb: current language leads */}
+      <nav
+        aria-label="Breadcrumb"
+        className="flex min-w-0 items-baseline gap-2"
+      >
+        {locale === 'am' ? (
           <>
-            <span className="font-ethiopic text-ink-muted">{crumb.labelAm}</span>
-            <span className="text-parchment-edge">›</span>
-            <span className="font-medium text-burgundy-ink">{crumb.labelEn}</span>
+            <span className="whitespace-nowrap font-ethiopic text-[13px] font-semibold text-ink">
+              {crumb.labelAm}
+            </span>
+            <span className="font-ethiopic text-[9px] text-gold opacity-70">
+              ✣
+            </span>
+            <span className="whitespace-nowrap text-[11px] text-gold-deep">
+              {crumb.labelEn}
+            </span>
           </>
         ) : (
-          <span className="font-medium text-burgundy-ink">Home</span>
+          <>
+            <span className="whitespace-nowrap font-ethiopic text-[11px] text-gold-deep">
+              {crumb.labelAm}
+            </span>
+            <span className="font-ethiopic text-[9px] text-gold opacity-70">
+              ✣
+            </span>
+            <span className="whitespace-nowrap text-[12.5px] font-semibold text-ink">
+              {crumb.labelEn}
+            </span>
+          </>
         )}
       </nav>
 
-      <div className="ml-auto flex items-center gap-3">
-        {/* Search — placeholder only (non-functional for now). */}
-        <div className="relative hidden lg:block">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted/60" />
-          <input
-            type="text"
-            readOnly
-            tabIndex={-1}
-            placeholder="Search songs, members, events…"
-            aria-label="Search (coming soon)"
-            className="h-9 w-[280px] cursor-default rounded-lg border border-parchment-edge bg-card pl-9 pr-12 text-sm text-ink placeholder:text-ink-muted/60 focus:outline-none"
-          />
-          <kbd className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-parchment-edge bg-parchment px-1.5 py-0.5 font-mono text-[10px] text-ink-muted">
-            ⌘K
-          </kbd>
-        </div>
+      <div className="flex-1" />
 
-        <button
-          type="button"
-          aria-label="Notifications"
-          className="relative text-ink-muted transition-colors hover:text-burgundy"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-gold ring-2 ring-parchment" />
-        </button>
+      {/* Search: placeholder until global search ships */}
+      <div
+        aria-hidden
+        className="hidden w-[280px] items-center gap-2 rounded-[10px] border border-parchment-edge bg-parchment px-2.5 py-[7px] shadow-[inset_0_1px_2px_rgba(10,60,54,0.04)] dark:bg-parchment-deep lg:flex"
+      >
+        <Search className="h-[13px] w-[13px] text-ink-faint" />
+        <span className="flex-1 truncate text-xs text-ink-faint">
+          {t('Search songs, members, events…')}
+        </span>
+        <kbd className="rounded-[5px] border border-parchment-edge px-[5px] py-px font-mono text-[9.5px] text-ink-faint">
+          ⌘K
+        </kbd>
+      </div>
 
-        <div className="flex items-center gap-2 rounded-full border border-parchment-edge bg-card py-1 pl-1 pr-2.5">
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-gold text-[10px] font-semibold text-burgundy-ink">
-            {initials(displayName)}
-          </div>
-          <span className="text-xs font-medium text-burgundy-ink">
-            {displayName.split(' ')[0]}
-          </span>
-          <Badge className="border border-gold/30 bg-gold/15 text-[9px] font-semibold uppercase tracking-wider text-gold-deep">
-            {role.replace('_', ' ')}
-          </Badge>
-        </div>
+      <LangToggle />
+      <ThemeToggle />
+
+      <button
+        type="button"
+        aria-label={t('Notifications')}
+        className="relative flex h-8 w-8 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-parchment-deep"
+      >
+        <Bell className="h-4 w-4" />
+        <span className="absolute right-[7px] top-1.5 h-1.5 w-1.5 rounded-full bg-gold shadow-[0_0_5px_#D4A843]" />
+      </button>
+
+      <span className="h-[22px] w-px bg-parchment-edge" />
+
+      <div className="flex items-center gap-[7px] rounded-full border border-parchment-edge bg-brand/[0.05] py-1 pl-[5px] pr-2.5 dark:bg-gold/[0.08]">
+        <Avatar name={displayName} size={22} />
+        <span className="text-[11.5px] font-medium text-ink">
+          {displayName.split(' ')[0]}
+        </span>
+        {isElevated(role) && <RoleBadge role={role} t={t} />}
       </div>
     </header>
   );

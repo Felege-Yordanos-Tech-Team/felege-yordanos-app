@@ -1,76 +1,135 @@
-@import url('https://fonts.googleapis.com/css2?family=Noto+Serif+Ethiopic:wght@400;500;600;700;800&family=Noto+Sans+Ethiopic:wght@400;500;600;700&family=Cormorant+Garamond:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap');
+/* Fonts are bundled with @fontsource (see app/layout.tsx), no Google Fonts request. */
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
+  /*
+   * Design tokens — Felege Yordanos design system.
+   * Brand = deep teal, accent = gold, surfaces = parchment.
+   * Colors are RGB channels so Tailwind opacity modifiers work
+   * (e.g. bg-brand/10). Dark mode overrides surfaces and text only;
+   * brand and gold stay the same.
+   */
   :root {
-    /* Ethiopian Orthodox palette — parchment surfaces, burgundy primary, gold accents */
-    --background: 40 56% 91%; /* parchment #F7EEDA */
-    --foreground: 30 41% 12%; /* ink #2A1F12 */
-    --card: 47 70% 94%; /* parchment-soft #FBF6E4 */
-    --card-foreground: 30 41% 12%;
-    --popover: 47 70% 94%;
-    --popover-foreground: 30 41% 12%;
-    --primary: 350 58% 26%; /* burgundy #6B1D2A */
-    --primary-foreground: 43 88% 96%; /* cream #FEF9EA */
-    --primary-container: 351 68% 17%; /* burgundy-deep #4A0E18 */
-    --secondary: 43 75% 36%; /* gold-deep #A47A18 — AAA on parchment */
-    --secondary-foreground: 43 88% 96%;
-    --secondary-container: 41 60% 55%; /* gold #D4A843 */
-    --muted: 40 34% 84%;
-    --muted-foreground: 38 22% 38%; /* ink-muted #75664A */
-    --accent: 41 60% 55%; /* gold #D4A843 */
-    --accent-foreground: 350 58% 26%;
-    --destructive: 357 63% 41%; /* status-absent #A12831 */
-    --destructive-foreground: 43 88% 96%;
-    --border: 39 41% 79% / 0.5; /* parchment-edge #E5D6AC */
-    --input: 47 60% 90%; /* parchment-deep #EFE2BE */
-    --ring: 41 60% 55%;
-    /* ─── Radius scale — reserved, consistent rounding (see global.css) ───
-       Single source of truth. Tailwind's rounded-{sm..3xl} map to these,
-       so tune roundedness here rather than per-component. */
-    --radius: 0.5rem; /* 8px — base control (buttons/inputs) */
-    --radius-sm: 0.25rem; /* 4px — tags, chips, small accents */
-    --radius-md: 0.5rem; /* 8px — buttons, controls */
-    --radius-lg: 0.625rem; /* 10px — cards, panels (workhorse) */
-    --radius-xl: 0.875rem; /* 14px — CTAs, larger cards */
-    --radius-2xl: 1rem; /* 16px — feature cards */
-    --radius-3xl: 1.25rem; /* 20px — hero banners */
-    --surface-container: 47 70% 94%;
-    --surface-container-low: 40 56% 91%;
-    --surface-container-high: 47 60% 90%;
-    --outline-variant: 39 41% 79%;
+    /* Brand (teal) */
+    --fy-brand: 28 107 96; /* #1C6B60 */
+    --fy-brand-soft: 46 133 119; /* #2E8577 */
+    --fy-brand-mid: 20 83 73; /* #145349 */
+    --fy-brand-deep: 12 69 61; /* #0C453D */
+    --fy-brand-ink: 7 43 38; /* #072B26 strong text */
+
+    /* Gold */
+    --fy-gold: 212 168 67; /* #D4A843 */
+    --fy-gold-deep: 164 122 24; /* #A47A18 gold text on parchment */
+    --fy-gold-light: 232 199 123; /* #E8C77B */
+    --fy-gold-faint: 244 226 165; /* #F4E2A5 */
+    --fy-cream: 254 249 234; /* #FEF9EA text on brand */
+
+    /* Surfaces */
+    --fy-page: 244 240 230; /* #F4F0E6 */
+    --fy-card: 250 248 242; /* #FAF8F2 */
+    --fy-sunken: 236 229 211; /* #ECE5D3 */
+    --fy-edge: 226 218 202; /* #E2DACA */
+    --fy-edge-strong: 196 184 156; /* #C4B89C */
+
+    /* Text */
+    --fy-ink: 42 31 18; /* #2A1F12 */
+    --fy-ink-muted: 117 102 74; /* #75664A */
+    --fy-ink-faint: 168 150 115; /* #A89673 */
+
+    /* Status */
+    --fy-present: 79 123 62;
+    --fy-present-bg: 228 238 217;
+    --fy-late: 201 123 26;
+    --fy-late-bg: 246 227 197;
+    --fy-absent: 161 40 49;
+    --fy-absent-bg: 242 216 218;
+
+    /* shadcn/ui semantic tokens (HSL) */
+    --background: 43 39% 93%;
+    --foreground: 33 40% 12%;
+    --card: 45 44% 96%;
+    --card-foreground: 33 40% 12%;
+    --popover: 45 44% 96%;
+    --popover-foreground: 33 40% 12%;
+    --primary: 172 59% 26%;
+    --primary-foreground: 45 91% 96%;
+    --primary-container: 172 70% 16%;
+    --secondary: 42 74% 37%;
+    --secondary-foreground: 45 91% 96%;
+    --secondary-container: 42 63% 55%;
+    --muted: 43 40% 88%;
+    --muted-foreground: 39 23% 37%;
+    --accent: 42 63% 55%;
+    --accent-foreground: 172 70% 16%;
+    --destructive: 356 60% 39%;
+    --destructive-foreground: 45 91% 96%;
+    --border: 40 29% 84%;
+    --input: 43 40% 88%;
+    --ring: 42 63% 55%;
+
+    --radius: 0.625rem;
+    --radius-sm: 0.375rem; /* 6px  — tags, chips */
+    --radius-md: 0.625rem; /* 10px — buttons, controls */
+    --radius-lg: 0.875rem; /* 14px — cards, panels */
+    --radius-xl: 1.125rem; /* 18px — CTAs, larger cards */
+    --radius-2xl: 1.5rem; /* 24px — feature cards */
+    --radius-3xl: 1.5rem; /* 24px — hero banners */
+    --surface-container: 45 44% 96%;
+    --surface-container-low: 43 39% 93%;
+    --surface-container-high: 43 40% 88%;
+    --outline-variant: 40 29% 84%;
   }
 
   .dark {
-    /* Vespers — deep ink-brown with parchment text */
-    --background: 30 28% 12%;
-    --foreground: 43 88% 92%;
-    --card: 30 22% 16%;
-    --card-foreground: 43 88% 92%;
-    --popover: 30 22% 16%;
-    --popover-foreground: 43 88% 92%;
-    --primary: 350 58% 26%;
-    --primary-foreground: 43 88% 96%;
-    --primary-container: 351 68% 17%;
-    --secondary: 41 60% 55%;
-    --secondary-foreground: 30 28% 12%;
-    --secondary-container: 41 60% 55%;
-    --muted: 30 16% 22%;
-    --muted-foreground: 35 24% 70%;
-    --accent: 41 60% 55%;
-    --accent-foreground: 30 28% 12%;
-    --destructive: 357 63% 41%;
-    --destructive-foreground: 43 88% 92%;
-    --border: 30 16% 28% / 0.5;
-    --input: 30 16% 22%;
-    --ring: 41 60% 55%;
-    --surface-container: 30 22% 16%;
-    --surface-container-low: 30 28% 12%;
-    --surface-container-high: 30 16% 22%;
-    --outline-variant: 30 16% 28%;
+    /* Night: cool dark grey with a faint teal cast */
+    --fy-brand-ink: 251 229 185; /* #FBE5B9 strong text turns gold-cream */
+    --fy-gold-deep: 212 168 67; /* gold text can use full gold on dark */
+
+    --fy-page: 21 24 26; /* #15181A */
+    --fy-card: 30 35 37; /* #1E2325 */
+    --fy-sunken: 15 18 20; /* #0F1214 */
+    --fy-edge: 51 59 62; /* #333B3E */
+    --fy-edge-strong: 69 79 83; /* #454F53 */
+
+    --fy-ink: 250 248 242; /* #FAF8F2 */
+    --fy-ink-muted: 200 180 132; /* #C8B484 */
+    --fy-ink-faint: 138 119 88; /* #8A7758 */
+
+    --fy-present: 123 164 99;
+    --fy-present-bg: 31 45 23;
+    --fy-late: 216 149 56;
+    --fy-late-bg: 46 31 11;
+    --fy-absent: 194 72 82;
+    --fy-absent-bg: 46 18 22;
+
+    --background: 204 11% 9%;
+    --foreground: 45 44% 96%;
+    --card: 197 10% 13%;
+    --card-foreground: 45 44% 96%;
+    --popover: 200 11% 17%;
+    --popover-foreground: 45 44% 96%;
+    --primary: 170 49% 35%;
+    --primary-foreground: 45 91% 96%;
+    --primary-container: 172 70% 16%;
+    --secondary: 42 63% 55%;
+    --secondary-foreground: 204 11% 9%;
+    --secondary-container: 42 63% 55%;
+    --muted: 204 14% 7%;
+    --muted-foreground: 42 38% 65%;
+    --accent: 42 63% 55%;
+    --accent-foreground: 204 11% 9%;
+    --destructive: 356 50% 52%;
+    --destructive-foreground: 45 44% 96%;
+    --border: 196 10% 22%;
+    --input: 204 14% 7%;
+    --ring: 42 63% 55%;
+    --surface-container: 197 10% 13%;
+    --surface-container-low: 204 11% 9%;
+    --surface-container-high: 200 11% 17%;
+    --outline-variant: 196 10% 22%;
   }
 
   * {
@@ -79,7 +138,7 @@
 
   body {
     @apply bg-background text-foreground antialiased;
-    font-family: 'Inter', 'Noto Sans Ethiopic', system-ui, sans-serif;
+    font-family: var(--font-body);
     font-feature-settings:
       'tnum' on,
       'cv11' on;
@@ -89,71 +148,50 @@
   h2,
   h3,
   h4 {
-    font-family: 'Cormorant Garamond', 'Noto Serif Ethiopic', serif;
+    font-family: var(--font-display);
     font-weight: 600;
   }
 
-  :lang(am) {
-    font-family: 'Noto Serif Ethiopic', 'Noto Sans Ethiopic', serif;
+  :root {
+    --font-ethiopic: 'Noto Serif Ethiopic', serif;
+    --font-display: 'Cormorant Garamond', 'Noto Serif Ethiopic', serif;
+    --font-body: 'Inter Variable', 'Inter', 'Noto Serif Ethiopic', system-ui, sans-serif;
+    --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   }
 }
 
 @layer components {
   /* ─── Decorative motifs ─── */
 
-  /* Tibeb diamond pattern — Ethiopian liturgical lattice, gold on dark/burgundy */
+  /* Tibeb diamond pattern — Ethiopian liturgical lattice, gold on dark/brand surfaces */
   .tibeb-gold {
     background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><path d='M24 4l20 20-20 20L4 24z' fill='none' stroke='%23D4A843' stroke-opacity='0.12' stroke-width='1'/><path d='M24 14l10 10-10 10-10-10z' fill='none' stroke='%23D4A843' stroke-opacity='0.16' stroke-width='1'/><circle cx='24' cy='24' r='1.6' fill='%23D4A843' fill-opacity='0.4'/></svg>");
-  }
-  .tibeb-burgundy {
-    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><path d='M24 4l20 20-20 20L4 24z' fill='none' stroke='%236B1D2A' stroke-opacity='0.08' stroke-width='1'/><path d='M24 14l10 10-10 10-10-10z' fill='none' stroke='%236B1D2A' stroke-opacity='0.12' stroke-width='1'/><circle cx='24' cy='24' r='1.6' fill='%236B1D2A' fill-opacity='0.18'/></svg>");
-  }
-
-  /* Legacy alias — earlier screens reference `tibeb-pattern` */
-  .tibeb-pattern {
-    background-image: url("data:image/svg+xml,%3Csvg width='40' height='40' viewBox='0 0 40 40' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M20 0l20 20-20 20L0 20z' fill='%23735c00' fill-opacity='0.1'/%3E%3C/svg%3E");
-  }
-
-  /* Glass card — frosted overlay */
-  .glass-card {
-    background: rgba(254, 249, 234, 0.7);
-    backdrop-filter: blur(20px);
   }
 
   /* Sacred gradient — primary CTA, hero banners */
   .sacred-gradient {
-    background: linear-gradient(160deg, #8b2f3f 0%, #6b1d2a 45%, #4a0e18 100%);
+    background: linear-gradient(160deg, #2e8577 0%, #1c6b60 45%, #0c453d 100%);
   }
 
-  /* Rail — burgundy gradient with the tibeb lattice overlay (sidebar, mobile header) */
+  /* Rail — brand gradient with the tibeb lattice overlay (sidebar, mobile header, bottom nav) */
   .rail-sacred {
-    background-color: #6b1d2a;
+    background-color: #1c6b60;
     background-image:
       url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='48' height='48' viewBox='0 0 48 48'><path d='M24 4l20 20-20 20L4 24z' fill='none' stroke='%23D4A843' stroke-opacity='0.06' stroke-width='1'/><path d='M24 14l10 10-10 10-10-10z' fill='none' stroke='%23D4A843' stroke-opacity='0.08' stroke-width='1'/><circle cx='24' cy='24' r='1.6' fill='%23D4A843' fill-opacity='0.2'/></svg>"),
-      linear-gradient(180deg, #6b1d2a 0%, #551421 55%, #4a0e18 100%);
+      linear-gradient(180deg, #1c6b60 0%, #145349 55%, #0c453d 100%);
     background-repeat: repeat, no-repeat;
     background-size:
       48px 48px,
       100% 100%;
   }
 
-  /* Halo gold radial — gold glow behind sacred objects */
-  .halo-gold {
-    background: radial-gradient(
-      ellipse at 50% 40%,
-      rgba(212, 168, 67, 0.32) 0%,
-      rgba(212, 168, 67, 0.08) 35%,
-      transparent 65%
-    );
-  }
-
   /* Parchment page background with subtle warm vignette */
   .parchment-bg {
-    background-color: #f7eeda;
+    background-color: rgb(var(--fy-page));
     background-image:
       radial-gradient(
         ellipse at 50% 0%,
-        rgba(212, 168, 67, 0.1) 0%,
+        rgba(212, 168, 67, 0.08) 0%,
         transparent 55%
       ),
       radial-gradient(
@@ -205,104 +243,24 @@
     border-radius: 3px;
   }
 
-  /* Legacy — keep existing burgundy-bar accent in place */
-  .tibeb-accent {
-    border-left: 4px solid #735c00;
-  }
-
-  /* Auth dark background — legacy login surface */
-  .auth-bg-dark {
-    background-color: #323127;
-    background-image:
-      radial-gradient(
-        ellipse at 50% 35%,
-        rgba(96, 25, 36, 0.2) 0%,
-        transparent 55%
-      ),
-      linear-gradient(
-        to bottom,
-        transparent 45%,
-        rgba(115, 92, 0, 0.04) 49%,
-        rgba(115, 92, 0, 0.04) 51%,
-        transparent 55%
-      ),
-      linear-gradient(
-        to right,
-        transparent 45%,
-        rgba(115, 92, 0, 0.04) 49%,
-        rgba(115, 92, 0, 0.04) 51%,
-        transparent 55%
-      );
-  }
-
-  /* Auth light background */
-  .auth-bg-light {
-    background-color: #fef9ea;
-    background-image:
-      radial-gradient(
-        ellipse at 50% 35%,
-        rgba(67, 3, 16, 0.03) 0%,
-        transparent 55%
-      ),
-      linear-gradient(
-        to bottom,
-        transparent 45%,
-        rgba(67, 3, 16, 0.015) 49%,
-        rgba(67, 3, 16, 0.015) 51%,
-        transparent 55%
-      ),
-      linear-gradient(
-        to right,
-        transparent 45%,
-        rgba(67, 3, 16, 0.015) 49%,
-        rgba(67, 3, 16, 0.015) 51%,
-        transparent 55%
-      );
-  }
-
-  /* Tonal table — no borders */
-  .table-tonal thead tr {
-    background-color: hsl(43 36% 89%);
-  }
-  .table-tonal tbody tr:nth-child(even) {
-    background-color: hsl(43 60% 93%);
-  }
-  .table-tonal tbody tr:hover {
-    background-color: hsl(48 100% 23% / 0.06);
-  }
-
   /* ─── Typography helpers ─── */
 
   /* Eyebrow — small label above section headings */
   .eyebrow {
-    font-family: 'Noto Serif Ethiopic', serif;
+    font-family: var(--font-ethiopic);
     font-size: 11px;
     font-weight: 500;
     letter-spacing: 0.12em;
-    color: #a47a18;
-  }
-  .eyebrow-en {
-    font-family: 'Inter', sans-serif;
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.18em;
-    text-transform: uppercase;
-    color: #a47a18;
+    color: rgb(var(--fy-gold-deep));
   }
 
   /* Display heading — pairs Cormorant + Noto Serif Ethiopic */
   .display {
-    font-family: 'Cormorant Garamond', 'Noto Serif Ethiopic', serif;
+    font-family: var(--font-display);
     font-weight: 500;
     letter-spacing: -0.01em;
     line-height: 1.05;
-    color: #2c0810;
-  }
-  .display-am {
-    font-family: 'Noto Serif Ethiopic', serif;
-    font-weight: 600;
-    line-height: 1.15;
-    color: #2c0810;
+    color: rgb(var(--fy-brand-ink));
   }
 
   /* Tabular numbers — for stats and counters */
@@ -310,12 +268,4 @@
     font-variant-numeric: tabular-nums;
   }
 
-  /* Cross ornament — small inline glyph */
-  .cross-ornament::before {
-    content: '✣';
-    font-family: 'Noto Serif Ethiopic', serif;
-    color: #d4a843;
-    margin-right: 0.4em;
-    opacity: 0.6;
-  }
 }

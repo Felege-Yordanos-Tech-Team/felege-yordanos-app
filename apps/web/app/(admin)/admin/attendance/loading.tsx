@@ -1,79 +1,58 @@
 import { Skeleton } from '@/components/ui/skeleton';
 
+const bone = 'bg-parchment-deep';
+
 export default function AttendanceAdminLoading() {
   return (
     <>
-      {/* ─── MOBILE (< md) — stacked list ─── */}
-      <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:hidden">
-        <Skeleton className="mb-2.5 h-3 w-24" />
-        <div className="flex items-start justify-between gap-3">
+      {/* Phone */}
+      <div className="px-[18px] pb-6 pt-3.5 md:hidden">
+        <Skeleton className={`mb-2.5 h-3 w-24 ${bone}`} />
+        <div className="flex items-end justify-between gap-3">
           <div>
-            <Skeleton className="mb-1 h-3 w-20" />
-            <Skeleton className="mb-1 h-8 w-56" />
-            <Skeleton className="h-3 w-64" />
+            <Skeleton className={`mb-1.5 h-3 w-24 ${bone}`} />
+            <Skeleton className={`h-7 w-48 ${bone}`} />
           </div>
-          <Skeleton className="h-9 w-20 shrink-0 rounded-xl" />
+          <Skeleton className={`h-9 w-24 shrink-0 ${bone}`} />
         </div>
-
-        {/* View toggle (full-width) */}
-        <Skeleton className="mt-3 h-9 w-full rounded-lg" />
-
-        {/* Ornament rule */}
-        <div className="my-4 h-px w-full bg-border" />
-
-        {/* Upcoming */}
-        <Skeleton className="mb-2 h-3 w-20" />
+        <Skeleton className={`my-3.5 h-9 w-full rounded-[10px] ${bone}`} />
+        <Skeleton className={`mb-2 h-3 w-20 ${bone}`} />
         <div className="flex flex-col gap-1.5">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-[68px] w-full rounded-xl" />
+            <Skeleton key={i} className={`h-[62px] w-full ${bone}`} />
           ))}
         </div>
-
-        {/* Past */}
-        <Skeleton className="mb-2 mt-5 h-3 w-14" />
-        <Skeleton className="h-40 w-full rounded-xl" />
+        <Skeleton className={`mb-2 mt-5 h-3 w-14 ${bone}`} />
+        <Skeleton className={`h-40 w-full ${bone}`} />
       </div>
 
-      {/* ─── DESKTOP (md+) — header row + table ─── */}
-      <div className="hidden md:block">
-        <div className="mx-auto max-w-[1180px] px-8 py-7">
-          {/* Header row: title left, controls right */}
-          <div className="flex items-end justify-between">
-            <div>
-              <Skeleton className="mb-1 h-3 w-24" />
-              <Skeleton className="mb-1 h-9 w-72" />
-              <Skeleton className="h-4 w-80" />
-            </div>
-            <div className="flex items-center gap-3">
-              <Skeleton className="h-9 w-40 rounded-lg" />
-              <Skeleton className="h-9 w-32 rounded-xl" />
-            </div>
+      {/* Desktop */}
+      <div className="hidden px-7 py-7 md:block">
+        <div className="mb-4 flex items-end justify-between">
+          <div>
+            <Skeleton className={`mb-1.5 h-3 w-28 ${bone}`} />
+            <Skeleton className={`mb-1.5 h-8 w-64 ${bone}`} />
+            <Skeleton className={`h-3 w-80 ${bone}`} />
           </div>
-
-          {/* Table card */}
-          <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card">
-            {/* Header row */}
-            <div className="flex items-center gap-4 border-b border-border px-5 py-3">
-              <Skeleton className="h-3 w-40" />
-              <Skeleton className="h-3 w-24" />
-              <Skeleton className="h-3 w-20" />
-              <Skeleton className="h-3 w-16" />
-              <Skeleton className="ml-auto h-3 w-20" />
-            </div>
-            {/* Rows */}
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div
-                key={i}
-                className="flex items-center gap-4 border-b border-border/60 px-5 py-3.5 last:border-0"
-              >
-                <Skeleton className="h-5 w-48" />
-                <Skeleton className="h-4 w-24" />
-                <Skeleton className="h-4 w-20" />
-                <Skeleton className="h-4 w-14" />
-                <Skeleton className="ml-auto h-4 w-24" />
-              </div>
-            ))}
+          <div className="flex items-center gap-2">
+            <Skeleton className={`h-9 w-48 rounded-[10px] ${bone}`} />
+            <Skeleton className={`h-10 w-36 ${bone}`} />
           </div>
+        </div>
+        <div className="rounded-2xl border border-parchment-edge bg-parchment-soft p-5">
+          <Skeleton className={`mb-3 h-3 w-full ${bone}`} />
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div
+              key={i}
+              className="flex items-center gap-4 border-b border-parchment-edge py-3.5"
+            >
+              <Skeleton className={`h-5 flex-1 ${bone}`} />
+              <Skeleton className={`h-4 w-24 ${bone}`} />
+              <Skeleton className={`h-4 w-16 ${bone}`} />
+              <Skeleton className={`h-4 w-12 ${bone}`} />
+              <Skeleton className={`h-5 w-24 rounded-full ${bone}`} />
+            </div>
+          ))}
         </div>
       </div>
     </>

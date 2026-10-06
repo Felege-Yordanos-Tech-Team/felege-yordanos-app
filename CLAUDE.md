@@ -6,7 +6,7 @@ Single consolidated app for Felege Yordanos Sunday School (Songbook, Attendance,
 
 ## Owner
 
-Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School. Email: leykungizaw@gmail.com
+Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 
 ## Tech Stack
 
@@ -16,11 +16,12 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School. Email: leykungiza
 | App        | Next.js (App Router) — single app at `apps/web/`                   |
 | Language   | TypeScript (strict)                                                |
 | Styling    | Tailwind CSS + shadcn/ui                                           |
-| Backend/DB | Supabase (PostgreSQL) — project ID: `uoaigpdabiswykfjyznv`         |
-| Auth       | Supabase Auth via `@supabase/ssr`                                  |
+| Backend/DB | PostgreSQL 17 + Drizzle (`libs/db`)                                |
+| Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres         |
+| Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
-| Hosting    | Vercel (free tier)                                                 |
-| GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (private) |
+| Hosting    | Own VPS with Kamal 2 behind Cloudflare. `dev` deploys to staging.felegeyordanos.org, `main` to app.felegeyordanos.org |
+| GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (public)  |
 
 ## Project Structure
 
@@ -30,11 +31,15 @@ apps/web/              # Single Next.js app (PWA)
     (public)/          # No auth: songbook, login
     (member)/          # Any authenticated user
     (admin)/           # dept_head, admin, super_admin only
-  proxy.ts             # Role-based route protection (Next.js 16 "proxy" convention)
-  lib/utils.ts         # cn() utility for Tailwind class merging
+  proxy.ts             # Fast session-cookie check only (NOT the security boundary)
+  lib/session.ts       # requireUser / requireRole / getCurrentUser (server)
+  lib/permissions.ts   # ALL authorization rules
+  lib/action-result.ts # ActionResult type for server actions
+  lib/storage.ts       # file uploads on disk (receipts)
+  lib/auth.ts          # Better Auth config; lib/auth-client.ts for the browser
 libs/
   ui/                  # Shared UI components (BottomNav)
-  db/                  # Supabase client (browser + server) + DB types
+  db/                  # Drizzle schema, migrations, seed, server-only db client
 ```
 
 ## Role System (Four Tiers)
@@ -59,9 +64,13 @@ Roles stored in `profiles` table (column: `role`). Department scoping via `depar
 
 ## Library Imports
 
+- DB (new, server only): `import { db, songs } from '@felege-yordanos/db/server'`
+- Current user (server only): `import { requireUser, requireRole, getCurrentUser } from '@/lib/session'`
+- Auth in client components: `import { authClient } from '@/lib/auth-client'`
+- DB schema/types (safe anywhere): `import type { Role } from '@felege-yordanos/db/schema'`
 - UI components: `import { BottomNav } from '@felege-yordanos/ui'`
-- DB client: `import { createClient, createServerComponentClient } from '@felege-yordanos/db'`
-- DB types: `import type { Database, UserRole } from '@felege-yordanos/db'`
+- Permissions: `import { canManageSongs, ... } from '@/lib/permissions'`
+- Server action results: `import { ok, fail, NOT_ALLOWED, type ActionResult } from '@/lib/action-result'`
 
 ## Package Manager
 
@@ -71,6 +80,11 @@ pnpm (v10). Workspace packages use `workspace:*` protocol for inter-lib deps.
 
 ```bash
 pnpm install              # Install all dependencies
+pnpm db:setup             # Start local Postgres (Docker), migrate, seed
+pnpm db:generate          # Create a migration after changing libs/db/src/schema
+pnpm db:studio            # Browse the local database
+pnpm check                # Lint + typecheck + build (same as CI); run before every push
+pnpm docker:app           # Run the production Docker image locally (http://localhost:3100)
 npx nx serve web          # Start dev server
 npx nx build web          # Production build
 npx nx lint web           # Lint
@@ -79,26 +93,66 @@ npx nx graph              # View project dependency graph
 
 ## Environment Variables
 
-```
-NEXT_PUBLIC_SUPABASE_URL=https://uoaigpdabiswykfjyznv.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=<anon-key>
-```
+See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `EMAIL_TRANSPORT`, optional `UPLOAD_DIR`.
+
+Dev emails (password reset links) are printed in the terminal running the app.
+Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
+
+## Docker Image
+
+- `apps/web/Dockerfile`, built from the repo root, base `node:22-slim`. Next.js `output: 'standalone'` with `outputFileTracingRoot` at the repo root
+- Two targets, same result: `app` (default, self-contained: installs and builds inside Docker; used by `pnpm docker:app`) and `prebuilt` (CI: packages the output of `pnpm build`, no second install or build)
+- Image layout comes from one script for both targets: `apps/web/scripts/assemble-image.sh <out-dir>`
+- Runtime: `node apps/web/server.js` as user `node`, port 3000, uploads in `/data/uploads` (volume). Health check: `GET /up` (app + database)
+- Migrations in the image: `node db/scripts/migrate.mjs` (bundled from `libs/db/scripts/migrate.mjs`, no drizzle-kit). Run before starting a new version
+- New source folders or files at the top of `apps/web` must be added to `outputFileTracingExcludes` in `next.config.js`, or they end up in the image
+- CI (job "Lint, typecheck, migrations, build") builds the image after `pnpm build`, runs migrations + a smoke test (health, login page, sign-in), and publishes `ghcr.io/felege-yordanos-tech-team/felege-yordanos-app:<sha>` plus `:dev` or `:main` after merges into `dev` or `main`
+
+## Deployment (Kamal)
+
+- Config: `config/deploy.yml` (shared) + `config/deploy.<destination>.yml` for `staging` and `production`. Secrets mapping: `.kamal/secrets.<destination>` (only references env vars; never real values). No server IP or secret in the repo
+- Every push to `dev` runs CI job "Deploy to staging", every push to `main` runs "Deploy to production": `kamal deploy -d <destination> --skip-push --version <sha>` (first run: `kamal setup`). Secrets come from the GitHub environment of the same name (`staging` only for `dev`, `production` only for `main`)
+- Containers per destination: `felege-web-<destination>` (app, waits for the database, runs migrations, then starts the server) and `felege-db-<destination>` (Postgres 17 accessory, no published port, volume `felege-<destination>-pgdata`). Uploads: volume `felege-<destination>-uploads`. Both destinations run on the same server
+- Cloudflare proxies `staging.felegeyordanos.org` and `app.felegeyordanos.org` (SSL mode Full (strict)); kamal-proxy serves the Cloudflare origin certificate (`*.felegeyordanos.org`)
+- Reference data that the code depends on (departments, member types) is added by migrations, not by the seed
+- Members come from the Sunday School register: `libs/db/scripts/members-from-register.py` (real data in production only; `--fake N` for staging). The export and the generated SQL contain personal data and never go into the repo
+- Server setup (users, firewall, Docker, database backups) lives in the private repo `felege-yordanos-infra`
+
+## Design System, Language and Theme
+
+- Target look: the Felege Yordanos Claude Design project (ask the tech team lead for access). Match it on phone (< md) and desktop (md+). Do not commit design exports, screenshots or prototype code to the repo
+- Colors: Tailwind tokens only (`brand`, `gold`, `parchment`, `ink`, `cream`, `status-*`), defined as CSS variables in `app/global.css` for light and dark. Never hardcode hex colors in classNames
+- Fonts: `font-ethiopic` (Amharic), `font-display` (Cormorant titles), `font-body` (Inter), `font-mono` (IDs, times, amounts). Fonts are bundled with @fontsource
+- Building blocks: `components/ds` (Card, Eyebrow, Chip, PageHead, SectionHeader, StatusPill)
+- Language: Amharic by default, English toggle (cookie `fy-lang`). Write English in code and translate it: server `const t = await getT()` (`@/lib/i18n/server`), client `const t = useT()` (`@/lib/i18n/client`). Add Amharic to `lib/i18n/dict/<area>.ts`. Headings use `SectionHeader` / `PageHead` (current language big, other language as eyebrow). Dates and numbers via `Intl` with `intlLocale(locale)`
+- Theme: light/dark via next-themes (`class` on `<html>`); tokens switch automatically
+
+## How Features Are Built
+
+- Pages are async server components: `requireUser()`, permission check from `lib/permissions.ts`, then read with Drizzle
+- Mutations are server actions in an `actions.ts` next to the page: `requireUser()` -> zod validation -> permission check on rows re-loaded from the DB -> write -> `revalidatePath` -> return `ok()` / `fail()`
+- Never trust ids, roles or user ids sent from the client
+- Client components keep UI only; they call server actions and show `res.error` in a toast
+- Reference implementation: songbook (`app/(member)/songbook`, `app/(admin)/admin/songs`)
 
 ## Rules
 
-- Do NOT create or modify database schemas — Supabase is managed separately
+- Database schema lives in `libs/db/src/schema/` (Drizzle). Change it there, then run `pnpm db:generate` to create a migration. Never edit applied migration files
+- Supabase has been removed. Do NOT add Supabase or any other hosted backend SDK
+- Every page and server action must enforce the matching rule in `lib/permissions.ts`. Add new rules there, not inline
+- Team workflow is in CONTRIBUTING.md: branch from `dev`, PR into `dev`, CI (.github/workflows/ci.yml) must pass
+- Only maintainers merge `dev` into `main` (production), after testing on staging
+- Never import `@felege-yordanos/db/server` from a `'use client'` file
 - Do NOT install React Native or Expo — this is a PWA
 - Do NOT create multiple apps — there is one app: `apps/web/`
 - Do NOT use `pages/` router — App Router only
 - Do NOT use Turborepo — this is Nx
-- Generate DB types with: `npx supabase gen types typescript --project-id uoaigpdabiswykfjyznv > libs/db/src/types.ts`
 
 ## Terms
 
 | Term        | Meaning                                 |
 | ----------- | --------------------------------------- |
 | SS          | Sunday School                           |
-| RLS         | Row Level Security (Supabase)           |
 | PWA         | Progressive Web App                     |
 | dept_head   | Role for department leaders + delegates |
 | admin       | Role for tech team members (~8 people)  |
