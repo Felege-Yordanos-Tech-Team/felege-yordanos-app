@@ -1,16 +1,21 @@
 name: CI
 
 # Runs on every pull request into dev or main, and on every push to dev.
-# A PR can only be merged when this passes.
+# A PR can only be merged when the check job passes.
+# A push to dev also publishes the image and deploys it to staging.
 on:
   pull_request:
     branches: [dev, main]
   push:
     branches: [dev]
+  # Manual re-run of the dev pipeline (redeploys staging). Run it on "dev".
+  workflow_dispatch:
 
+# A newer push to a PR cancels the older run. Runs on dev are never cancelled,
+# so a deploy is never interrupted halfway.
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   check:
@@ -86,8 +91,12 @@ jobs:
       - name: Build Docker image
         run: |
           sh apps/web/scripts/assemble-image.sh "$RUNNER_TEMP/image"
+          # Never ship env files or private keys.
+          sh apps/web/scripts/scan-image-files.sh "$RUNNER_TEMP/image"
+          # "service=felege" is required by Kamal (config/deploy.yml: service).
           docker build -f apps/web/Dockerfile --target prebuilt \
             --build-context prebuilt-files="$RUNNER_TEMP/image" \
+            --label service=felege \
             --label org.opencontainers.image.source=https://github.com/${{ github.repository }} \
             --label org.opencontainers.image.revision=${{ github.sha }} \
             -t felege-web:ci .
@@ -99,7 +108,7 @@ jobs:
           docker run -d --name web --network host \
             -e DATABASE_URL -e BETTER_AUTH_SECRET -e BETTER_AUTH_URL -e EMAIL_TRANSPORT=console \
             felege-web:ci
-          for i in $(seq 1 30); do
+          for _ in $(seq 1 30); do
             curl -fsS http://localhost:3000/up && break
             sleep 1
           done
@@ -116,8 +125,8 @@ jobs:
         run: docker logs web || true
 
       - name: Publish image to GitHub Container Registry
-        # Only after a merge into dev. Tags: the commit sha and "dev".
-        if: github.event_name == 'push' && github.ref == 'refs/heads/dev'
+        # Only on dev (merge or manual run). Tags: the commit sha and "dev".
+        if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
         env:
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -126,3 +135,106 @@ jobs:
             docker tag felege-web:ci "$tag"
             docker push "$tag"
           done
+
+  # Validates the Kamal config on every PR, with placeholder values.
+  kamal-config:
+    name: Kamal config
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      DEPLOY_HOST: 192.0.2.10 # documentation IP, never contacted
+      KAMAL_REGISTRY_USERNAME: ci
+      KAMAL_REGISTRY_PASSWORD: ci
+      STAGING_POSTGRES_PASSWORD: ci
+      STAGING_BETTER_AUTH_SECRET: ci
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+      - name: Install Kamal
+        run: gem install kamal -v 2.12.0 --no-document
+      - name: Validate config/deploy.yml + deploy.staging.yml
+        run: |
+          printf 'placeholder\n' > "$RUNNER_TEMP/cert.pem"
+          printf 'placeholder\n' > "$RUNNER_TEMP/key.pem"
+          export CLOUDFLARE_ORIGIN_CERT_FILE="$RUNNER_TEMP/cert.pem" CLOUDFLARE_ORIGIN_KEY_FILE="$RUNNER_TEMP/key.pem"
+          kamal config -d staging > /dev/null
+          echo "Kamal config is valid."
+
+  deploy-staging:
+    name: Deploy to staging
+    needs: check
+    if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Secrets live in the GitHub environment "staging" (Settings > Environments).
+    environment:
+      name: staging
+      url: https://staging.felegeyordanos.org
+    # One staging deploy at a time; a newer push waits instead of cancelling.
+    concurrency:
+      group: deploy-staging
+      cancel-in-progress: false
+    permissions:
+      contents: read
+      packages: read # the server pulls the private image with this job's token
+    env:
+      DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+      KAMAL_REGISTRY_USERNAME: ${{ github.actor }}
+      KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
+      STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
+      STAGING_BETTER_AUTH_SECRET: ${{ secrets.STAGING_BETTER_AUTH_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.3'
+
+      - name: Install Kamal
+        run: gem install kamal -v 2.12.0 --no-document
+
+      - name: SSH key and known host
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_SSH_KNOWN_HOSTS: ${{ secrets.DEPLOY_SSH_KNOWN_HOSTS }}
+        run: |
+          install -d -m 700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > ~/.ssh/known_hosts
+          eval "$(ssh-agent -s)"
+          printf '%s\n' "$DEPLOY_SSH_KEY" | ssh-add -
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> "$GITHUB_ENV"
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> "$GITHUB_ENV"
+
+      - name: Cloudflare origin certificate
+        env:
+          CLOUDFLARE_ORIGIN_CERT: ${{ secrets.CLOUDFLARE_ORIGIN_CERT }}
+          CLOUDFLARE_ORIGIN_KEY: ${{ secrets.CLOUDFLARE_ORIGIN_KEY }}
+        run: |
+          umask 077
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_CERT" > "$RUNNER_TEMP/origin-cert.pem"
+          printf '%s\n' "$CLOUDFLARE_ORIGIN_KEY" > "$RUNNER_TEMP/origin-key.pem"
+          echo "CLOUDFLARE_ORIGIN_CERT_FILE=$RUNNER_TEMP/origin-cert.pem" >> "$GITHUB_ENV"
+          echo "CLOUDFLARE_ORIGIN_KEY_FILE=$RUNNER_TEMP/origin-key.pem" >> "$GITHUB_ENV"
+
+      - name: Deploy (first run sets up the database and proxy)
+        run: |
+          if ssh deploy@"$DEPLOY_HOST" "docker ps -a --format '{{.Names}}'" | grep -qx felege-db-staging; then
+            kamal deploy -d staging --skip-push --version "$GITHUB_SHA"
+          else
+            echo "First deploy: running kamal setup."
+            kamal setup -d staging --skip-push --version "$GITHUB_SHA"
+          fi
+
+      - name: Check https://staging.felegeyordanos.org/up
+        run: |
+          for _ in $(seq 1 10); do
+            curl -fsS https://staging.felegeyordanos.org/up && exit 0
+            sleep 3
+          done
+          exit 1
+
+      - name: Remove certificate files
+        if: always()
+        run: rm -f "$RUNNER_TEMP/origin-cert.pem" "$RUNNER_TEMP/origin-key.pem"

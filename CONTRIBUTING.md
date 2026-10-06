@@ -40,7 +40,7 @@ pick an issue  ->  branch from dev  ->  small commits  ->  pull request into dev
 | Branch | What it is |
 |---|---|
 | `feat/*`, `fix/*`, ... | your work in progress |
-| `dev` | integration branch, deploys to **staging** |
+| `dev` | integration branch, deploys automatically to **staging** (https://staging.felegeyordanos.org) |
 | `main` | **production**; only maintainers merge `dev` into `main` after testing on staging |
 
 `dev` and `main` are locked: nobody can push to them directly. Every change arrives through a pull request that passes CI and has one approving review. Only maintainers can merge into `main`.
