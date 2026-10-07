@@ -2,6 +2,7 @@ import {
   CalendarCheck,
   Heart,
   Home,
+  LayoutDashboard,
   ListMusic,
   Megaphone,
   Music,
@@ -61,6 +62,13 @@ export const MEMBER_NAV: NavItem[] = [
  * presentation only; pages enforce lib/permissions.ts.
  */
 export const ADMIN_NAV: NavItem[] = [
+  // Exact match only, so it is not highlighted on the pages below it.
+  {
+    href: '/admin',
+    labelEn: 'Admin home',
+    labelAm: 'ዋና ገጽ',
+    icon: LayoutDashboard,
+  },
   {
     href: '/admin/attendance',
     labelEn: 'Events',
@@ -134,7 +142,6 @@ export function isActivePath(item: NavItem, pathname: string): boolean {
 
 /** Routes that are not in the menus but still need a breadcrumb. */
 const EXTRA_CRUMBS: Pick<NavItem, 'href' | 'labelEn' | 'labelAm'>[] = [
-  { href: '/admin', labelEn: 'Admin', labelAm: 'አስተዳደር' },
   { href: '/claim', labelEn: 'Link profile', labelAm: 'መገለጫ ማገናኘት' },
 ];
 
