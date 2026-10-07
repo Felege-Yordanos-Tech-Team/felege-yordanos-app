@@ -6,6 +6,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Download,
+  Clock,
   List,
   ScanLine,
   Search,
@@ -16,6 +17,7 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { formatYmd, hhmm } from '@/lib/events';
+import { eatDate, eatTime } from '@/lib/check-in-window';
 import { normalizeMemberId } from '@/lib/member-id';
 import { cn } from '@/lib/utils';
 import { getEventAttendance, markAttendance } from '../actions';
@@ -61,6 +63,11 @@ interface CheckInTabsProps {
   picker?: React.ReactNode;
   /** Show the CSV export (only when the user may read this event's attendance). */
   canExport?: boolean;
+  /**
+   * The event's check-in window (ISO instants), the server's clock at render
+   * time, and whether this user is limited to the window (department heads).
+   */
+  checkIn: { opensAt: string; closesAt: string; now: number; limited: boolean };
 }
 
 interface CheckInLog {
@@ -149,6 +156,7 @@ export function CheckInTabs({
   back,
   picker,
   canExport = true,
+  checkIn,
 }: CheckInTabsProps) {
   const t = useT();
   const locale = useLocale();
@@ -174,6 +182,38 @@ export function CheckInTabs({
   const deskSearchRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
+  // ── Check-in window ──
+  // Starts from the server's clock (same markup on server and client), then
+  // follows the device clock so the screen unlocks by itself when it opens.
+  const opensAt = useMemo(() => new Date(checkIn.opensAt), [checkIn.opensAt]);
+  const closesAt = useMemo(
+    () => new Date(checkIn.closesAt),
+    [checkIn.closesAt],
+  );
+  const [now, setNow] = useState(checkIn.now);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = setInterval(() => setNow(Date.now()), 15_000);
+    return () => clearInterval(timer);
+  }, []);
+  const windowState =
+    now < opensAt.getTime()
+      ? 'before'
+      : now >= closesAt.getTime()
+        ? 'after'
+        : 'open';
+  const locked = checkIn.limited && windowState !== 'open';
+  const opensLabel =
+    eatDate(opensAt) === eatDate(new Date(now))
+      ? eatTime(opensAt)
+      : `${formatYmd(eatDate(opensAt), locale)} ${eatTime(opensAt)}`;
+  const windowMessage =
+    windowState === 'before'
+      ? t('Check-in opens at {time}.', { time: opensLabel })
+      : windowState === 'after'
+        ? t('Check-in closed at {time}.', { time: eatTime(closesAt) })
+        : t('Check-in is open until {time}.', { time: eatTime(closesAt) });
+
   // Refocus whichever quick-entry input is visible (mobile tab vs desktop rail).
   const focusQuick = useCallback(() => {
     quickInputRef.current?.focus();
@@ -193,6 +233,11 @@ export function CheckInTabs({
     recordsRef.current = records;
   }, [records]);
   const localEdits = useRef(new Map<number, number>());
+  // Message to show when a tap is refused because the window is closed.
+  const lockedRef = useRef<string | null>(null);
+  useEffect(() => {
+    lockedRef.current = locked ? windowMessage : null;
+  }, [locked, windowMessage]);
 
   // Pull check-ins made on other devices: on open, every SYNC_INTERVAL_MS and
   // when the phone comes back to this tab.
@@ -269,6 +314,14 @@ export function CheckInTabs({
   // toast explains why.
   const upsertAttendance = useCallback(
     async (memberId: number, status: AttendanceStatus) => {
+      if (lockedRef.current) {
+        toast({
+          title: t('Check-in is closed'),
+          description: lockedRef.current,
+          variant: 'destructive',
+        });
+        return false;
+      }
       const previous = recordsRef.current[memberId];
       localEdits.current.set(memberId, Date.now());
       setRecords((prev) => ({ ...prev, [memberId]: status }));
@@ -426,6 +479,45 @@ export function CheckInTabs({
   const sub = [dateShort, start, event.description].filter(Boolean).join(' · ');
   const lastN = t('last {n}', { n: Math.min(checkInLogs.length, 10) });
 
+  // Department heads outside the window: red, everything disabled. Admins
+  // outside it: amber note, still allowed. Inside: a quiet green line.
+  const windowBanner = (
+    <div
+      role="status"
+      className={cn(
+        'mb-3.5 flex items-start gap-2.5 rounded-xl border px-3.5 py-2.5 text-xs leading-snug md:mb-0',
+        windowState === 'open'
+          ? 'border-status-present/30 bg-status-present-bg text-status-present'
+          : locked
+            ? 'border-status-absent/30 bg-status-absent-bg text-status-absent'
+            : 'border-status-late/30 bg-status-late-bg text-status-late',
+      )}
+    >
+      <Clock className="mt-px h-3.5 w-3.5 shrink-0" />
+      <div className="min-w-0">
+        <div className="font-semibold">{windowMessage}</div>
+        {windowState !== 'open' && (
+          <div className="mt-0.5 opacity-80">
+            {locked
+              ? t('Department heads can check people in from {from} to {to}.', {
+                  from: eatTime(opensAt),
+                  to: eatTime(closesAt),
+                })
+              : t(
+                  'Outside the check-in window. As an admin you can still check people in.',
+                )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+
+  const lockedPanel = (
+    <p className="rounded-xl border border-dashed border-parchment-edge px-4 py-8 text-center text-xs leading-relaxed text-ink-muted">
+      {windowMessage}
+    </p>
+  );
+
   const statusButtons = (m: CheckInMember, size: 'sm' | 'md') => (
     <div className={cn('flex', size === 'sm' ? 'gap-[5px]' : 'gap-1')}>
       {STATUSES.map((status) => {
@@ -436,13 +528,14 @@ export function CheckInTabs({
             key={status}
             type="button"
             onClick={() => upsertAttendance(m.id, status)}
+            disabled={locked}
             aria-pressed={active}
             aria-label={t('{status} for {name}', {
               status: t(cfg.name),
               name: m.name,
             })}
             className={cn(
-              'flex items-center justify-center font-bold transition-colors',
+              'flex items-center justify-center font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
               size === 'sm'
                 ? 'h-7 w-7 rounded-lg text-xs'
                 : 'h-8 w-8 rounded-[9px] text-[13px]',
@@ -682,6 +775,8 @@ export function CheckInTabs({
           </div>
         </div>
 
+        {windowBanner}
+
         {/* Tabs */}
         <div
           role="tablist"
@@ -759,7 +854,10 @@ export function CheckInTabs({
             </section>
 
             {/* ID input */}
-            <form onSubmit={handleQuickCheckIn} className="mb-3.5">
+            <form
+              onSubmit={handleQuickCheckIn}
+              className={cn('mb-3.5', locked && 'opacity-50')}
+            >
               <div className="flex items-center gap-2.5 rounded-[14px] border-2 border-gold bg-parchment-soft px-4 py-3 shadow-[0_0_0_4px_rgba(212,168,67,0.15),0_4px_16px_-6px_rgba(212,168,67,0.3)]">
                 <ScanLine className="h-5 w-5 shrink-0 text-brand dark:text-gold" />
                 <Input
@@ -768,11 +866,13 @@ export function CheckInTabs({
                   onChange={(e) => setQuickInput(e.target.value)}
                   placeholder={t('Enter member ID…')}
                   aria-label={t('Member ID')}
+                  disabled={locked}
                   autoFocus
                   className="h-auto border-none bg-transparent p-0 font-mono text-lg font-medium tracking-[0.08em] text-ink shadow-none placeholder:font-body placeholder:text-sm placeholder:font-normal placeholder:tracking-normal placeholder:text-ink-faint focus-visible:ring-0"
                 />
                 <button
                   type="submit"
+                  disabled={locked}
                   className="shrink-0 text-[9px] font-semibold uppercase tracking-[0.14em] text-gold-deep"
                 >
                   {t('Enter ↵')}
@@ -868,12 +968,16 @@ export function CheckInTabs({
 
         {tab === 'qr-scan' && (
           <div role="tabpanel">
-            <QRScanner
-              active
-              onMemberId={handleQRDecoded}
-              presentCount={presentCount}
-              total={total}
-            />
+            {locked ? (
+              lockedPanel
+            ) : (
+              <QRScanner
+                active
+                onMemberId={handleQRDecoded}
+                presentCount={presentCount}
+                total={total}
+              />
+            )}
           </div>
         )}
       </div>
@@ -897,6 +1001,7 @@ export function CheckInTabs({
         <div className="grid grid-cols-[minmax(0,380px)_minmax(0,1fr)] items-start gap-4">
           {/* Left rail */}
           <div className="flex flex-col gap-4">
+            {windowBanner}
             {/* Counter */}
             <section className="sacred-gradient relative overflow-hidden rounded-[18px] border border-gold/30 px-6 py-[22px] shadow-[0_10px_26px_-14px_rgba(10,60,54,0.55)]">
               <div className="tibeb-gold absolute inset-0 opacity-[0.55]" />
@@ -963,20 +1068,25 @@ export function CheckInTabs({
               </div>
 
               {deskEntry === 'quick' && (
-                <form onSubmit={handleQuickCheckIn}>
+                <form
+                  onSubmit={handleQuickCheckIn}
+                  className={cn(locked && 'opacity-50')}
+                >
                   <Input
                     ref={deskQuickRef}
                     value={quickInput}
                     onChange={(e) => setQuickInput(e.target.value)}
                     placeholder={t('Member number or ID')}
                     aria-label={t('Member ID')}
+                    disabled={locked}
                     className="h-auto rounded-xl border border-parchment-edge-strong bg-parchment px-4 py-[13px] font-mono text-xl tracking-[0.15em] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.05)] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/40 dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
                   />
                   <button
                     type="submit"
+                    disabled={locked}
                     className={cn(
                       primaryBtn,
-                      'mt-2.5 w-full px-5 py-3 text-[13px]',
+                      'mt-2.5 w-full px-5 py-3 text-[13px] disabled:cursor-not-allowed',
                     )}
                   >
                     <Check className="h-3.5 w-3.5 text-gold" />
@@ -984,14 +1094,17 @@ export function CheckInTabs({
                   </button>
                 </form>
               )}
-              {deskEntry === 'qr' && (
-                <QRScanner
-                  active
-                  onMemberId={handleQRDecoded}
-                  presentCount={presentCount}
-                  total={total}
-                />
-              )}
+              {deskEntry === 'qr' &&
+                (locked ? (
+                  lockedPanel
+                ) : (
+                  <QRScanner
+                    active
+                    onMemberId={handleQRDecoded}
+                    presentCount={presentCount}
+                    total={total}
+                  />
+                ))}
               {deskEntry === 'list' && (
                 <p className="rounded-xl border border-dashed border-parchment-edge px-4 py-5 text-center text-xs leading-relaxed text-ink-muted">
                   {t(

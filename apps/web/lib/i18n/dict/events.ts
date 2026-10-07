@@ -103,6 +103,23 @@ export const events: Record<string, string> = {
   'Member ID': 'የአባል መታወቂያ',
   'No members found': 'አባላት አልተገኙም',
   'Member number or ID': 'የአባል ቁጥር ወይም መታወቂያ',
+  'Check-in opens at {time}.': 'መግቢያ በ{time} ይከፈታል።',
+  'Check-in closed at {time}.': 'መግቢያ በ{time} ተዘግቷል።',
+  'Check-in is open until {time}.': 'መግቢያ እስከ {time} ክፍት ነው።',
+  'Check-in is closed': 'መግቢያ ዝግ ነው',
+  'Department heads can check people in from {from} to {to}.':
+    'የክፍል ኃላፊዎች ከ{from} እስከ {to} ድረስ መመዝገብ ይችላሉ።',
+  'Outside the check-in window. As an admin you can still check people in.':
+    'ከመግቢያ ሰዓቱ ውጭ ነው። እንደ አስተዳዳሪ አሁንም መመዝገብ ይችላሉ።',
+  'Check-in for this event has not opened yet.': 'የዚህ መርሃ ግብር መግቢያ ገና አልተከፈተም።',
+  'Check-in for this event has closed.': 'የዚህ መርሃ ግብር መግቢያ ተዘግቷል።',
+  'Check-in opens (min before start)': 'መግቢያ ይከፈታል (ከመጀመሪያው በፊት በደቂቃ)',
+  'Check-in closes (min after start)': 'መግቢያ ይዘጋል (ከመጀመሪያው በኋላ በደቂቃ)',
+  'Department heads can only check people in during this window. Admins can at any time.':
+    'የክፍል ኃላፊዎች መመዝገብ የሚችሉት በዚህ ጊዜ ውስጥ ብቻ ነው። አስተዳዳሪዎች በማንኛውም ጊዜ ይችላሉ።',
+  'Enter whole minutes.': 'ሙሉ ደቂቃ ያስገቡ።',
+  'Minutes cannot be negative.': 'ደቂቃ ከዜሮ በታች መሆን አይችልም።',
+  'At most 720 minutes.': 'ቢበዛ 720 ደቂቃ።',
   'Mark each member present (P), late (L) or absent (A) in the member list.':
     'በአባላት ዝርዝሩ ውስጥ እያንዳንዱን አባል ተገኝቷል (P)፣ ዘግይቷል (L) ወይም ቀርቷል (A) ብለው ይመዝግቡ።',
   '{from}–{to} of {total}': 'ከ{total} {from}–{to}',
