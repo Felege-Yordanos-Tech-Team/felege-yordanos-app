@@ -119,8 +119,18 @@ const fullName = (m: CheckInMember) =>
 /** Members per page in the desktop member table. */
 const PAGE_SIZE = 12;
 
-/** Rows rendered in the phone member list; search finds the rest. */
-const MOBILE_LIST_LIMIT = 50;
+/**
+ * Space kept under the phone member list so the page does not scroll: the
+ * pager (44 px), the List tab's bottom padding (pb-2, 8 px) and the shell's
+ * room for the bottom nav (pb-24, 96 px).
+ */
+const MOBILE_LIST_RESERVE_PX = 44 + 8 + 96;
+
+/** One phone member row plus its gap, used until a row has been measured. */
+const MOBILE_ROW_PX = 54;
+
+/** Fewest rows per phone page, even on a very short screen. */
+const MOBILE_MIN_ROWS = 3;
 
 /** How often the screen fetches check-ins made on other devices. */
 const SYNC_INTERVAL_MS = 15_000;
@@ -154,7 +164,11 @@ export function CheckInTabs({
   const [quickInput, setQuickInput] = useState('');
   const [checkInLogs, setCheckInLogs] = useState<CheckInLog[]>([]);
   const [page, setPage] = useState(0);
+  const [mobilePage, setMobilePage] = useState(0);
+  const [mobilePageSize, setMobilePageSize] = useState(MOBILE_MIN_ROWS);
   const [deskEntry, setDeskEntry] = useState<DeskEntry>('quick');
+  const mobileRootRef = useRef<HTMLDivElement>(null);
+  const mobileListRef = useRef<HTMLDivElement>(null);
   const quickInputRef = useRef<HTMLInputElement>(null);
   const deskQuickRef = useRef<HTMLInputElement>(null);
   const deskSearchRef = useRef<HTMLInputElement>(null);
@@ -214,6 +228,34 @@ export function CheckInTabs({
     };
   }, [eventId, canExport]);
 
+  // Phone List tab: the header shrinks (no back link; no event title when the
+  // picker already shows the event) to leave room for the member rows.
+  const compactHeader = tab === 'member-list';
+
+  // Phone member list: as many rows per page as fit between the list's top
+  // and the bottom nav, so the List tab never scrolls. Re-measured when the
+  // window or the content above the list changes size.
+  useEffect(() => {
+    if (tab !== 'member-list') return;
+    function fit() {
+      const list = mobileListRef.current;
+      if (!list || !list.offsetParent) return; // hidden (desktop)
+      const top = list.getBoundingClientRect().top + window.scrollY;
+      const row = list.firstElementChild as HTMLElement | null;
+      const rowPx = row ? row.offsetHeight + 4 : MOBILE_ROW_PX;
+      const free = window.innerHeight - top - MOBILE_LIST_RESERVE_PX;
+      setMobilePageSize(Math.max(MOBILE_MIN_ROWS, Math.floor(free / rowPx)));
+    }
+    fit();
+    const observer = new ResizeObserver(fit);
+    if (mobileRootRef.current) observer.observe(mobileRootRef.current);
+    window.addEventListener('resize', fit);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', fit);
+    };
+  }, [tab]);
+
   const presentCount = useMemo(
     () =>
       Object.values(records).filter((s) => s === 'present' || s === 'late')
@@ -268,7 +310,6 @@ export function CheckInTabs({
         fullName(m).toLowerCase().includes(q),
     );
   }, [members, search]);
-  const mobileMembers = filteredMembers.slice(0, MOBILE_LIST_LIMIT);
 
   // Desktop member table pagination.
   const pageCount = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
@@ -276,6 +317,17 @@ export function CheckInTabs({
   const pageMembers = filteredMembers.slice(
     safePage * PAGE_SIZE,
     safePage * PAGE_SIZE + PAGE_SIZE,
+  );
+
+  // Phone member list pagination (page size fitted to the screen).
+  const mobilePageCount = Math.max(
+    1,
+    Math.ceil(filteredMembers.length / mobilePageSize),
+  );
+  const safeMobilePage = Math.min(mobilePage, mobilePageCount - 1);
+  const mobileMembers = filteredMembers.slice(
+    safeMobilePage * mobilePageSize,
+    safeMobilePage * mobilePageSize + mobilePageSize,
   );
 
   async function handleQuickCheckIn(e: React.FormEvent) {
@@ -419,6 +471,7 @@ export function CheckInTabs({
         onChange={(e) => {
           setSearch(e.target.value);
           setPage(0);
+          setMobilePage(0);
         }}
         aria-label={t('Search members')}
         className={cn(
@@ -437,6 +490,59 @@ export function CheckInTabs({
       )}
     </div>
   );
+
+  /** "1–12 of 726" with previous / next buttons (bigger touch targets on phones). */
+  const pager = (
+    current: number,
+    count: number,
+    size: number,
+    setCurrent: (page: number) => void,
+    variant: 'mobile' | 'desktop',
+  ) => {
+    const btn = cn(
+      'flex items-center justify-center border border-parchment-edge text-ink-muted hover:bg-parchment-deep disabled:opacity-40',
+      variant === 'mobile' ? 'h-9 w-9 rounded-[10px]' : 'h-7 w-7 rounded-lg',
+    );
+    return (
+      <div
+        className={cn(
+          'flex items-center justify-between',
+          variant === 'mobile' ? 'pt-2' : 'pt-3',
+        )}
+      >
+        <span className="text-[11px] text-ink-muted">
+          {t('{from}–{to} of {total}', {
+            from: current * size + 1,
+            to: Math.min((current + 1) * size, filteredMembers.length),
+            total: filteredMembers.length,
+          })}
+        </span>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setCurrent(current - 1)}
+            disabled={current === 0}
+            aria-label={t('Previous page')}
+            className={btn}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <span className="font-mono text-[11px] tabular-nums text-ink">
+            {current + 1} / {count}
+          </span>
+          <button
+            type="button"
+            onClick={() => setCurrent(current + 1)}
+            disabled={current >= count - 1}
+            aria-label={t('Next page')}
+            className={btn}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const exportBtn = canExport && (
     <button type="button" onClick={exportCsv} className={secondaryBtn}>
@@ -530,14 +636,24 @@ export function CheckInTabs({
   return (
     <>
       {/* ─────────────── PHONE (< md) ─────────────── */}
-      <div className="px-[18px] pb-6 pt-3 md:hidden">
-        <div className="mb-2.5">
-          <BackLink href={back.href}>{t(back.label)}</BackLink>
-        </div>
+      <div
+        ref={mobileRootRef}
+        className={cn(
+          'px-[18px] pt-3 md:hidden',
+          compactHeader ? 'pb-2' : 'pb-6',
+        )}
+      >
+        {!compactHeader && (
+          <div className="mb-2.5">
+            <BackLink href={back.href}>{t(back.label)}</BackLink>
+          </div>
+        )}
 
-        {picker && <div className="mb-4">{picker}</div>}
+        {picker && (
+          <div className={compactHeader ? 'mb-3' : 'mb-4'}>{picker}</div>
+        )}
 
-        <div className="mb-3.5">
+        <div className={cn('mb-3.5', compactHeader && picker && 'hidden')}>
           <div
             className={cn(
               'text-[11px] tracking-[0.06em] text-gold-deep',
@@ -701,44 +817,51 @@ export function CheckInTabs({
 
         {tab === 'member-list' && (
           <div role="tabpanel">
-            <div className="mb-3 flex justify-end">
-              <div className="sacred-gradient inline-flex items-baseline gap-1 rounded-full border border-gold/30 px-3 py-1.5 font-mono font-semibold text-gold">
+            <div className="mb-3 flex items-center gap-2">
+              {searchBox(
+                'min-w-0 flex-1',
+                undefined,
+                t('Search members…'),
+                true,
+              )}
+              <div className="sacred-gradient inline-flex shrink-0 items-baseline gap-1 rounded-full border border-gold/30 px-3 py-1.5 font-mono font-semibold text-gold">
                 <span className="text-[13px] tabular-nums">{presentCount}</span>
                 <span className="text-[10px] opacity-60">/ {total}</span>
               </div>
             </div>
-            {searchBox('mb-3.5', undefined, t('Search members…'), true)}
             {filteredMembers.length === 0 ? (
               <p className="py-8 text-center text-sm text-ink-muted">
                 {t('No members found')}
               </p>
             ) : (
-              <div className="flex flex-col gap-1">
-                {mobileMembers.map((m) => (
-                  <div
-                    key={m.id}
-                    className="flex items-center gap-2.5 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3 py-2.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-[13.5px] font-semibold leading-[1.15] text-brand-ink">
-                        {fullName(m)}
+              <>
+                <div ref={mobileListRef} className="flex flex-col gap-1">
+                  {mobileMembers.map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center gap-2.5 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3 py-2"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-[13.5px] font-semibold leading-[1.15] text-brand-ink">
+                          {fullName(m)}
+                        </div>
+                        <div className="mt-px font-mono text-[9.5px] text-ink-muted">
+                          {m.memberId}
+                        </div>
                       </div>
-                      <div className="mt-px font-mono text-[9.5px] text-ink-muted">
-                        {m.memberId}
-                      </div>
+                      {statusButtons(m, 'md')}
                     </div>
-                    {statusButtons(m, 'md')}
-                  </div>
-                ))}
-                {filteredMembers.length > mobileMembers.length && (
-                  <p className="py-3 text-center text-xs text-ink-muted">
-                    {t('Showing {n} of {total}. Search to find others.', {
-                      n: mobileMembers.length,
-                      total: filteredMembers.length,
-                    })}
-                  </p>
-                )}
-              </div>
+                  ))}
+                </div>
+                {mobilePageCount > 1 &&
+                  pager(
+                    safeMobilePage,
+                    mobilePageCount,
+                    mobilePageSize,
+                    setMobilePage,
+                    'mobile',
+                  )}
+              </>
             )}
           </div>
         )}
@@ -932,45 +1055,8 @@ export function CheckInTabs({
               </>
             )}
 
-            {filteredMembers.length > PAGE_SIZE && (
-              <div className="flex items-center justify-between pt-3">
-                <span className="text-[11px] text-ink-muted">
-                  {t('{from}–{to} of {total}', {
-                    from: safePage * PAGE_SIZE + 1,
-                    to: Math.min(
-                      (safePage + 1) * PAGE_SIZE,
-                      filteredMembers.length,
-                    ),
-                    total: filteredMembers.length,
-                  })}
-                </span>
-                <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                    disabled={safePage === 0}
-                    aria-label={t('Previous page')}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-parchment-edge text-ink-muted hover:bg-parchment-deep disabled:opacity-40"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  <span className="font-mono text-[11px] tabular-nums text-ink">
-                    {safePage + 1} / {pageCount}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setPage((p) => Math.min(pageCount - 1, p + 1))
-                    }
-                    disabled={safePage >= pageCount - 1}
-                    aria-label={t('Next page')}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg border border-parchment-edge text-ink-muted hover:bg-parchment-deep disabled:opacity-40"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            )}
+            {filteredMembers.length > PAGE_SIZE &&
+              pager(safePage, pageCount, PAGE_SIZE, setPage, 'desktop')}
           </Card>
         </div>
       </div>
