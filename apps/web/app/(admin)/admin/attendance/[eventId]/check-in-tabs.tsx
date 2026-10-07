@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Check,
   ChevronLeft,
@@ -16,8 +16,9 @@ import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { formatYmd, hhmm } from '@/lib/events';
+import { normalizeMemberId } from '@/lib/member-id';
 import { cn } from '@/lib/utils';
-import { markAttendance } from '../actions';
+import { getEventAttendance, markAttendance } from '../actions';
 import {
   BackLink,
   primaryBtn,
@@ -118,6 +119,15 @@ const fullName = (m: CheckInMember) =>
 /** Members per page in the desktop member table. */
 const PAGE_SIZE = 12;
 
+/** Rows rendered in the phone member list; search finds the rest. */
+const MOBILE_LIST_LIMIT = 50;
+
+/** How often the screen fetches check-ins made on other devices. */
+const SYNC_INTERVAL_MS = 15_000;
+
+/** Lookup key for a typed or scanned member ID ("42" -> "ssu/01/03/05/00042"). */
+const memberKey = (input: string) => normalizeMemberId(input).toLowerCase();
+
 type MobileTab = 'quick' | 'member-list' | 'qr-scan';
 type DeskEntry = 'quick' | 'qr' | 'list';
 
@@ -158,9 +168,51 @@ export function CheckInTabs({
 
   const membersByMemberId = useMemo(() => {
     const map = new Map<string, CheckInMember>();
-    for (const m of members) map.set(m.memberId, m);
+    for (const m of members) map.set(m.memberId.toLowerCase(), m);
     return map;
   }, [members]);
+
+  // Latest records for callbacks, and when this device last changed each
+  // member (so a sync started earlier never undoes a newer tap).
+  const recordsRef = useRef(records);
+  useEffect(() => {
+    recordsRef.current = records;
+  }, [records]);
+  const localEdits = useRef(new Map<number, number>());
+
+  // Pull check-ins made on other devices: on open, every SYNC_INTERVAL_MS and
+  // when the phone comes back to this tab.
+  useEffect(() => {
+    if (!canExport) return;
+    let stopped = false;
+    async function sync() {
+      if (document.visibilityState !== 'visible') return;
+      const startedAt = Date.now();
+      const res = await getEventAttendance(eventId).catch(() => null);
+      if (stopped || !res || !res.ok) return;
+      setRecords((prev) => {
+        const next: Record<number, AttendanceStatus> = {};
+        for (const a of res.data) next[a.memberId] = a.status;
+        for (const [id, at] of localEdits.current) {
+          if (at < startedAt) continue;
+          if (prev[id]) next[id] = prev[id];
+          else delete next[id];
+        }
+        return next;
+      });
+    }
+    void sync();
+    const timer = setInterval(sync, SYNC_INTERVAL_MS);
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void sync();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      stopped = true;
+      clearInterval(timer);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, [eventId, canExport]);
 
   const presentCount = useMemo(
     () =>
@@ -171,10 +223,28 @@ export function CheckInTabs({
   const total = members.length;
   const progress = total ? Math.min(100, (presentCount / total) * 100) : 0;
 
+  // Optimistic: the button changes at once; on failure it goes back and a
+  // toast explains why.
   const upsertAttendance = useCallback(
     async (memberId: number, status: AttendanceStatus) => {
-      const res = await markAttendance({ eventId, memberId, status });
+      const previous = recordsRef.current[memberId];
+      localEdits.current.set(memberId, Date.now());
+      setRecords((prev) => ({ ...prev, [memberId]: status }));
+      const res = await markAttendance({ eventId, memberId, status }).catch(
+        () => ({
+          ok: false as const,
+          error: 'Could not save attendance. Please try again.',
+        }),
+      );
       if (!res.ok) {
+        localEdits.current.set(memberId, Date.now());
+        setRecords((prev) => {
+          if (prev[memberId] !== status) return prev; // a newer tap won
+          const next = { ...prev };
+          if (previous) next[memberId] = previous;
+          else delete next[memberId];
+          return next;
+        });
         toast({
           title: t('Error'),
           description: t(res.error),
@@ -182,21 +252,23 @@ export function CheckInTabs({
         });
         return false;
       }
-      setRecords((prev) => ({ ...prev, [memberId]: status }));
       return true;
     },
     [eventId, toast, t],
   );
 
-  const filteredMembers = members.filter((m) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      m.name.toLowerCase().includes(q) ||
-      m.fatherName?.toLowerCase().includes(q) ||
-      m.memberId.toLowerCase().includes(q)
+  const filteredMembers = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return members;
+    return members.filter(
+      (m) =>
+        m.name.toLowerCase().includes(q) ||
+        m.fatherName?.toLowerCase().includes(q) ||
+        m.memberId.toLowerCase().includes(q) ||
+        fullName(m).toLowerCase().includes(q),
     );
-  });
+  }, [members, search]);
+  const mobileMembers = filteredMembers.slice(0, MOBILE_LIST_LIMIT);
 
   // Desktop member table pagination.
   const pageCount = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
@@ -211,7 +283,7 @@ export function CheckInTabs({
     const id = quickInput.trim();
     if (!id) return;
 
-    const member = members.find((m) => m.memberId === id);
+    const member = membersByMemberId.get(memberKey(id));
     if (!member) {
       toast({
         title: t('Not found'),
@@ -253,7 +325,7 @@ export function CheckInTabs({
 
   async function handleQRDecoded(decoded: string): Promise<ScanResult> {
     const code = decoded.trim();
-    const member = membersByMemberId.get(code);
+    const member = membersByMemberId.get(memberKey(code));
     if (!member) return { kind: 'invalid', code };
     const name = fullName(member);
     if (records[member.id] === 'present' || records[member.id] === 'late') {
@@ -642,7 +714,7 @@ export function CheckInTabs({
               </p>
             ) : (
               <div className="flex flex-col gap-1">
-                {filteredMembers.map((m) => (
+                {mobileMembers.map((m) => (
                   <div
                     key={m.id}
                     className="flex items-center gap-2.5 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3 py-2.5"
@@ -658,6 +730,14 @@ export function CheckInTabs({
                     {statusButtons(m, 'md')}
                   </div>
                 ))}
+                {filteredMembers.length > mobileMembers.length && (
+                  <p className="py-3 text-center text-xs text-ink-muted">
+                    {t('Showing {n} of {total}. Search to find others.', {
+                      n: mobileMembers.length,
+                      total: filteredMembers.length,
+                    })}
+                  </p>
+                )}
               </div>
             )}
           </div>
@@ -765,7 +845,7 @@ export function CheckInTabs({
                     ref={deskQuickRef}
                     value={quickInput}
                     onChange={(e) => setQuickInput(e.target.value)}
-                    placeholder="FY-0000"
+                    placeholder={t('Member number or ID')}
                     aria-label={t('Member ID')}
                     className="h-auto rounded-xl border border-parchment-edge-strong bg-parchment px-4 py-[13px] font-mono text-xl tracking-[0.15em] text-ink shadow-[inset_0_1px_2px_rgba(10,60,54,0.05)] placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/40 dark:bg-parchment-deep dark:shadow-[inset_0_1px_2px_rgba(0,0,0,0.3)]"
                   />

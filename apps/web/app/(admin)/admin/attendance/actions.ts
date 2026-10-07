@@ -21,6 +21,7 @@ import {
   canCreateEvent,
   canEditEvent,
   canMarkAttendance,
+  canViewEventAttendance,
 } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 
@@ -338,6 +339,11 @@ const markSchema = z.object({
 /**
  * Marks (or changes) one member's attendance for an event.
  * Permission: canMarkAttendance(user, event) on the stored event.
+ *
+ * No revalidatePath here on purpose: any revalidation makes Next.js send the
+ * whole check-in page (every member) back with each tap, which is slow on
+ * phones at the door. The check-in screen keeps its own state and syncs with
+ * getEventAttendance() instead.
  */
 export async function markAttendance(input: {
   eventId: string;
@@ -372,6 +378,32 @@ export async function markAttendance(input: {
     return fail('Could not save attendance. Please try again.');
   }
 
-  revalidateAttendance();
   return ok();
+}
+
+/**
+ * Current attendance of one event (member id + status only), for the
+ * check-in screen to sync with other devices without reloading the page.
+ * Permission: canViewEventAttendance(user, event), same as the page.
+ */
+export async function getEventAttendance(id: string): Promise<
+  ActionResult<
+    {
+      memberId: number;
+      status: (typeof ATTENDANCE_STATUSES)[number];
+    }[]
+  >
+> {
+  const user = await requireUser();
+  const parsed = eventId.safeParse(id);
+  if (!parsed.success) return fail('Event not found.');
+  const event = await loadEvent(parsed.data);
+  if (!event) return fail('Event not found.');
+  if (!canViewEventAttendance(user, event)) return fail(NOT_ALLOWED);
+
+  const rows = await db
+    .select({ memberId: attendance.memberId, status: attendance.status })
+    .from(attendance)
+    .where(eq(attendance.eventId, event.id));
+  return ok(rows);
 }
