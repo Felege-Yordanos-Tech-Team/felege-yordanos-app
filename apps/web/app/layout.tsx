@@ -42,7 +42,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
   const locale = await getLocale();
   return (
     <html lang={locale} suppressHydrationWarning>
-      <body className="min-h-screen font-body antialiased">
+      <body className="min-h-dvh font-body antialiased">
         <Providers locale={locale}>
           {children}
           <Toaster />
