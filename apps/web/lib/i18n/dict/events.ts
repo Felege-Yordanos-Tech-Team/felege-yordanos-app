@@ -102,8 +102,6 @@ export const events: Record<string, string> = {
   'Enter member ID…': 'የአባል መታወቂያ ያስገቡ…',
   'Member ID': 'የአባል መታወቂያ',
   'No members found': 'አባላት አልተገኙም',
-  'Showing {n} of {total}. Search to find others.':
-    'ከ{total} ውስጥ {n} ታይተዋል። ሌሎችን ለማግኘት ይፈልጉ።',
   'Member number or ID': 'የአባል ቁጥር ወይም መታወቂያ',
   'Mark each member present (P), late (L) or absent (A) in the member list.':
     'በአባላት ዝርዝሩ ውስጥ እያንዳንዱን አባል ተገኝቷል (P)፣ ዘግይቷል (L) ወይም ቀርቷል (A) ብለው ይመዝግቡ።',
