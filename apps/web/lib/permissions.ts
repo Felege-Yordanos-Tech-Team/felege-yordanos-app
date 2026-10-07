@@ -7,6 +7,11 @@
  *
  * Phase 4 replaces the hardcoded department ids with configurable permissions.
  */
+import {
+  checkInState,
+  checkInWindow,
+  type CheckInWindowEvent,
+} from './check-in-window';
 import type { CurrentUser } from './session';
 
 /** Department ids that carry special permissions (see departments table). */
@@ -64,6 +69,22 @@ export const canViewAllAttendance = (u: User) =>
   isAdmin(u) || u.departmentId === DEPARTMENT.PROGRAMS_EVENTS;
 
 /** Read attendance of one event. Members can always read their own records. */
+/**
+ * Mark attendance right now: department heads only inside the event's
+ * check-in window (lib/check-in-window.ts), admins and super admins at any
+ * time.
+ */
+export const canCheckInNow = (
+  u: User,
+  event: { departmentId: number | null } & CheckInWindowEvent,
+  now: Date = new Date(),
+) =>
+  canMarkAttendance(u, event) &&
+  (isAdmin(u) || checkInState(checkInWindow(event), now) === 'open');
+
+/** Whether the check-in window applies to this user (department heads). */
+export const isLimitedToCheckInWindow = (u: User) => !isAdmin(u);
+
 export const canViewEventAttendance = (
   u: User,
   event: { departmentId: number | null },

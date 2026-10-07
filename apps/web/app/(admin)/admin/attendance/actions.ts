@@ -18,6 +18,13 @@ import {
   type Recurrence,
 } from '@/lib/events';
 import {
+  CHECK_IN_DEFAULT_MIN,
+  CHECK_IN_MAX_MIN,
+  checkInState,
+  checkInWindow,
+} from '@/lib/check-in-window';
+import {
+  canCheckInNow,
   canCreateEvent,
   canEditEvent,
   canMarkAttendance,
@@ -36,6 +43,13 @@ const hhmm = z
   .string()
   .regex(/^\d{2}:\d{2}(:\d{2})?$/, 'Enter a valid time.')
   .nullable();
+
+const windowMinutes = z
+  .number()
+  .int('Enter whole minutes.')
+  .min(0, 'Minutes cannot be negative.')
+  .max(CHECK_IN_MAX_MIN, `At most ${CHECK_IN_MAX_MIN} minutes.`)
+  .default(CHECK_IN_DEFAULT_MIN);
 
 const eventFields = z.object({
   title: z
@@ -56,6 +70,9 @@ const eventFields = z.object({
   startTime: hhmm,
   endTime: hhmm,
   departmentId: z.number().int().positive().nullable(),
+  // Check-in window around the start time, in minutes.
+  checkInOpensBeforeMin: windowMinutes,
+  checkInClosesAfterMin: windowMinutes,
 });
 
 export type EventInput = z.input<typeof eventFields>;
@@ -290,6 +307,8 @@ export async function updateSeriesEnd(input: {
             startTime: event.startTime,
             endTime: event.endTime,
             departmentId: event.departmentId,
+            checkInOpensBeforeMin: event.checkInOpensBeforeMin,
+            checkInClosesAfterMin: event.checkInClosesAfterMin,
             createdBy: user.id,
             recurrenceGroup: group,
             recurrence: cadence,
@@ -338,7 +357,8 @@ const markSchema = z.object({
 
 /**
  * Marks (or changes) one member's attendance for an event.
- * Permission: canMarkAttendance(user, event) on the stored event.
+ * Permission: canMarkAttendance(user, event) on the stored event, and for
+ * department heads the event's check-in window (canCheckInNow).
  *
  * No revalidatePath here on purpose: any revalidation makes Next.js send the
  * whole check-in page (every member) back with each tap, which is slow on
@@ -358,6 +378,13 @@ export async function markAttendance(input: {
   const event = await loadEvent(parsed.data.eventId);
   if (!event) return fail('Event not found.');
   if (!canMarkAttendance(user, event)) return fail(NOT_ALLOWED);
+  if (!canCheckInNow(user, event)) {
+    return fail(
+      checkInState(checkInWindow(event)) === 'before'
+        ? 'Check-in for this event has not opened yet.'
+        : 'Check-in for this event has closed.',
+    );
+  }
 
   try {
     await db

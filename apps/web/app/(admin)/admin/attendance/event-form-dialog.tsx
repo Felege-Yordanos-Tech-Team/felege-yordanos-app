@@ -42,6 +42,7 @@ import {
   updateSeriesEnd,
 } from './actions';
 import { primaryBtn } from '@/components/events/event-ui';
+import { CHECK_IN_DEFAULT_MIN, CHECK_IN_MAX_MIN } from '@/lib/check-in-window';
 
 type EventRow = typeof events.$inferSelect;
 type Department = typeof departments.$inferSelect;
@@ -125,6 +126,8 @@ export function EventFormDialog({
   const [eventDate, setEventDate] = useState('');
   const [startTime, setStartTime] = useState('');
   const [endTime, setEndTime] = useState('');
+  const [opensBefore, setOpensBefore] = useState(String(CHECK_IN_DEFAULT_MIN));
+  const [closesAfter, setClosesAfter] = useState(String(CHECK_IN_DEFAULT_MIN));
   const [deptId, setDeptId] = useState('');
   const [repeat, setRepeat] = useState<RepeatChoice>('none');
   const [until, setUntil] = useState('');
@@ -142,6 +145,8 @@ export function EventFormDialog({
       setEventDate(event.eventDate);
       setStartTime(event.startTime?.slice(0, 5) ?? '');
       setEndTime(event.endTime?.slice(0, 5) ?? '');
+      setOpensBefore(String(event.checkInOpensBeforeMin));
+      setClosesAfter(String(event.checkInClosesAfterMin));
       setDeptId(event.departmentId ? String(event.departmentId) : '');
       setRepeat('none');
       setUntil('');
@@ -152,6 +157,8 @@ export function EventFormDialog({
       setEventDate(defaultDate ?? '');
       setStartTime('');
       setEndTime('');
+      setOpensBefore(String(CHECK_IN_DEFAULT_MIN));
+      setClosesAfter(String(CHECK_IN_DEFAULT_MIN));
       setDeptId(userDeptId ? String(userDeptId) : '');
       setRepeat('none');
       setUntil('');
@@ -190,6 +197,14 @@ export function EventFormDialog({
     }
   }
 
+  // Empty fields fall back to the default; the server validates the range.
+  const checkInMinutes = () => ({
+    checkInOpensBeforeMin:
+      opensBefore === '' ? CHECK_IN_DEFAULT_MIN : Number(opensBefore),
+    checkInClosesAfterMin:
+      closesAfter === '' ? CHECK_IN_DEFAULT_MIN : Number(closesAfter),
+  });
+
   // ── Submit (create) ─────────────────────────────────────────────────────────
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -201,6 +216,7 @@ export function EventFormDialog({
       startTime: startTime || null,
       endTime: endTime || null,
       departmentId: deptId ? Number(deptId) : null,
+      ...checkInMinutes(),
       recurrence: recurring ? (repeat as Recurrence) : null,
       until: recurring ? cappedUntil || null : null,
     });
@@ -235,6 +251,7 @@ export function EventFormDialog({
       startTime: startTime || null,
       endTime: endTime || null,
       departmentId: deptId ? Number(deptId) : null,
+      ...checkInMinutes(),
     });
     setBusy(false);
     if (!res.ok) {
@@ -444,6 +461,47 @@ export function EventFormDialog({
                   className={cn(monoCls, 'px-2.5')}
                 />
               </div>
+            </div>
+
+            {/* Check-in window */}
+            <div className="mt-3.5 grid grid-cols-2 gap-2.5">
+              <div className="min-w-0">
+                <Label htmlFor="ev-checkin-open" className={labelCls}>
+                  {t('Check-in opens (min before start)')}
+                </Label>
+                <Input
+                  id="ev-checkin-open"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={CHECK_IN_MAX_MIN}
+                  step={1}
+                  value={opensBefore}
+                  onChange={(e) => setOpensBefore(e.target.value)}
+                  className={cn(monoCls, 'px-2.5')}
+                />
+              </div>
+              <div className="min-w-0">
+                <Label htmlFor="ev-checkin-close" className={labelCls}>
+                  {t('Check-in closes (min after start)')}
+                </Label>
+                <Input
+                  id="ev-checkin-close"
+                  type="number"
+                  inputMode="numeric"
+                  min={0}
+                  max={CHECK_IN_MAX_MIN}
+                  step={1}
+                  value={closesAfter}
+                  onChange={(e) => setClosesAfter(e.target.value)}
+                  className={cn(monoCls, 'px-2.5')}
+                />
+              </div>
+              <p className="col-span-2 -mt-1 text-[11px] leading-snug text-ink-muted">
+                {t(
+                  'Department heads can only check people in during this window. Admins can at any time.',
+                )}
+              </p>
             </div>
 
             {/* Department */}

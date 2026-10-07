@@ -1,7 +1,11 @@
 import { asc, eq } from 'drizzle-orm';
 import { notFound, redirect } from 'next/navigation';
 import { attendance, db, events, members } from '@felege-yordanos/db/server';
-import { canViewEventAttendance } from '@/lib/permissions';
+import { checkInWindow } from '@/lib/check-in-window';
+import {
+  canViewEventAttendance,
+  isLimitedToCheckInWindow,
+} from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 import { CheckInTabs } from './check-in-tabs';
 
@@ -42,9 +46,17 @@ export default async function CheckInPage({
       .where(eq(attendance.eventId, event.id)),
   ]);
 
+  const times = checkInWindow(event);
+
   return (
     <CheckInTabs
       eventId={event.id}
+      checkIn={{
+        opensAt: times.opensAt.toISOString(),
+        closesAt: times.closesAt.toISOString(),
+        now: Date.now(),
+        limited: isLimitedToCheckInWindow(user),
+      }}
       members={memberRows}
       attendance={attendanceRows}
       event={{

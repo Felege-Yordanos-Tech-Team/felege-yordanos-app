@@ -269,8 +269,20 @@ export const events = pgTable(
     recurrence: text('recurrence').$type<Recurrence>(),
     // Current end date of the series (<= 12 months from start, enforced in app).
     recurrenceUntil: date('recurrence_until'),
+    // Check-in window relative to the start time (Ethiopian time). Department
+    // heads can only check people in inside it; admins at any time.
+    checkInOpensBeforeMin: integer('check_in_opens_before_min')
+      .notNull()
+      .default(20),
+    checkInClosesAfterMin: integer('check_in_closes_after_min')
+      .notNull()
+      .default(20),
   },
   (t) => [
+    check(
+      'events_check_in_window_check',
+      sql`${t.checkInOpensBeforeMin} BETWEEN 0 AND 720 AND ${t.checkInClosesAfterMin} BETWEEN 0 AND 720`,
+    ),
     check(
       'events_recurrence_check',
       sql`(${t.recurrence} IS NULL) OR (${t.recurrence} = ANY (ARRAY['weekly'::text, 'biweekly'::text, 'monthly'::text]))`,

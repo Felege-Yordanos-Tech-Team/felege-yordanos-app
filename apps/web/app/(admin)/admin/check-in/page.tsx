@@ -7,7 +7,11 @@ import {
   members as membersTable,
 } from '@felege-yordanos/db/server';
 import { PageHead } from '@/components/ds';
-import { canViewEventAttendance } from '@/lib/permissions';
+import { checkInWindow } from '@/lib/check-in-window';
+import {
+  canViewEventAttendance,
+  isLimitedToCheckInWindow,
+} from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 import { getT } from '@/lib/i18n/server';
 import {
@@ -86,10 +90,17 @@ export default async function CheckInHubPage({
   );
 
   if (selectedEvent) {
+    const times = checkInWindow(selectedEvent);
     return (
       <CheckInTabs
         key={selectedEvent.id}
         eventId={selectedEvent.id}
+        checkIn={{
+          opensAt: times.opensAt.toISOString(),
+          closesAt: times.closesAt.toISOString(),
+          now: Date.now(),
+          limited: isLimitedToCheckInWindow(user),
+        }}
         members={members}
         attendance={attendance}
         event={{
