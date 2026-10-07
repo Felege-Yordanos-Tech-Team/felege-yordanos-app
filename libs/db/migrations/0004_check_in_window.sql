@@ -1,0 +1,3 @@
+ALTER TABLE "events" ADD COLUMN "check_in_opens_before_min" integer DEFAULT 20 NOT NULL;--> statement-breakpoint
+ALTER TABLE "events" ADD COLUMN "check_in_closes_after_min" integer DEFAULT 20 NOT NULL;--> statement-breakpoint
+ALTER TABLE "events" ADD CONSTRAINT "events_check_in_window_check" CHECK ("events"."check_in_opens_before_min" BETWEEN 0 AND 720 AND "events"."check_in_closes_after_min" BETWEEN 0 AND 720);
