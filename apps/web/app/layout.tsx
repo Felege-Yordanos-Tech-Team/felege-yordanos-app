@@ -4,6 +4,9 @@ import '@fontsource/noto-serif-ethiopic/400.css';
 import '@fontsource/noto-serif-ethiopic/500.css';
 import '@fontsource/noto-serif-ethiopic/600.css';
 import '@fontsource/noto-serif-ethiopic/700.css';
+// Sans Ethiopic: mobile tab bar labels only.
+import '@fontsource/noto-sans-ethiopic/500.css';
+import '@fontsource/noto-sans-ethiopic/600.css';
 import '@fontsource/cormorant-garamond/400.css';
 import '@fontsource/cormorant-garamond/500.css';
 import '@fontsource/cormorant-garamond/600.css';

@@ -19,14 +19,11 @@ export function SidebarNavItem({ item }: { item: NavItem }) {
       aria-current={active ? 'page' : undefined}
       title={collapsed ? `${item.labelAm} · ${item.labelEn}` : undefined}
       className={cn(
-        'relative flex items-center gap-[11px] rounded-[10px] transition-colors',
+        'flex items-center gap-[11px] rounded-[10px] transition-colors',
         collapsed ? 'mx-2.5 my-0.5 justify-center py-[11px]' : 'mx-3 my-px px-3 py-[9px]',
         active ? 'bg-gold/[0.13] text-gold' : 'text-cream/60 hover:bg-cream/[0.06] hover:text-cream/85',
       )}
     >
-      {active && !collapsed && (
-        <span aria-hidden className="absolute -left-3 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-r-full bg-gold" />
-      )}
       <Icon className={cn('shrink-0', collapsed ? 'h-5 w-5' : 'h-[17px] w-[17px]')} strokeWidth={active ? 2 : 1.7} />
       {!collapsed && (
         <>

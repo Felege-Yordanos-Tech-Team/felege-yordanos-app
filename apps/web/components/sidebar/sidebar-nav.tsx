@@ -36,7 +36,8 @@ export function SidebarNav({ role, displayName, adminHrefs }: SidebarNavProps) {
   return (
     <aside
       className={cn(
-        'print:hidden rail-sacred sticky top-0 z-40 hidden h-screen shrink-0 flex-col overflow-hidden border-r border-gold/20 transition-[width] duration-200 md:flex',
+        // Floating: inset 10px from the top, bottom and left of the screen.
+        'print:hidden rail-sacred sticky top-2.5 z-40 my-2.5 ml-2.5 hidden h-[calc(100vh-20px)] shrink-0 flex-col overflow-hidden rounded-[14px] border border-gold/[0.22] shadow-[0_10px_30px_-14px_rgba(10,60,54,0.35),0_2px_6px_-2px_rgba(10,60,54,0.10)] [transition:width_0.22s_ease] dark:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)] md:flex',
         collapsed ? 'w-[68px]' : 'w-[236px]',
       )}
     >

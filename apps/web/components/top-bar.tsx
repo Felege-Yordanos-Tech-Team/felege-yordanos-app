@@ -16,7 +16,7 @@ interface TopBarProps {
   role: UserRole;
 }
 
-/** Desktop top bar. */
+/** Desktop top bar. Transparent: it sits on the page glow (see AppShell). */
 export function TopBar({ displayName, role }: TopBarProps) {
   const pathname = usePathname();
   const { toggle } = useSidebar();
@@ -28,7 +28,7 @@ export function TopBar({ displayName, role }: TopBarProps) {
   };
 
   return (
-    <header className="print:hidden sticky top-0 z-30 hidden h-[54px] shrink-0 items-center gap-3.5 border-b border-parchment-edge bg-parchment-soft px-[18px] md:flex">
+    <header className="print:hidden sticky top-0 z-30 hidden h-[54px] shrink-0 items-center gap-3.5 bg-transparent px-[18px] md:flex">
       <button
         type="button"
         onClick={toggle}
