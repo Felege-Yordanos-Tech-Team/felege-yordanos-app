@@ -18,7 +18,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { formatYmd, hhmm } from '@/lib/events';
 import { eatDate, eatTime } from '@/lib/check-in-window';
-import { normalizeMemberId } from '@/lib/member-id';
+import { MEMBER_ID_PREFIX, normalizeMemberId } from '@/lib/member-id';
 import { cn } from '@/lib/utils';
 import { getEventAttendance, markAttendance } from '../actions';
 import {
@@ -122,6 +122,35 @@ function formatTime(d: Date): string {
 
 const fullName = (m: CheckInMember) =>
   [m.name, m.fatherName].filter(Boolean).join(' ');
+
+/**
+ * A member ID on one line: the shared register prefix faint, the member's
+ * own number in bold ("ssu/01/03/05/" + "00042").
+ */
+function MemberIdText({ memberId }: { memberId: string }) {
+  const hasPrefix = memberId
+    .toLowerCase()
+    .startsWith(MEMBER_ID_PREFIX.toLowerCase());
+  return (
+    <span
+      className="whitespace-nowrap font-mono text-[10.5px] text-ink-muted"
+      title={memberId}
+    >
+      {hasPrefix ? (
+        <>
+          <span className="text-ink-faint">
+            {memberId.slice(0, MEMBER_ID_PREFIX.length)}
+          </span>
+          <span className="font-semibold text-ink">
+            {memberId.slice(MEMBER_ID_PREFIX.length)}
+          </span>
+        </>
+      ) : (
+        memberId
+      )}
+    </span>
+  );
+}
 
 /** Members per page in the desktop member table. */
 const PAGE_SIZE = 12;
@@ -1141,7 +1170,7 @@ export function CheckInTabs({
               </p>
             ) : (
               <>
-                <div className="grid grid-cols-[80px_minmax(0,1fr)_auto] gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]">
+                <div className="grid grid-cols-[120px_minmax(0,1fr)_auto] gap-3 border-b border-parchment-edge-strong px-1 pb-[9px]">
                   {[t('ID'), t('Member'), t('Status')].map((h) => (
                     <span
                       key={h}
@@ -1154,11 +1183,9 @@ export function CheckInTabs({
                 {pageMembers.map((m) => (
                   <div
                     key={m.id}
-                    className="grid grid-cols-[80px_minmax(0,1fr)_auto] items-center gap-3 border-b border-parchment-edge px-1 py-3"
+                    className="grid grid-cols-[120px_minmax(0,1fr)_auto] items-center gap-3 border-b border-parchment-edge px-1 py-3"
                   >
-                    <span className="font-mono text-[10.5px] text-ink-muted">
-                      {m.memberId}
-                    </span>
+                    <MemberIdText memberId={m.memberId} />
                     <span className="truncate text-[13px] font-medium text-ink">
                       {fullName(m)}
                     </span>
