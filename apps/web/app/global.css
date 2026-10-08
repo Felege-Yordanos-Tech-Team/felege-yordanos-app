@@ -197,7 +197,20 @@
       ),
       radial-gradient(
         ellipse at 100% 100%,
-        rgba(107, 29, 42, 0.04) 0%,
+        rgba(28, 107, 96, 0.04) 0%,
+        transparent 50%
+      );
+  }
+  .dark .parchment-bg {
+    background-image:
+      radial-gradient(
+        ellipse at 50% 0%,
+        rgba(212, 168, 67, 0.05) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse at 100% 100%,
+        rgba(28, 107, 96, 0.1) 0%,
         transparent 50%
       );
   }

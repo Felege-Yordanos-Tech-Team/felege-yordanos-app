@@ -27,13 +27,15 @@ export function AppShell({
     <SidebarProvider>
       {/* Phones: the whole frame (header included) is at least the visible
           screen height (dvh), so short pages do not scroll. */}
-      <div className="parchment-bg min-h-dvh md:flex">
+      <div className="min-h-dvh bg-parchment md:flex">
         <SidebarNav
           role={role}
           displayName={displayName}
           adminHrefs={adminHrefs}
         />
-        <div className="md:flex md:h-screen md:min-w-0 md:flex-1 md:flex-col">
+        {/* The page glow sits behind both the top bar and the content, so
+            the transparent top bar blends into the page. */}
+        <div className="parchment-bg min-h-dvh md:flex md:h-screen md:min-h-0 md:min-w-0 md:flex-1 md:flex-col">
           <TopBar displayName={displayName} role={role} />
           <MobileHeader displayName={displayName} role={role} />
           <main className="pb-24 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
