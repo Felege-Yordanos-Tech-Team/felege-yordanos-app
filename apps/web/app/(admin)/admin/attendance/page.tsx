@@ -5,7 +5,12 @@ import {
   departments,
   events,
 } from '@felege-yordanos/db/server';
-import { canEditEvent, canViewEventAttendance } from '@/lib/permissions';
+import {
+  canCreateEvent,
+  canEditEvent,
+  canManageAllEvents,
+  canViewEventAttendance,
+} from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 import { EventsList } from './events-list';
 
@@ -42,14 +47,24 @@ export default async function ManageAttendancePage() {
     }
   }
 
+  // What the UI offers; the actions check the same rules again.
+  const editableIds = eventRows
+    .filter((e) => canEditEvent(user, e))
+    .map((e) => e.id);
+  const canPickDepartment = canManageAllEvents(user);
+  const canCreate =
+    canPickDepartment || canCreateEvent(user, user.departmentId);
+
   return (
     <EventsList
       events={eventRows}
       departments={departmentRows}
       attendanceCounts={countMap}
       attendedIds={[...attendedIds]}
-      userRole={user.role}
       userDeptId={user.departmentId}
+      editableIds={editableIds}
+      canCreate={canCreate}
+      canPickDepartment={canPickDepartment}
     />
   );
 }

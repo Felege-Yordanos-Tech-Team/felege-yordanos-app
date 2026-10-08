@@ -6,7 +6,7 @@ import { ChevronsLeft, ChevronsRight, LogOut } from 'lucide-react';
 import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { authClient } from '@/lib/auth-client';
 import { useT } from '@/lib/i18n/client';
-import { navForRole } from '@/lib/nav';
+import { navFor } from '@/lib/nav';
 import { cn, initials } from '@/lib/utils';
 import { LogoCross } from '@/components/brand/logo-cross';
 import { roleLabel } from '@/components/role-badge';
@@ -16,12 +16,14 @@ import { SidebarNavItem } from './sidebar-nav-item';
 interface SidebarNavProps {
   role: UserRole;
   displayName: string;
+  /** Admin pages this user may open. */
+  adminHrefs: string[];
 }
 
 /** Desktop left rail. Hidden on mobile, where the bottom nav takes over. */
-export function SidebarNav({ role, displayName }: SidebarNavProps) {
+export function SidebarNav({ role, displayName, adminHrefs }: SidebarNavProps) {
   const { collapsed, toggle } = useSidebar();
-  const { member, admin } = navForRole(role);
+  const { member, admin } = navFor(adminHrefs);
   const router = useRouter();
   const t = useT();
 

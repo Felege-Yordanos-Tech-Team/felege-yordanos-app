@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import type { departments, events, Role } from '@felege-yordanos/db/schema';
+import type { departments, events } from '@felege-yordanos/db/schema';
 import { Info, Repeat, Trash2, TriangleAlert, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -71,8 +71,9 @@ interface EventFormDialogProps {
   event: EventRow | null;
   defaultDate?: string | null;
   departments: Department[];
-  userRole: Role;
   userDeptId: number | null;
+  /** Department heads who may only create events for their own department. */
+  lockDepartment: boolean;
   /** All occurrences sharing the edited event's recurrence_group. */
   seriesEvents: EventRow[];
   /** Event ids that already have attendance — never delete/regenerate these. */
@@ -108,8 +109,8 @@ export function EventFormDialog({
   event,
   defaultDate,
   departments,
-  userRole,
   userDeptId,
+  lockDepartment,
   seriesEvents,
   attendedIds,
 }: EventFormDialogProps) {
@@ -119,7 +120,6 @@ export function EventFormDialog({
   const locale = useLocale();
   const fmtLong = (ymd: string) =>
     formatYmd(ymd, locale, { month: 'short', day: 'numeric', year: 'numeric' });
-  const isDeptHead = userRole === 'dept_head';
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
@@ -507,7 +507,7 @@ export function EventFormDialog({
             {/* Department */}
             <div className="mt-3.5">
               <Label className={labelCls}>{t('Department')}</Label>
-              {isDeptHead ? (
+              {lockDepartment ? (
                 <div className={cn(fieldCls, 'flex items-center gap-2')}>
                   <span
                     className="h-2 w-2 rounded-full"

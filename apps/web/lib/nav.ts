@@ -14,6 +14,13 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import type { Role as UserRole } from '@felege-yordanos/db/schema';
+import {
+  canAccessAdmin,
+  canApproveMemberLinks,
+  canManageSongs,
+  canManageUsers,
+  canReviewDonations,
+} from './permissions';
 
 /**
  * A single navigation destination. This is the ONE source of truth for both
@@ -58,8 +65,8 @@ export const MEMBER_NAV: NavItem[] = [
 ];
 
 /**
- * Elevated-role destinations under /admin. The role filter here is
- * presentation only; pages enforce lib/permissions.ts.
+ * Elevated-role destinations under /admin. Who sees which one comes from
+ * ADMIN_NAV_RULES (the same rules the pages enforce).
  */
 export const ADMIN_NAV: NavItem[] = [
   // Exact match only, so it is not highlighted on the pages below it.
@@ -124,14 +131,40 @@ export function isElevated(role: UserRole | null | undefined): boolean {
   return !!role && ELEVATED_ROLES.includes(role);
 }
 
+type NavUser = Parameters<typeof canAccessAdmin>[0];
+
+/**
+ * Which admin pages a user may open, from lib/permissions.ts. Menus only show
+ * these; the pages and actions still enforce the rules themselves.
+ */
+const ADMIN_NAV_RULES: Record<string, (u: NavUser) => boolean> = {
+  '/admin': canAccessAdmin,
+  '/admin/attendance': canAccessAdmin,
+  '/admin/check-in': canAccessAdmin,
+  '/admin/songs': canManageSongs,
+  '/admin/donations': canReviewDonations,
+  '/admin/member-links': canApproveMemberLinks,
+  '/admin/users': canManageUsers,
+};
+
+/** The admin hrefs a user may see (computed on the server, passed to menus). */
+export function adminHrefsFor(u: NavUser): string[] {
+  return Object.keys(ADMIN_NAV_RULES).filter((href) =>
+    ADMIN_NAV_RULES[href](u),
+  );
+}
+
 export interface RoleNav {
   member: NavItem[];
   admin: NavItem[];
 }
 
-/** Pure function: the nav sections a given role should see. Trivially testable. */
-export function navForRole(role: UserRole | null | undefined): RoleNav {
-  return { member: MEMBER_NAV, admin: isElevated(role) ? ADMIN_NAV : [] };
+/** The nav sections to show, given the admin hrefs this user may see. */
+export function navFor(adminHrefs: readonly string[]): RoleNav {
+  return {
+    member: MEMBER_NAV,
+    admin: ADMIN_NAV.filter((i) => adminHrefs.includes(i.href)),
+  };
 }
 
 /** Whether a nav item matches the current pathname (exact, or nested when allowed). */
