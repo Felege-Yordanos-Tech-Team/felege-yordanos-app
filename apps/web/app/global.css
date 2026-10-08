@@ -154,6 +154,7 @@
 
   :root {
     --font-ethiopic: 'Noto Serif Ethiopic', serif;
+    --font-ethiopic-sans: 'Noto Sans Ethiopic', 'Noto Serif Ethiopic', sans-serif;
     --font-display: 'Cormorant Garamond', 'Noto Serif Ethiopic', serif;
     --font-body: 'Inter Variable', 'Inter', 'Noto Serif Ethiopic', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
