@@ -24,13 +24,12 @@ import { getLocale, getT } from '@/lib/i18n/server';
 import { bilingual } from '@/lib/i18n/translate';
 import { cn } from '@/lib/utils';
 import { requireUser, type CurrentUser } from '@/lib/session';
+import { adminHrefsFor } from '@/lib/nav';
 import {
   canAccessAdmin,
-  canManageSongs,
   canReviewDonations,
   canViewAllAttendance,
   canViewAllProfiles,
-  isAdmin,
 } from '@/lib/permissions';
 
 interface AdminLinkDef {
@@ -41,9 +40,6 @@ interface AdminLinkDef {
   description: string;
   cta: string;
   featured?: boolean;
-  songsOnly: boolean;
-  /** Admins and super admins only. */
-  adminOnly?: boolean;
   showBadge?: boolean;
 }
 
@@ -56,7 +52,6 @@ const adminLinks: AdminLinkDef[] = [
     description:
       'Plan liturgical gatherings, choir rehearsals, and recurring programs.',
     cta: 'Manage events',
-    songsOnly: false,
   },
   {
     href: '/admin/check-in',
@@ -65,7 +60,6 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Check-in',
     description: 'Scan or mark members present for today’s gatherings.',
     cta: 'Start check-in',
-    songsOnly: false,
   },
   {
     href: '/admin/songs',
@@ -76,7 +70,6 @@ const adminLinks: AdminLinkDef[] = [
       'Add, edit, and organize hymns for the Sunday School songbook.',
     cta: 'Manage songs',
     featured: true,
-    songsOnly: true,
   },
   {
     href: '/admin/donations',
@@ -85,7 +78,6 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Donations',
     description: 'Verify tithes, special contributions, and charitable funds.',
     cta: 'Verification queue',
-    songsOnly: false,
     showBadge: true,
   },
   {
@@ -95,8 +87,6 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Member links',
     description: 'Confirm which account belongs to which registered member.',
     cta: 'Review requests',
-    songsOnly: false,
-    adminOnly: true,
   },
   {
     href: '/admin/users',
@@ -105,7 +95,6 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Manage Users',
     description: 'Assign roles, manage departments, oversee membership.',
     cta: 'View members',
-    songsOnly: false,
   },
 ];
 
@@ -135,6 +124,13 @@ function visibleAttendance(user: CurrentUser): SQL | undefined {
     ),
   );
 }
+
+// Phone strip: one column per visible stat (full class names for Tailwind).
+const COLS: Record<number, string> = {
+  1: 'grid-cols-1',
+  2: 'grid-cols-2',
+  3: 'grid-cols-3',
+};
 
 export default async function AdminDashboard() {
   const user = await requireUser();
@@ -169,18 +165,19 @@ export default async function AdminDashboard() {
     ),
   ]);
 
-  const visibleLinks = adminLinks.filter((link) => {
-    if (isAdmin(user)) return true;
-    if (link.adminOnly) return false;
-    // Not an admin, so this is the Songs & Celebrations dept head.
-    if (canManageSongs(user)) return link.songsOnly;
-    return !link.songsOnly;
-  });
+  // Only the pages this user may open (same rules as the sidebar).
+  const allowed = adminHrefsFor(user);
+  const visibleLinks = adminLinks.filter((link) => allowed.includes(link.href));
 
+  // Donation and member totals only for people who may see them.
   const stats = [
     { en: 'Today', value: todayCheckIns, sub: 'check-ins' },
-    { en: 'Pending', value: pendingDonations, sub: 'donations' },
-    { en: 'Members', value: membersTotal, sub: 'active' },
+    ...(canReviewDonations(user)
+      ? [{ en: 'Pending', value: pendingDonations, sub: 'donations' }]
+      : []),
+    ...(canViewAllProfiles(user)
+      ? [{ en: 'Members', value: membersTotal, sub: 'active' }]
+      : []),
   ];
   const num = new Intl.NumberFormat(intlLocale(locale));
 
@@ -221,7 +218,7 @@ export default async function AdminDashboard() {
         >
           ✣
         </span>
-        <div className="grid grid-cols-3 md:contents">
+        <div className={cn('grid md:contents', COLS[stats.length])}>
           {stats.map((s, i) => (
             <div
               key={s.en}

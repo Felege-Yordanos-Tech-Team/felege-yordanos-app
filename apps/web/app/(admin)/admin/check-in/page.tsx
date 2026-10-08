@@ -9,6 +9,7 @@ import {
 import { PageHead } from '@/components/ds';
 import { checkInWindow } from '@/lib/check-in-window';
 import {
+  canMarkAttendance,
   canViewEventAttendance,
   isLimitedToCheckInWindow,
 } from '@/lib/permissions';
@@ -34,7 +35,7 @@ export default async function CheckInHubPage({
 
   const today = new Date().toISOString().split('T')[0];
 
-  const [events, members] = await Promise.all([
+  const [allEvents, members] = await Promise.all([
     db.select().from(eventsTable).orderBy(desc(eventsTable.eventDate)),
     db
       .select({
@@ -48,6 +49,8 @@ export default async function CheckInHubPage({
       .orderBy(asc(membersTable.name)),
   ]);
 
+  // Only events this user can check people in at.
+  const events = allEvents.filter((e) => canMarkAttendance(user, e));
   const todayEvents = events.filter((e) => e.eventDate === today);
 
   // Default selection: an explicit ?event wins; otherwise auto-pick today's
