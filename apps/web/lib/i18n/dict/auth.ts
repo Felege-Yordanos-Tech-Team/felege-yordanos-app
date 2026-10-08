@@ -48,4 +48,34 @@ export const auth: Record<string, string> = {
     'ይህ ኢሜይል ቀድሞ ተመዝግቧል። ሌላ ኢሜይል ይጠቀሙ።',
   'Password too short': 'የይለፍ ቃሉ በጣም አጭር ነው',
   'Too many requests. Please try again later.': 'በጣም ብዙ ሙከራዎች። እባክዎ ቆይተው ይሞክሩ።',
+
+  // Verify email (6-digit code)
+  'Verify your email': 'ኢሜይልዎን ያረጋግጡ',
+  'Enter the 6-digit code we sent to {email}.':
+    'ወደ {email} የላክነውን ባለ 6 አሃዝ ኮድ ያስገቡ።',
+  'Verify your email to use events, notices and donations.':
+    'ዝግጅቶችን፣ ማስታወቂያዎችንና መዋጮን ለመጠቀም ኢሜይልዎን ያረጋግጡ።',
+  'Your staff access starts after you verify your email.':
+    'የአስተዳደር ፈቃድዎ ኢሜይልዎን ካረጋገጡ በኋላ ይጀምራል።',
+  'Verification code': 'የማረጋገጫ ኮድ',
+  'Digit {n} of 6': 'ከ6 አሃዞች {n}ኛው',
+  'Verify email': 'ኢሜይል አረጋግጥ',
+  'Verifying…': 'በማረጋገጥ ላይ…',
+  'resend in {s}s': 'ከ{s} ሰከንድ በኋላ እንደገና ይላኩ',
+  'resend the code': 'ኮዱን እንደገና ይላኩ',
+  'Wrong account?': 'የተሳሳተ መለያ ነው?',
+  'We sent you a code.': 'ኮድ ልከንልዎታል።',
+  'New code sent.': 'አዲስ ኮድ ተልኳል።',
+  'Wrong code. Check the email and try again.':
+    'ኮዱ ትክክል አይደለም። ኢሜይሉን አይተው እንደገና ይሞክሩ።',
+  'This code has expired. Ask for a new code.':
+    'የዚህ ኮድ ጊዜ አልፏል። አዲስ ኮድ ይጠይቁ።',
+  'Too many wrong tries. Ask for a new code.':
+    'በጣም ብዙ የተሳሳቱ ሙከራዎች። አዲስ ኮድ ይጠይቁ።',
+  'Please wait a moment before asking for a new code.':
+    'አዲስ ኮድ ከመጠየቅዎ በፊት ትንሽ ይጠብቁ።',
+  'Could not send the code. Please try again.':
+    'ኮዱን መላክ አልተቻለም። እባክዎ እንደገና ይሞክሩ።',
+  'Verify your email first, then request the link.':
+    'መጀመሪያ ኢሜይልዎን ያረጋግጡ፣ ከዚያ ማገናኘት ይጠይቁ።',
 };
