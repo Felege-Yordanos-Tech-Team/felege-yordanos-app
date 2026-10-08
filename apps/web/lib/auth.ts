@@ -17,6 +17,7 @@ import {
   profiles,
 } from '@felege-yordanos/db/server';
 import { sendEmail } from './email';
+import { passwordResetEmail } from './email-templates';
 
 // Development only: accept the app on any localhost port. `pnpm dev` moves to
 // 3001, 3002, ... when 3000 is busy, and Better Auth rejects sign-in from an
@@ -47,14 +48,11 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     minPasswordLength: 8,
+    // The reset email says "valid for 1 hour": change both together.
     resetPasswordTokenExpiresIn: 60 * 60,
     revokeSessionsOnPasswordReset: true,
     sendResetPassword: async ({ user, url }) => {
-      await sendEmail({
-        to: user.email,
-        subject: 'Reset your Felege Yordanos password',
-        text: `Open this link to choose a new password (valid for 1 hour):\n${url}\n\nIf you did not ask for this, ignore this email.`,
-      });
+      await sendEmail({ to: user.email, ...passwordResetEmail({ url }) });
     },
   },
   session: {

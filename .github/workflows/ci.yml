@@ -155,6 +155,8 @@ jobs:
       STAGING_BETTER_AUTH_SECRET: ci
       PRODUCTION_POSTGRES_PASSWORD: ci
       PRODUCTION_BETTER_AUTH_SECRET: ci
+      BREVO_SMTP_LOGIN: ci
+      BREVO_SMTP_KEY: ci
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
@@ -197,6 +199,9 @@ jobs:
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
       STAGING_BETTER_AUTH_SECRET: ${{ secrets.STAGING_BETTER_AUTH_SECRET }}
+      # Brevo SMTP login and key (same names in both environments).
+      BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
+      BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -285,6 +290,9 @@ jobs:
       KAMAL_REGISTRY_PASSWORD: ${{ secrets.GITHUB_TOKEN }}
       PRODUCTION_POSTGRES_PASSWORD: ${{ secrets.PRODUCTION_POSTGRES_PASSWORD }}
       PRODUCTION_BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
+      # Brevo SMTP login and key (same names in both environments).
+      BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
+      BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
     steps:
       - uses: actions/checkout@v6
 

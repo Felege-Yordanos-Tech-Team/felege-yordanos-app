@@ -93,9 +93,9 @@ npx nx graph              # View project dependency graph
 
 ## Environment Variables
 
-See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `EMAIL_TRANSPORT`, optional `UPLOAD_DIR`.
+See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `UPLOAD_DIR`, email: `EMAIL_TRANSPORT`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`.
 
-Dev emails (password reset links) are printed in the terminal running the app.
+Email (`lib/email.ts`, templates in `lib/email-templates.ts`, Amharic in `lib/i18n/dict/email.ts`): `EMAIL_TRANSPORT=console` (default in development) prints emails in the terminal running the app; `smtp` sends them. Staging and production send through Brevo (SMTP relay, sender `no-reply@felegeyordanos.org`; GitHub environment secrets `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`). Emails are bilingual (Amharic first) with an HTML and a plain-text part. Test locally with Mailpit: see `.env.example`.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
 
 ## Docker Image
