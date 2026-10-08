@@ -55,8 +55,25 @@ type DialogState = {
   date?: string;
 };
 
-/** Desktop table columns. */
-const COLS = 'grid-cols-[minmax(0,1.7fr)_130px_90px_80px_150px_56px]';
+/**
+ * Desktop table columns. Narrow desktops (with the sidebar open) drop
+ * columns so the event title keeps room:
+ * - md: event (department, date and time on a second line), attendance, actions
+ * - lg: event, department, date + time, attendance, actions
+ * - xl: event, department, date, time, attendance, actions
+ */
+const COLS =
+  'grid-cols-[minmax(0,1fr)_104px_44px] lg:grid-cols-[minmax(0,1fr)_84px_96px_104px_48px] xl:grid-cols-[minmax(0,1.7fr)_130px_90px_80px_150px_56px]';
+
+/** Visibility of each desktop column, in order (matches COLS). */
+const COL_SHOW = [
+  '',
+  'hidden lg:block',
+  'hidden lg:block',
+  'hidden xl:block',
+  '',
+  '',
+];
 
 export function EventsList({
   events,
@@ -365,7 +382,10 @@ export function EventsList({
                   ].map((h, i) => (
                     <span
                       key={i}
-                      className="text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep"
+                      className={cn(
+                        'truncate text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep',
+                        COL_SHOW[i],
+                      )}
                     >
                       {h}
                     </span>
@@ -390,23 +410,59 @@ export function EventsList({
                         COLS,
                       )}
                     >
-                      <div className="flex min-w-0 items-center gap-2 pl-3">
-                        <span className="truncate font-display text-base font-medium text-brand-ink">
-                          {event.title}
-                        </span>
-                        <RecurBadge recurrence={event.recurrence} />
+                      <div className="min-w-0 pl-3">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <span className="truncate font-display text-base font-medium text-brand-ink">
+                            {event.title}
+                          </span>
+                          <RecurBadge recurrence={event.recurrence} />
+                        </div>
+                        {/* Narrow desktops: the hidden columns, on one line. */}
+                        <div className="mt-1 flex min-w-0 items-center gap-2 lg:hidden">
+                          <DeptChip
+                            label={deptShortLabel(event.departmentId, locale)}
+                            title={deptFullName(event.departmentId)}
+                          />
+                          <span className="truncate font-mono text-[11px] text-ink-muted">
+                            {formatYmd(event.eventDate, locale, {
+                              month: 'short',
+                              day: '2-digit',
+                            })}
+                            {event.startTime
+                              ? ` · ${hhmm(event.startTime)}`
+                              : ''}
+                          </span>
+                        </div>
                       </div>
-                      <DeptChip
-                        label={deptShortLabel(event.departmentId, locale)}
-                        title={deptFullName(event.departmentId)}
-                      />
-                      <span className="font-mono text-[11px] text-ink">
+                      <div className={cn('min-w-0', COL_SHOW[1])}>
+                        <DeptChip
+                          label={deptShortLabel(event.departmentId, locale)}
+                          title={deptFullName(event.departmentId)}
+                        />
+                      </div>
+                      <span
+                        className={cn(
+                          'whitespace-nowrap font-mono text-[11px] text-ink',
+                          COL_SHOW[2],
+                        )}
+                      >
                         {formatYmd(event.eventDate, locale, {
                           month: 'short',
                           day: '2-digit',
                         })}
+                        {/* Time shares this column until xl. */}
+                        {event.startTime && (
+                          <span className="text-ink-muted xl:hidden">
+                            {` · ${hhmm(event.startTime)}`}
+                          </span>
+                        )}
                       </span>
-                      <span className="font-mono text-[11px] text-ink-muted">
+                      <span
+                        className={cn(
+                          'font-mono text-[11px] text-ink-muted',
+                          COL_SHOW[3],
+                        )}
+                      >
                         {hhmm(event.startTime) || '—'}
                       </span>
                       {isUpcoming ? (
