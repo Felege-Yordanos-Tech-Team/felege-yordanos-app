@@ -15,7 +15,7 @@ import { useLocale } from '@/lib/i18n/client';
 import { isElevated } from '@/lib/nav';
 import { cn } from '@/lib/utils';
 
-// Short Amharic labels so they fit one line under the icons.
+// Short Amharic tab labels; the sidebar and page titles keep the full names.
 const MEMBER_LINKS = [
   { href: '/dashboard', icon: Home, label: 'Home', am: 'ዋና ገጽ' },
   { href: '/notices', icon: Megaphone, label: 'Notices', am: 'ማስታወቂያ' },
@@ -23,46 +23,52 @@ const MEMBER_LINKS = [
   { href: '/attendance', icon: CalendarCheck, label: 'Events', am: 'መርሃ ግብር' },
 ];
 
-/** Mobile bottom nav. 5th tab: Admin for elevated roles, Donate otherwise. */
+/**
+ * Mobile bottom nav: a floating pill. 5th tab: Admin for elevated roles,
+ * Donate otherwise. AppShell pads <main> so the pill never covers content.
+ */
 export function BottomNav({ role }: { role: UserRole }) {
   const pathname = usePathname();
   const locale = useLocale();
   const links = [
     ...MEMBER_LINKS,
     isElevated(role)
-      ? { href: '/admin', icon: Shield, label: 'Admin', am: 'አስተዳደር' }
+      ? { href: '/admin', icon: Shield, label: 'Admin', am: 'አስተዳዳሪ' }
       : { href: '/donate', icon: Heart, label: 'Donate', am: 'መዋጮ' },
   ];
 
   return (
-    <nav className="print:hidden fixed inset-x-0 bottom-0 z-50 border-t border-gold/25 bg-gradient-to-b from-brand-mid to-brand-deep pb-[max(env(safe-area-inset-bottom),8px)] pt-1.5 md:hidden">
-      <div className="mx-auto flex max-w-[480px] items-end justify-around">
+    <nav className="print:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent px-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] md:hidden">
+      <div className="pointer-events-auto mx-auto flex max-w-[480px] items-stretch justify-around rounded-[22px] border border-gold/[0.28] bg-gradient-to-b from-brand-mid to-brand-deep p-1 shadow-[0_14px_30px_-10px_rgba(7,43,38,0.55),0_4px_10px_-4px_rgba(7,43,38,0.35)]">
         {links.map(({ href, icon: Icon, label, am }) => {
           const active =
             pathname === href ||
-            (href !== '/dashboard' && pathname.startsWith(`${href}/`)) ||
-            pathname === href;
+            (href !== '/dashboard' && pathname.startsWith(`${href}/`));
           return (
             <Link
               key={href}
               href={href}
               prefetch
               aria-current={active ? 'page' : undefined}
-              className="relative flex flex-1 flex-col items-center gap-[3px] px-1 pb-1 pt-2"
-            >
-              {active && (
-                <span className="absolute top-0 h-0.5 w-6 rounded-sm bg-gold shadow-[0_0_8px_#D4A843]" />
+              className={cn(
+                'flex min-w-0 flex-1 flex-col items-center gap-[3px] rounded-[17px] pb-1.5 pt-[7px] [transition:background_0.15s]',
+                active && 'bg-gold/[0.16]',
               )}
+            >
               <Icon
                 className={cn(
-                  'h-5 w-5',
+                  'h-5 w-5 shrink-0',
                   active ? 'text-gold' : 'text-cream/45',
                 )}
                 strokeWidth={active ? 2 : 1.6}
               />
+              {/* May wrap to two lines; never truncated. */}
               <span
                 className={cn(
-                  'whitespace-nowrap text-[9.5px] tracking-[0.04em]',
+                  'text-center leading-[1.15] tracking-normal',
+                  locale === 'am'
+                    ? 'font-ethiopic-sans text-[10px]'
+                    : 'font-body text-[9.5px]',
                   active
                     ? 'font-semibold text-gold'
                     : 'font-medium text-cream/50',

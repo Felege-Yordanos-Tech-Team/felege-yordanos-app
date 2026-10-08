@@ -23,6 +23,7 @@ module.exports = {
         sans: ['var(--font-body)'],
         label: ['var(--font-body)'],
         ethiopic: ['var(--font-ethiopic)'],
+        'ethiopic-sans': ['var(--font-ethiopic-sans)'],
         mono: ['var(--font-mono)'],
       },
       colors: {
