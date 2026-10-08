@@ -38,7 +38,8 @@ export function AppShell({
         <div className="parchment-bg min-h-dvh md:flex md:h-screen md:min-h-0 md:min-w-0 md:flex-1 md:flex-col">
           <TopBar displayName={displayName} role={role} />
           <MobileHeader displayName={displayName} role={role} />
-          <main className="pb-24 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
+          {/* Phones: room for the floating tab bar (see BottomNav). */}
+          <main className="pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
             {children}
           </main>
         </div>
