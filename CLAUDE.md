@@ -53,6 +53,8 @@ super_admin   -> Unrestricted
 
 Roles stored in `profiles` table (column: `role`). Department scoping via `department_id`.
 
+Email verification (6-digit code, Better Auth Email OTP, page `/verify-email`): until `auth_users.email_verified` is true, `lib/session.ts` gives the user `role: 'member'` and `departmentId: null` (songbook + profile only; `assignedRole` is for UI text only). Use `requireVerifiedEmail()` / `requireLinkedMember()` / `hasMemberAccess()`.
+
 ## Key Architecture Decisions
 
 - Single app with route groups: `/(public)/`, `/(member)/`, `/(admin)/`
