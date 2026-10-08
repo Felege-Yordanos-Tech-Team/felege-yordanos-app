@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
-import type { departments, events, Role } from '@felege-yordanos/db/schema';
+import type { departments, events } from '@felege-yordanos/db/schema';
 import { ChevronRight, Pencil, Plus, Repeat, Users } from 'lucide-react';
 import { Card, PageHead, StatusPill } from '@/components/ds';
 import { useLocale, useT } from '@/lib/i18n/client';
@@ -40,8 +40,13 @@ interface EventsListProps {
   departments: Department[];
   attendanceCounts: Record<string, number>;
   attendedIds: string[];
-  userRole: Role;
   userDeptId: number | null;
+  /** Events this user may edit or delete (canEditEvent). */
+  editableIds: string[];
+  /** May create events (canCreateEvent for some department). */
+  canCreate: boolean;
+  /** May choose any department, or none (canManageAllEvents). */
+  canPickDepartment: boolean;
 }
 
 type DialogState = {
@@ -58,8 +63,10 @@ export function EventsList({
   departments,
   attendanceCounts,
   attendedIds,
-  userRole,
   userDeptId,
+  editableIds,
+  canCreate,
+  canPickDepartment,
 }: EventsListProps) {
   const router = useRouter();
   const t = useT();
@@ -69,6 +76,8 @@ export function EventsList({
 
   const today = todayYmd();
   const attendedSet = useMemo(() => new Set(attendedIds), [attendedIds]);
+  const editableSet = useMemo(() => new Set(editableIds), [editableIds]);
+  const canEdit = (event: EventRow) => editableSet.has(event.id);
 
   // Upcoming soonest first, then past most recent first (events arrive newest first).
   const upcoming = useMemo(
@@ -96,7 +105,9 @@ export function EventsList({
 
   const openCreate = (date?: string) =>
     setDialog({ mode: 'create', event: null, date });
-  const openEdit = (event: EventRow) => setDialog({ mode: 'edit', event });
+  const openEdit = (event: EventRow) => {
+    if (canEdit(event)) setDialog({ mode: 'edit', event });
+  };
 
   // Calendar data: coloured by department, recurring series marked.
   const calEvents: CalEvent[] = useMemo(
@@ -130,16 +141,17 @@ export function EventsList({
     month: formatYmd(ymd, locale, { month: 'short' }),
   });
 
-  const newEventBtn = (label: string) => (
-    <button
-      type="button"
-      onClick={() => openCreate()}
-      className={cn(primaryBtn, 'px-4 py-[9px] text-[13px]')}
-    >
-      <Plus className="h-3.5 w-3.5 text-gold" />
-      {label}
-    </button>
-  );
+  const newEventBtn = (label: string) =>
+    canCreate && (
+      <button
+        type="button"
+        onClick={() => openCreate()}
+        className={cn(primaryBtn, 'px-4 py-[9px] text-[13px]')}
+      >
+        <Plus className="h-3.5 w-3.5 text-gold" />
+        {label}
+      </button>
+    );
 
   const empty = (
     <p className="py-12 text-center text-sm text-ink-muted">
@@ -160,7 +172,7 @@ export function EventsList({
         const ev = byId.get(id);
         if (ev) openEdit(ev);
       }}
-      onCreateAt={openCreate}
+      onCreateAt={canCreate ? openCreate : undefined}
     />
   );
 
@@ -245,14 +257,16 @@ export function EventsList({
                             )}
                           </div>
                         </Link>
-                        <button
-                          type="button"
-                          onClick={() => openEdit(event)}
-                          className="rounded-md p-1.5 text-ink-faint hover:bg-parchment-deep hover:text-ink"
-                          aria-label={t('Edit event')}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                        {canEdit(event) && (
+                          <button
+                            type="button"
+                            onClick={() => openEdit(event)}
+                            className="rounded-md p-1.5 text-ink-faint hover:bg-parchment-deep hover:text-ink"
+                            aria-label={t('Edit event')}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <Link
                           href={`/admin/attendance/${event.id}`}
                           className="text-ink-faint"
@@ -406,17 +420,19 @@ export function EventsList({
                         </span>
                       )}
                       <div className="flex items-center justify-end gap-1">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            openEdit(event);
-                          }}
-                          className="rounded-md p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-parchment-deep hover:text-ink focus:opacity-100 group-hover:opacity-100"
-                          aria-label={t('Edit event')}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
+                        {canEdit(event) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openEdit(event);
+                            }}
+                            className="rounded-md p-1.5 text-ink-muted opacity-0 transition-opacity hover:bg-parchment-deep hover:text-ink focus:opacity-100 group-hover:opacity-100"
+                            aria-label={t('Edit event')}
+                          >
+                            <Pencil className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                         <ChevronRight className="h-3.5 w-3.5 text-ink-faint" />
                       </div>
                     </div>
@@ -436,8 +452,8 @@ export function EventsList({
         event={dialog?.event ?? null}
         defaultDate={dialog?.date ?? null}
         departments={departments}
-        userRole={userRole}
         userDeptId={userDeptId}
+        lockDepartment={!canPickDepartment}
         seriesEvents={seriesEvents}
         attendedIds={attendedSet}
       />

@@ -8,6 +8,8 @@ import { TopBar } from './top-bar';
 interface AppShellProps {
   role: UserRole;
   displayName: string;
+  /** Admin pages this user may open (adminHrefsFor, computed on the server). */
+  adminHrefs: string[];
   children: React.ReactNode;
 }
 
@@ -15,17 +17,28 @@ interface AppShellProps {
  * The responsive frame shared by the (member) and (admin) route groups.
  * Presentation only; auth stays in each layout.
  */
-export function AppShell({ role, displayName, children }: AppShellProps) {
+export function AppShell({
+  role,
+  displayName,
+  adminHrefs,
+  children,
+}: AppShellProps) {
   return (
     <SidebarProvider>
       {/* Phones: the whole frame (header included) is at least the visible
           screen height (dvh), so short pages do not scroll. */}
       <div className="parchment-bg min-h-dvh md:flex">
-        <SidebarNav role={role} displayName={displayName} />
+        <SidebarNav
+          role={role}
+          displayName={displayName}
+          adminHrefs={adminHrefs}
+        />
         <div className="md:flex md:h-screen md:min-w-0 md:flex-1 md:flex-col">
           <TopBar displayName={displayName} role={role} />
           <MobileHeader displayName={displayName} role={role} />
-          <main className="pb-24 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">{children}</main>
+          <main className="pb-24 md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
+            {children}
+          </main>
         </div>
       </div>
       <BottomNav role={role} />

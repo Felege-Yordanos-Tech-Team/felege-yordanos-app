@@ -40,6 +40,10 @@ export const isDeptHeadOf = (
 /** Admin area (/admin): everyone except plain members. */
 export const canAccessAdmin = (u: User) => u.role !== 'member';
 
+/** Department heads of Programs & Events run all gatherings. */
+const isProgramsEventsHead = (u: User) =>
+  isDeptHeadOf(u, DEPARTMENT.PROGRAMS_EVENTS);
+
 /* ─── Songbook ─────────────────────────────────────────────── */
 
 /** Create, edit and delete songs and categories. Reading is open to all users. */
@@ -48,27 +52,40 @@ export const canManageSongs = (u: User) =>
 
 /* ─── Events ───────────────────────────────────────────────── */
 
-/** Create an event for `departmentId` (dept heads only for their own department). */
-export const canCreateEvent = (u: User, departmentId: number | null) =>
-  isAdmin(u) || isDeptHeadOf(u, departmentId);
+/**
+ * Create, edit and delete events of any department (and general events):
+ * admins and Programs & Events department heads.
+ */
+export const canManageAllEvents = (u: User) =>
+  isAdmin(u) || isProgramsEventsHead(u);
 
-/** Edit or delete an existing event: its creator or an admin. */
-export const canEditEvent = (u: User, event: { createdBy: string | null }) =>
-  isAdmin(u) || event.createdBy === u.id;
+/**
+ * Create an event for `departmentId`: department heads for their own
+ * department, plus canManageAllEvents.
+ */
+export const canCreateEvent = (u: User, departmentId: number | null) =>
+  canManageAllEvents(u) || isDeptHeadOf(u, departmentId);
+
+/**
+ * Edit or delete an existing event: the department heads of the event's
+ * department, plus canManageAllEvents. (Not tied to who created it, so a
+ * co-head can fix it and a former head loses access.)
+ */
+export const canEditEvent = (u: User, event: { departmentId: number | null }) =>
+  canCreateEvent(u, event.departmentId);
 
 /* ─── Attendance ───────────────────────────────────────────── */
 
-/** Mark or change attendance for an event. */
+/** Mark or change attendance for an event (same people as canEditEvent). */
 export const canMarkAttendance = (
   u: User,
   event: { departmentId: number | null },
-) => isAdmin(u) || isDeptHeadOf(u, event.departmentId);
+) => canEditEvent(u, event);
 
 /** Read attendance of every event (any role in Programs & Events, or admins). */
 export const canViewAllAttendance = (u: User) =>
   isAdmin(u) || u.departmentId === DEPARTMENT.PROGRAMS_EVENTS;
 
-/** Read attendance of one event. Members can always read their own records. */
 /**
  * Mark attendance right now: department heads only inside the event's
  * check-in window (lib/check-in-window.ts), admins and super admins at any
@@ -85,6 +102,7 @@ export const canCheckInNow = (
 /** Whether the check-in window applies to this user (department heads). */
 export const isLimitedToCheckInWindow = (u: User) => !isAdmin(u);
 
+/** Read attendance of one event. Members can always read their own records. */
 export const canViewEventAttendance = (
   u: User,
   event: { departmentId: number | null },
