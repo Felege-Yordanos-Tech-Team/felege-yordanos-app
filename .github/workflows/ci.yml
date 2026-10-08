@@ -19,10 +19,13 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# Runner image pinned (ubuntu-latest moves to a new Ubuntu on its own);
+# actions on their Node 24 versions. pnpm/action-setup stays on v5: v6 needs
+# pnpm 11, the repo uses pnpm 10 (package.json "packageManager").
 jobs:
   check:
     name: Lint, typecheck, migrations, build
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     permissions:
       contents: read
@@ -51,11 +54,11 @@ jobs:
       IMAGE: ghcr.io/felege-yordanos-tech-team/felege-yordanos-app
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
           node-version-file: .nvmrc
           cache: pnpm
@@ -142,7 +145,7 @@ jobs:
   # Validates the Kamal config on every PR, with placeholder values.
   kamal-config:
     name: Kamal config
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
       DEPLOY_HOST: 192.0.2.10 # documentation IP, never contacted
@@ -153,7 +156,7 @@ jobs:
       PRODUCTION_POSTGRES_PASSWORD: ci
       PRODUCTION_BETTER_AUTH_SECRET: ci
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.3'
@@ -173,7 +176,7 @@ jobs:
     name: Deploy to staging
     needs: check
     if: github.ref == 'refs/heads/dev' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Secrets live in the GitHub environment "staging" (Settings > Environments).
     environment:
@@ -195,7 +198,7 @@ jobs:
       STAGING_POSTGRES_PASSWORD: ${{ secrets.STAGING_POSTGRES_PASSWORD }}
       STAGING_BETTER_AUTH_SECRET: ${{ secrets.STAGING_BETTER_AUTH_SECRET }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ruby/setup-ruby@v1
         with:
@@ -262,7 +265,7 @@ jobs:
     name: Deploy to production
     needs: check
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     # Secrets live in the GitHub environment "production" (Settings >
     # Environments), which only the main branch can use.
@@ -283,7 +286,7 @@ jobs:
       PRODUCTION_POSTGRES_PASSWORD: ${{ secrets.PRODUCTION_POSTGRES_PASSWORD }}
       PRODUCTION_BETTER_AUTH_SECRET: ${{ secrets.PRODUCTION_BETTER_AUTH_SECRET }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
 
       - uses: ruby/setup-ruby@v1
         with:
