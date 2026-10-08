@@ -12,8 +12,12 @@ proxy:
 env:
   clear:
     BETTER_AUTH_URL: https://app.felegeyordanos.org
-    # No email provider yet: emails (password reset links) go to the app log.
-    EMAIL_TRANSPORT: console
+    # Email through Brevo (SMTP relay, STARTTLS). SMTP_USER and SMTP_PASSWORD
+    # are secrets (config/deploy.yml, .kamal/secrets.<destination>).
+    EMAIL_TRANSPORT: smtp
+    SMTP_HOST: smtp-relay.brevo.com
+    SMTP_PORT: "587"
+    EMAIL_FROM: Felege Yordanos <no-reply@felegeyordanos.org>
 
 volumes:
   - felege-production-uploads:/data/uploads

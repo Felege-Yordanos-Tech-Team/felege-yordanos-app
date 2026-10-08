@@ -5,7 +5,7 @@
 - Config: `apps/web/lib/auth.ts`. Tables: `auth_users`, `auth_sessions`, `auth_accounts`, `auth_verifications` (`libs/db/src/schema/auth.ts`).
 - Email + password. New passwords need 8+ characters.
 - On sign-up a `profiles` row is created with role `member`.
-- Password reset: `/forgot-password` sends an email with a link to `/reset-password?token=...`. In development the email is printed in the terminal (`lib/email.ts`).
+- Password reset: `/forgot-password` sends an email with a link to `/reset-password?token=...`. In development the email is printed in the terminal; staging and production send it through Brevo (`lib/email.ts`, template in `lib/email-templates.ts`).
 - Sessions last 30 days. A signed copy is cached in a cookie for 5 minutes so most requests skip the database.
 
 ## Getting the current user
