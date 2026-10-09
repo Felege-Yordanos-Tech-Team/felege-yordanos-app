@@ -8,6 +8,7 @@ import {
 } from '@felege-yordanos/db/server';
 import { PageHead } from '@/components/ds';
 import { checkInWindow } from '@/lib/check-in-window';
+import { todayYmd } from '@/lib/events';
 import {
   canMarkAttendance,
   canViewEventAttendance,
@@ -33,7 +34,7 @@ export default async function CheckInHubPage({
   const user = await requireUser();
   const t = await getT();
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYmd();
 
   const [allEvents, members] = await Promise.all([
     db.select().from(eventsTable).orderBy(desc(eventsTable.eventDate)),
