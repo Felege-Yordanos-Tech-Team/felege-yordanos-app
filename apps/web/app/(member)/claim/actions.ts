@@ -12,6 +12,7 @@ const NOT_FOUND = 'Member ID not found. Please check your ID and try again.';
 const TAKEN =
   'This member ID is already linked to another account. Contact an admin.';
 const ALREADY_LINKED = 'Your account is already linked to a member record.';
+const NOT_VERIFIED = 'Verify your email first, then request the link.';
 
 const memberIdSchema = z
   .string()
@@ -33,6 +34,7 @@ export async function requestMemberLink(
   if (!parsed.success) {
     return fail(parsed.error.issues[0]?.message ?? NOT_FOUND);
   }
+  if (!user.emailVerified) return fail(NOT_VERIFIED);
   if (user.memberRecordId !== null) return fail(ALREADY_LINKED);
 
   const wanted = normalizeMemberId(parsed.data);

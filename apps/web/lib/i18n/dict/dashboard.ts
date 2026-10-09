@@ -22,4 +22,6 @@ export const dashboard: Record<string, string> = {
   'Start check-in': 'መመዝገብ ጀምር',
   '{n} pending': '{n} በመጠባበቅ ላይ',
   'Today at a glance': 'የዛሬ አጠቃላይ እይታ',
+  'Required for events, notices and donations':
+    'ለዝግጅቶች፣ ለማስታወቂያዎችና ለመዋጮ ያስፈልጋል',
 };

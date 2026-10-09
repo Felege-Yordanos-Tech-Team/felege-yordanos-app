@@ -16,7 +16,10 @@ import { WelcomeBanner } from './cards/welcome-banner';
 import { MyGivingCard } from './cards/my-giving-card';
 import { SongbookPreviewCard } from './cards/continue-singing-card';
 import { CheckInCard } from './cards/check-in-card';
-import { LinkProfilePrompt } from './cards/link-profile-prompt';
+import {
+  LinkProfilePrompt,
+  VerifyEmailPrompt,
+} from './cards/link-profile-prompt';
 import { QuickActions } from './cards/quick-actions';
 
 /** Columns the event feed and welcome banner need. */
@@ -32,8 +35,9 @@ const eventColumns = {
 
 export default async function MemberDashboard() {
   const [user, locale] = await Promise.all([requireUser(), getLocale()]);
-  // Events and giving are for linked members (and staff) only.
+  // Events and giving are for verified, linked members (and staff) only.
   const access = hasMemberAccess(user);
+  const staffRole = user.assignedRole !== 'member';
 
   // Same day boundary as before: the UTC date.
   const today = new Date().toISOString().split('T')[0];
@@ -62,8 +66,6 @@ export default async function MemberDashboard() {
     db
       .select({
         memberId: members.memberId,
-        name: members.name,
-        fatherName: members.fatherName,
       })
       .from(members)
       .where(eq(members.authUserId, user.id))
@@ -150,10 +152,8 @@ export default async function MemberDashboard() {
   const givingCurrency = latestDonation?.currency ?? 'ETB';
   const nextEvent = upcoming[0] ?? null;
 
-  const fullName = member
-    ? [member.name, member.fatherName].filter(Boolean).join(' ')
-    : user.displayName || user.email || 'User';
-  const firstName = fullName.split(' ')[0];
+  // Registered name once linked, else the email (see getCurrentUser).
+  const firstName = user.displayName.split(' ')[0];
 
   // Department names in the current language.
   const depts = departments.map((d) => ({
@@ -176,8 +176,12 @@ export default async function MemberDashboard() {
       {/* ─── PHONE (< md): hero, quick actions, event cards ─── */}
       <div className="mx-auto max-w-2xl px-[18px] pb-6 pt-[14px] md:hidden">
         <WelcomeBanner {...hero} variant="mobile" />
-        {!member && (
-          <LinkProfilePrompt className="mt-3.5" pending={linkPending} />
+        {!user.emailVerified ? (
+          <VerifyEmailPrompt className="mt-3.5" staff={staffRole} />
+        ) : (
+          !member && (
+            <LinkProfilePrompt className="mt-3.5" pending={linkPending} />
+          )
         )}
         <QuickActions songCount={songCount} />
         {access && (
@@ -193,8 +197,12 @@ export default async function MemberDashboard() {
       {/* ─── DESKTOP (md+): hero band + two-column grid ─── */}
       <div className="hidden p-7 md:block">
         <WelcomeBanner {...hero} variant="desktop" />
-        {!member && (
-          <LinkProfilePrompt className="mt-4" pending={linkPending} />
+        {!user.emailVerified ? (
+          <VerifyEmailPrompt className="mt-4" staff={staffRole} />
+        ) : (
+          !member && (
+            <LinkProfilePrompt className="mt-4" pending={linkPending} />
+          )
         )}
 
         <div className="mt-4 grid grid-cols-[minmax(0,1.65fr)_minmax(0,1fr)] items-start gap-4">
@@ -224,7 +232,7 @@ export default async function MemberDashboard() {
                 }
               />
             )}
-            {member && <CheckInCard memberId={member.memberId} />}
+            {access && member && <CheckInCard memberId={member.memberId} />}
           </div>
         </div>
       </div>

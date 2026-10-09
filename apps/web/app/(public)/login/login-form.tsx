@@ -36,7 +36,8 @@ export function LoginForm() {
       setError(authError.message ?? 'Something went wrong. Please try again.');
       setLoading(false);
     } else {
-      router.push('/dashboard');
+      // New accounts get their code by email on sign-up (lib/auth.ts).
+      router.push(isSignUp ? '/verify-email' : '/dashboard');
       router.refresh();
     }
   }

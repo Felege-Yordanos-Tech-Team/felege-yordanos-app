@@ -8,11 +8,12 @@ export default async function MemberLayout({
   children: React.ReactNode;
 }) {
   const user = await requireUser();
-  const { displayName, role } = user;
+  const { displayName, email, role } = user;
   return (
     <AppShell
       role={role}
       displayName={displayName}
+      email={email}
       adminHrefs={adminHrefsFor(user)}
     >
       {children}

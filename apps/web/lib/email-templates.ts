@@ -50,6 +50,8 @@ interface Message {
   title: string;
   paragraphs: string[];
   action?: { label: string; url: string };
+  /** One-time code, shown large (digits only). */
+  code?: string;
   notes?: string[];
 }
 
@@ -63,10 +65,16 @@ function htmlSection(lang: 'am' | 'en', m: Message): string {
           <a href="${escape(m.action.url)}" target="_blank" style="display:inline-block;padding:13px 26px;font-family:${FONT};font-size:15px;font-weight:600;color:${C.cream};text-decoration:none;border-radius:10px;">${escape(tr(m.action.label))}</a>
         </td></tr></table>`
     : '';
+  const code = m.code
+    ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:6px 0 20px;"><tr>
+        <td bgcolor="${C.cream}" style="padding:14px 24px;border:1px solid ${C.gold};border-radius:12px;font-family:Menlo,Consolas,'Courier New',monospace;font-size:32px;font-weight:700;letter-spacing:0.3em;color:${C.brandDeep};">${escape(m.code)}</td>
+      </tr></table>`
+    : '';
   return `<div lang="${lang}">
     <h1 style="margin:0 0 16px;font-family:${FONT};font-size:21px;line-height:1.35;font-weight:700;color:${C.brandDeep};">${escape(tr(m.title))}</h1>
     ${m.paragraphs.map((s) => p(s)).join('')}
     ${button}
+    ${code}
     ${(m.notes ?? []).map((s) => p(s, C.inkMuted, 13)).join('')}
   </div>`;
 }
@@ -113,6 +121,7 @@ function textSection(tr: (s: string) => string, m: Message): string {
     tr(m.title),
     ...m.paragraphs.map(tr),
     m.action ? `${tr(m.action.label)}:\n${m.action.url}` : '',
+    m.code ? `    ${m.code}` : '',
     ...(m.notes ?? []).map(tr),
   ]
     .filter(Boolean)
@@ -154,5 +163,25 @@ export function passwordResetEmail({ url }: { url: string }): EmailContent {
   });
 }
 
-// Next: verificationCodeEmail({ code }) for email verification (no action
-// button; show the code large in font-mono style).
+/**
+ * 6-digit email verification code (Better Auth Email OTP, lib/auth.ts).
+ * The code is valid 10 minutes (CODE_EXPIRES_IN in lib/email-verification.ts).
+ * The code leads the subject, so it shows in the inbox preview.
+ */
+export function verificationCodeEmail({ code }: { code: string }): EmailContent {
+  const content = render({
+    subject: 'Verification code',
+    title: 'Verify your email',
+    paragraphs: [
+      'Enter this code in the app to verify your email address. The code is valid for 10 minutes.',
+    ],
+    code,
+    notes: [
+      'If you did not create an account, you can ignore this email.',
+    ],
+  });
+  return {
+    ...content,
+    subject: `${code} · ${am('Verification code')} / Verification code`,
+  };
+}

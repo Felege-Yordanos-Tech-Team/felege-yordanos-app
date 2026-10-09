@@ -19,9 +19,21 @@ export const getSession = cache(async () =>
 export type CurrentUser = {
   id: string;
   email: string;
+  /**
+   * Name shown in the app: the profile name, else the registered name of the
+   * linked member (name + father's name), else the email.
+   */
   displayName: string;
+  /**
+   * Role in effect: 'member' until the email is verified, so every rule in
+   * lib/permissions.ts treats an unverified admin or dept head as a member.
+   */
   role: Role;
+  /** null until the email is verified (see role). */
   departmentId: number | null;
+  /** Role in the profile, even before it is in effect. UI text only, never permission checks. */
+  assignedRole: Role;
+  emailVerified: boolean;
   /** members.id of the linked member record, or null when not linked yet. */
   memberRecordId: number | null;
 };
@@ -32,20 +44,45 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
 
   const [row] = await db
-    .select({ profile: profiles, memberRecordId: members.id })
+    .select({
+      profile: profiles,
+      memberRecordId: members.id,
+      memberName: members.name,
+      memberFatherName: members.fatherName,
+    })
     .from(profiles)
     .leftJoin(members, eq(members.authUserId, profiles.id))
     .where(eq(profiles.id, session.user.id))
     .limit(1);
   const profile = row?.profile;
+  const emailVerified = session.user.emailVerified;
+  const assignedRole = profile?.role ?? 'member';
+
+  // New accounts start with their email as name (sign-up, old Supabase
+  // trigger): that does not count as a real name.
+  const email = session.user.email;
+  const realName = (n: string | null | undefined) => {
+    const v = n?.trim();
+    return v && v.toLowerCase() !== email.toLowerCase() ? v : '';
+  };
+  const memberName = [row?.memberName, row?.memberFatherName]
+    .filter(Boolean)
+    .join(' ');
 
   return {
     id: session.user.id,
-    email: session.user.email,
+    email,
+    // Profile name (editable on /profile), then the member register, then
+    // the login account's name.
     displayName:
-      profile?.displayName || session.user.name || session.user.email,
-    role: profile?.role ?? 'member',
-    departmentId: profile?.departmentId ?? null,
+      realName(profile?.displayName) ||
+      memberName ||
+      realName(session.user.name) ||
+      email,
+    role: emailVerified ? assignedRole : 'member',
+    departmentId: emailVerified ? (profile?.departmentId ?? null) : null,
+    assignedRole,
+    emailVerified,
     memberRecordId: row?.memberRecordId ?? null,
   };
 });
@@ -66,18 +103,31 @@ export async function requireRole(
   return user;
 }
 
+/** Sends users without a verified email to /verify-email. */
+export async function requireVerifiedEmail(): Promise<CurrentUser> {
+  const user = await requireUser();
+  if (!user.emailVerified) redirect('/verify-email?required=1');
+  return user;
+}
+
 /**
- * For member features (events, donations, notices): plain members must have a
- * linked member record first, otherwise they are sent to /claim. Staff roles
- * keep access without one.
+ * For member features (events, donations, notices): the email must be
+ * verified, and plain members must have a linked member record, otherwise
+ * they are sent to /verify-email or /claim. Staff roles keep access without
+ * a member record.
  */
 export async function requireLinkedMember(): Promise<CurrentUser> {
-  const user = await requireUser();
+  const user = await requireVerifiedEmail();
   if (!hasMemberAccess(user)) redirect('/claim?required=1');
   return user;
 }
 
-/** Linked member, or a staff role. Same rule for pages and server actions. */
+/**
+ * Verified email, and a linked member or a staff role. Same rule for pages
+ * and server actions.
+ */
 export const hasMemberAccess = (
-  user: Pick<CurrentUser, 'role' | 'memberRecordId'>,
-) => user.role !== 'member' || user.memberRecordId !== null;
+  user: Pick<CurrentUser, 'emailVerified' | 'role' | 'memberRecordId'>,
+) =>
+  user.emailVerified &&
+  (user.role !== 'member' || user.memberRecordId !== null);

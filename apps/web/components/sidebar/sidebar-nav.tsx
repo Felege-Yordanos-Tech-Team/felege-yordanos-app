@@ -8,7 +8,7 @@ import { authClient } from '@/lib/auth-client';
 import { useT } from '@/lib/i18n/client';
 import { navFor } from '@/lib/nav';
 import { cn, initials } from '@/lib/utils';
-import { LogoCross } from '@/components/brand/logo-cross';
+import { LogoMedallion } from '@/components/brand/logo-medallion';
 import { roleLabel } from '@/components/role-badge';
 import { useSidebar } from './sidebar-provider';
 import { SidebarNavItem } from './sidebar-nav-item';
@@ -45,18 +45,18 @@ export function SidebarNav({ role, displayName, adminHrefs }: SidebarNavProps) {
       <Link
         href="/dashboard"
         className={cn(
-          'flex shrink-0 items-center gap-2.5 px-[18px] pb-3.5 pt-4',
-          collapsed && 'justify-center px-0',
+          'flex shrink-0 flex-col items-center px-[18px] pb-3.5 pt-5 text-center',
+          collapsed && 'px-0 pb-3 pt-4',
         )}
       >
-        <LogoCross size={34} />
+        <LogoMedallion size={collapsed ? 40 : 72} />
         {!collapsed && (
-          <span className="min-w-0 leading-tight">
+          <span className="mt-2.5 leading-tight">
             <span className="block whitespace-nowrap font-ethiopic text-[15px] font-semibold text-cream">
-              ፈለገ ዮርዳኖስ
+              ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
             </span>
-            <span className="block whitespace-nowrap font-display text-[11.5px] italic text-gold-light/70">
-              Sunday School
+            <span className="mt-0.5 block whitespace-nowrap font-display text-[12px] italic text-gold-light/75">
+              Felege Yordanos Sunday School
             </span>
           </span>
         )}

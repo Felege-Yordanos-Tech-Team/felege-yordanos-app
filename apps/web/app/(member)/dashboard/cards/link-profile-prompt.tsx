@@ -1,18 +1,25 @@
 import Link from 'next/link';
-import { ArrowRight, Link2 } from 'lucide-react';
+import { ArrowRight, Link2, MailCheck, type LucideIcon } from 'lucide-react';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 
-/** Shown to users without a linked member record: links to /claim. */
-export async function LinkProfilePrompt({
+/** Gold-accented card with an icon, a title, a short note and one button. */
+async function PromptCard({
   className,
-  pending = false,
+  icon: Icon,
+  title,
+  notes,
+  href,
+  action,
 }: {
   className?: string;
-  /** An open link request is waiting for an admin. */
-  pending?: boolean;
+  icon: LucideIcon;
+  title: string;
+  notes: string[];
+  href: string;
+  action: string;
 }) {
-  const [t, locale] = await Promise.all([getT(), getLocale()]);
+  const locale = await getLocale();
   return (
     <section
       className={cn(
@@ -21,7 +28,7 @@ export async function LinkProfilePrompt({
       )}
     >
       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-gold/[0.16] dark:bg-gold/[0.14]">
-        <Link2
+        <Icon
           className="h-[18px] w-[18px] text-gold-deep"
           strokeWidth={1.75}
         />
@@ -35,21 +42,74 @@ export async function LinkProfilePrompt({
               : 'font-display text-[17px] font-medium md:text-lg',
           )}
         >
-          {pending ? t('Waiting for approval') : t('Link your member profile')}
+          {title}
         </p>
-        <p className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
-          {pending
-            ? t('An admin will confirm your member link soon.')
-            : t('Required for events and donations')}
-        </p>
+        {notes.map((note) => (
+          <p key={note} className="mt-0.5 text-[11.5px] leading-snug text-ink-muted">
+            {note}
+          </p>
+        ))}
       </div>
       <Link
-        href="/claim"
+        href={href}
         className="sacred-gradient inline-flex shrink-0 items-center gap-1.5 rounded-[10px] border border-gold/40 px-3.5 py-2 text-xs font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95"
       >
-        {pending ? t('View') : t('Link')}
+        {action}
         <ArrowRight className="h-3 w-3 text-gold" />
       </Link>
     </section>
+  );
+}
+
+/** Shown to users without a linked member record: links to /claim. */
+export async function LinkProfilePrompt({
+  className,
+  pending = false,
+}: {
+  className?: string;
+  /** An open link request is waiting for an admin. */
+  pending?: boolean;
+}) {
+  const t = await getT();
+  return (
+    <PromptCard
+      className={className}
+      icon={Link2}
+      title={pending ? t('Waiting for approval') : t('Link your member profile')}
+      notes={[
+        pending
+          ? t('An admin will confirm your member link soon.')
+          : t('Required for events and donations'),
+      ]}
+      href="/claim"
+      action={pending ? t('View') : t('Link')}
+    />
+  );
+}
+
+/** Shown instead of the link prompt until the email is verified. */
+export async function VerifyEmailPrompt({
+  className,
+  staff = false,
+}: {
+  className?: string;
+  /** The profile has a staff role that starts after verification. */
+  staff?: boolean;
+}) {
+  const t = await getT();
+  return (
+    <PromptCard
+      className={className}
+      icon={MailCheck}
+      title={t('Verify your email')}
+      notes={[
+        t('Required for events, notices and donations'),
+        ...(staff
+          ? [t('Your staff access starts after you verify your email.')]
+          : []),
+      ]}
+      href="/verify-email"
+      action={t('Verify')}
+    />
   );
 }

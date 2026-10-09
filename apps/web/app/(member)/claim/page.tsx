@@ -1,7 +1,7 @@
 import { desc, eq } from 'drizzle-orm';
 import { db, memberLinkRequests, members } from '@felege-yordanos/db/server';
 import { PageHead } from '@/components/ds';
-import { requireUser } from '@/lib/session';
+import { requireVerifiedEmail } from '@/lib/session';
 import { ClaimForm, type ClaimState } from './claim-form';
 
 export default async function ClaimPage({
@@ -9,7 +9,8 @@ export default async function ClaimPage({
 }: {
   searchParams: Promise<{ required?: string }>;
 }) {
-  const user = await requireUser();
+  // Link requests need a verified email.
+  const user = await requireVerifiedEmail();
   const { required } = await searchParams;
 
   let state: ClaimState = { kind: 'none' };
