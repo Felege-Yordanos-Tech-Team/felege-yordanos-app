@@ -7,6 +7,8 @@
 #   <out>/node_modules              traced runtime dependencies
 #   <out>/db/scripts/migrate.mjs    bundled migration runner
 #   <out>/db/migrations             SQL migrations
+#   <out>/scripts/*.mjs             bundled maintenance scripts
+#                                   (copy-uploads-to-r2.mjs)
 #
 # Used by apps/web/Dockerfile (self-contained build) and by CI (build once,
 # then package). Run from the repo root after `pnpm build`.
@@ -32,5 +34,6 @@ mkdir -p "$OUT/$WEB/.next"
 cp -a "$WEB/.next/static" "$OUT/$WEB/.next/static"
 node libs/db/scripts/bundle-migrate.mjs "$OUT/db/scripts/migrate.mjs"
 cp -a libs/db/migrations "$OUT/db/migrations"
+node apps/web/scripts/bundle-tools.mjs "$OUT/scripts"
 
 echo "Image files ready in $OUT"

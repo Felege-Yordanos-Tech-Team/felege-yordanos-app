@@ -12,6 +12,7 @@ import {
   checkInWindow,
   type CheckInWindowEvent,
 } from './check-in-window';
+import { isAudioKey, isNoticeImageKey } from './media';
 import type { CurrentUser } from './session';
 
 /** Department ids that carry special permissions (see departments table). */
@@ -44,11 +45,64 @@ export const canAccessAdmin = (u: User) => u.role !== 'member';
 const isProgramsEventsHead = (u: User) =>
   isDeptHeadOf(u, DEPARTMENT.PROGRAMS_EVENTS);
 
+/**
+ * Member features (events, donations, notices): a verified email, and a
+ * linked member record or a staff role. lib/session.ts re-exports this as
+ * hasMemberAccess.
+ */
+export const hasMemberAccess = (
+  u: Pick<CurrentUser, 'emailVerified' | 'role' | 'memberRecordId'>,
+) => u.emailVerified && (u.role !== 'member' || u.memberRecordId !== null);
+
 /* ─── Songbook ─────────────────────────────────────────────── */
 
-/** Create, edit and delete songs and categories. Reading is open to all users. */
+/** Read the songbook and play song recordings: every signed-in user. */
+export const canViewSongbook = (u: User) => !!u.id;
+
+/** Create, edit and delete songs and categories (and upload song audio). */
 export const canManageSongs = (u: User) =>
   isAdmin(u) || isDeptHeadOf(u, DEPARTMENT.SONGS);
+
+/* ─── Notices ──────────────────────────────────────────────── */
+
+type MemberAccessUser = User &
+  Pick<CurrentUser, 'emailVerified' | 'memberRecordId'>;
+
+/** Read the notice board: same people as the other member features. */
+export const canViewNotices = (u: MemberAccessUser) => hasMemberAccess(u);
+
+/** Staff also see expired notices (members only see active ones). */
+export const canSeeExpiredNotices = (u: User) => canAccessAdmin(u);
+
+/**
+ * Post a notice for `departmentId` (null = everyone): admins for everyone or
+ * any department, department heads for their own department only.
+ */
+export const canPostNotice = (u: User, departmentId: number | null) =>
+  isAdmin(u) || isDeptHeadOf(u, departmentId);
+
+/**
+ * Edit or delete a notice: the department heads of its department, admins
+ * for all. (Not tied to the author, same as events.)
+ */
+export const canEditNotice = (
+  u: User,
+  notice: { departmentId: number | null },
+) => canPostNotice(u, notice.departmentId);
+
+/** Open /admin/notices: admins, and department heads with a department. */
+export const canManageNotices = (u: User) =>
+  isAdmin(u) || (u.role === 'dept_head' && u.departmentId != null);
+
+/* ─── Media files ──────────────────────────────────────────── */
+
+/**
+ * Open a media file (/api/media/<key>): song audio for songbook readers,
+ * notice images for notice board readers. Anything else is refused.
+ */
+export const canViewMedia = (u: MemberAccessUser, key: string) =>
+  (isAudioKey(key) && canViewSongbook(u)) ||
+  (isNoticeImageKey(key) && canViewNotices(u));
 
 /* ─── Events ───────────────────────────────────────────────── */
 

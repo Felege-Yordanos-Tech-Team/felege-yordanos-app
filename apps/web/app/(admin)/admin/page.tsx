@@ -12,6 +12,7 @@ import {
   CalendarCheck,
   CalendarClock,
   DoorOpen,
+  Megaphone,
   Music,
   UserCheck,
   Users,
@@ -60,6 +61,14 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Check-in',
     description: 'Scan or mark members present for today’s gatherings.',
     cta: 'Start check-in',
+  },
+  {
+    href: '/admin/notices',
+    icon: Megaphone,
+    am: 'ማስታወቂያዎች',
+    en: 'Notices',
+    description: 'Post announcements for everyone or for your department.',
+    cta: 'Manage notices',
   },
   {
     href: '/admin/songs',

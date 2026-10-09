@@ -11,6 +11,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { db, members, profiles, type Role } from '@felege-yordanos/db/server';
 import { auth } from './auth';
+import { hasMemberAccess } from './permissions';
 
 export const getSession = cache(async () =>
   auth.api.getSession({ headers: await headers() }),
@@ -124,10 +125,6 @@ export async function requireLinkedMember(): Promise<CurrentUser> {
 
 /**
  * Verified email, and a linked member or a staff role. Same rule for pages
- * and server actions.
+ * and server actions (defined in lib/permissions.ts).
  */
-export const hasMemberAccess = (
-  user: Pick<CurrentUser, 'emailVerified' | 'role' | 'memberRecordId'>,
-) =>
-  user.emailVerified &&
-  (user.role !== 'member' || user.memberRecordId !== null);
+export { hasMemberAccess } from './permissions';

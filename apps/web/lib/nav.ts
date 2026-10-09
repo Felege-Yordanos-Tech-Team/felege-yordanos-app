@@ -17,6 +17,7 @@ import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import {
   canAccessAdmin,
   canApproveMemberLinks,
+  canManageNotices,
   canManageSongs,
   canManageUsers,
   canReviewDonations,
@@ -91,6 +92,13 @@ export const ADMIN_NAV: NavItem[] = [
     matchNested: true,
   },
   {
+    href: '/admin/notices',
+    labelEn: 'Notices',
+    labelAm: 'ማስታወቂያዎች',
+    icon: Megaphone,
+    matchNested: true,
+  },
+  {
     href: '/admin/songs',
     labelEn: 'Songs',
     labelAm: 'መዝሙሮች',
@@ -141,6 +149,7 @@ const ADMIN_NAV_RULES: Record<string, (u: NavUser) => boolean> = {
   '/admin': canAccessAdmin,
   '/admin/attendance': canAccessAdmin,
   '/admin/check-in': canAccessAdmin,
+  '/admin/notices': canManageNotices,
   '/admin/songs': canManageSongs,
   '/admin/donations': canReviewDonations,
   '/admin/member-links': canApproveMemberLinks,

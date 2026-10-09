@@ -18,7 +18,7 @@ Leykun Gizaw, Tech Team Lead at Felege Yordanos Sunday School.
 | Styling    | Tailwind CSS + shadcn/ui                                           |
 | Backend/DB | PostgreSQL 17 + Drizzle (`libs/db`)                                |
 | Auth       | Better Auth (`apps/web/lib/auth.ts`), sessions in Postgres         |
-| Files      | Local disk via `apps/web/lib/storage.ts` (`UPLOAD_DIR`)            |
+| Files      | Cloudflare R2 in staging/production, local disk in development (`apps/web/lib/storage.ts`, `STORAGE_DRIVER`) |
 | Mobile     | PWA (Progressive Web App via `@ducanh2912/next-pwa`)               |
 | Hosting    | Own VPS with Kamal 2 behind Cloudflare. `dev` deploys to staging.felegeyordanos.org, `main` to app.felegeyordanos.org |
 | GitHub     | github.com/Felege-Yordanos-Tech-Team/felege-yordanos-app (public)  |
@@ -35,7 +35,8 @@ apps/web/              # Single Next.js app (PWA)
   lib/session.ts       # requireUser / requireRole / getCurrentUser (server)
   lib/permissions.ts   # ALL authorization rules
   lib/action-result.ts # ActionResult type for server actions
-  lib/storage.ts       # file uploads on disk (receipts)
+  lib/storage.ts       # file storage: R2 or local disk (receipts, song audio)
+  lib/media.ts         # media types, size limits, keys, URLs (safe anywhere)
   lib/auth.ts          # Better Auth config; lib/auth-client.ts for the browser
 libs/
   ui/                  # Shared UI components (BottomNav)
@@ -62,6 +63,7 @@ Email verification (6-digit code, Better Auth Email OTP, page `/verify-email`): 
 - Programs & Events dept gets cross-department read on events/attendance
 - Budget & Asset Management dept owns donation verification
 - Payment MVP: manual bank transfer + receipt upload (no Chapa/Telebirr API — requires business license)
+- Notice board (`/notices`, `/admin/notices`): admins post for everyone or any department, dept heads for their own; all linked members see all notices (department filter); expired notices are hidden from members, shown to staff. Type, optional summary and image; unread tracking in `notice_reads` (a notice is read once it is shown in the big card or phone carousel). New/edit in a dialog (`components/notices/notice-form-dialog.tsx`). Rules: `canPostNotice`, `canEditNotice`, `canViewNotices`; reads in `lib/notice-queries.ts`
 - Dept heads delegate by requesting admin/super_admin to grant `dept_head` role
 
 ## Library Imports
@@ -101,6 +103,15 @@ Google sign-in (optional locally): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (O
 
 Email (`lib/email.ts`, templates in `lib/email-templates.ts`, Amharic in `lib/i18n/dict/email.ts`): `EMAIL_TRANSPORT=console` (default in development) prints emails in the terminal running the app; `smtp` sends them. Staging and production send through Brevo (SMTP relay, sender `no-reply@felegeyordanos.org`; GitHub environment secrets `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`). Emails are bilingual (Amharic first) with an HTML and a plain-text part. Test locally with Mailpit: see `.env.example`.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
+
+## File Storage
+
+- `lib/storage.ts`, driver from `STORAGE_DRIVER`: `local` (default; files under `UPLOAD_DIR`, media under `UPLOAD_DIR/media`) or `s3` (Cloudflare R2 with `aws4fetch`; needs `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_UPLOADS_BUCKET`, `R2_MEDIA_BUCKET`, checked at startup by `instrumentation.ts`)
+- Two stores. `uploads`: private files (receipts at `receipts/<user id>/<file>`), streamed through `app/api/receipts` after `canViewReceipt`, never a bucket URL. `media`: song audio (`audio/<uuid>.<ext>`) and notice images (`notices/<uuid>.<ext>`); `app/api/media` checks `canViewMedia`, then redirects to a 1-hour signed R2 link (local: streams from disk with Range). Never put personal files in `media` (it may get a public CDN domain later)
+- Buckets per environment: `felege-<env>-uploads`, `felege-<env>-media` (account `0326e8f0de2b1237ae40a2279667047e`, all private). CORS (PUT from the app origin) only on the media buckets. One R2 API token per environment; GitHub environment secrets `R2_ENDPOINT`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`
+- Song audio (max 30 MB) goes from the browser straight to R2: `requestAudioUpload` returns a 5-minute signed PUT link (local: `/api/media-upload`), saving the song checks the file (HEAD). Replacing or deleting deletes the old file
+- The PWA service worker never caches `/api/*` or R2 (`next.config.js`)
+- Receipts uploaded before R2 are copied with `node scripts/copy-uploads-to-r2.mjs` in the app container (idempotent, prints counts only)
 
 ## Docker Image
 

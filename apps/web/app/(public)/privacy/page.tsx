@@ -62,7 +62,7 @@ const SECTIONS: LegalSection[] = [
       'We use a few providers to run the app. They handle data only to provide their service to us:',
       [
         "Our rented server, which stores the app's data and the nightly backups.",
-        'Cloudflare, which protects the website and delivers it over a secure connection.',
+        'Cloudflare, which protects the website, delivers it over a secure connection, and keeps uploaded files (such as donation receipts) in private storage.',
         'Brevo, which sends our emails.',
         'Google, only if you choose to sign in with Google.',
       ],
