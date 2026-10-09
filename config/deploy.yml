@@ -56,6 +56,9 @@ env:
     - SMTP_PASSWORD
     - GOOGLE_CLIENT_ID
     - GOOGLE_CLIENT_SECRET
+    - R2_ENDPOINT
+    - R2_ACCESS_KEY_ID
+    - R2_SECRET_ACCESS_KEY
 
 # Seconds a new version may take to pass /up (includes migrations).
 deploy_timeout: 60

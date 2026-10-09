@@ -159,6 +159,9 @@ jobs:
       BREVO_SMTP_KEY: ci
       GOOGLE_CLIENT_ID: ci
       GOOGLE_CLIENT_SECRET: ci
+      R2_ENDPOINT: ci
+      R2_ACCESS_KEY_ID: ci
+      R2_SECRET_ACCESS_KEY: ci
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
@@ -207,6 +210,10 @@ jobs:
       # Google sign-in OAuth client (same names in both environments).
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Cloudflare R2 (one API token per environment, same names).
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -301,6 +308,10 @@ jobs:
       # Google sign-in OAuth client (same names in both environments).
       GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
       GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
+      # Cloudflare R2 (one API token per environment, same names).
+      R2_ENDPOINT: ${{ secrets.R2_ENDPOINT }}
+      R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
     steps:
       - uses: actions/checkout@v6
 

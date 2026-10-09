@@ -62,8 +62,8 @@ export const legal: Record<string, string> = {
     'መተግበሪያውን ለማስኬድ ጥቂት አገልግሎት ሰጪዎችን እንጠቀማለን። መረጃን የሚይዙት ለእኛ አገልግሎታቸውን ለመስጠት ብቻ ነው፦',
   "Our rented server, which stores the app's data and the nightly backups.":
     'የመተግበሪያውን መረጃና በየሌሊቱ የሚወሰደውን ምትኬ (backup) የሚያስቀምጠው የተከራየነው ሰርቨር።',
-  'Cloudflare, which protects the website and delivers it over a secure connection.':
-    'ድረ ገጹን የሚጠብቀውና በደህንነቱ በተጠበቀ ግንኙነት የሚያደርሰው Cloudflare።',
+  'Cloudflare, which protects the website, delivers it over a secure connection, and keeps uploaded files (such as donation receipts) in private storage.':
+    'ድረ ገጹን የሚጠብቀው፣ በደህንነቱ በተጠበቀ ግንኙነት የሚያደርሰው እና የሚጫኑ ፋይሎችን (እንደ የመዋጮ ደረሰኞች) በግል ማከማቻ የሚያስቀምጠው Cloudflare።',
   'Brevo, which sends our emails.': 'ኢሜይሎቻችንን የሚልከው Brevo።',
   'Google, only if you choose to sign in with Google.':
     'Google፣ በGoogle ለመግባት ከመረጡ ብቻ።',

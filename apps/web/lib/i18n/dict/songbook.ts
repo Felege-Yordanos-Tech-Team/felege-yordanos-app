@@ -68,4 +68,27 @@ export const songbook: Record<string, string> = {
   'Category not found.': 'ምድቡ አልተገኘም።',
   'Invalid input.': 'ልክ ያልሆነ ግብዓት።',
   'You do not have permission to do this.': 'ይህን ለማድረግ ፈቃድ የለዎትም።',
+
+  // Song recording (upload or link)
+  Seek: 'ወደፊት/ወደኋላ ይሂዱ',
+  Recording: 'ቅጂ',
+  'Uploading…': 'በመጫን ላይ…',
+  'Uploaded recording': 'የተጫነ ቅጂ',
+  Replace: 'ቀይር',
+  Remove: 'አስወግድ',
+  'Upload audio file': 'የድምጽ ፋይል ይጫኑ',
+  'MP3, M4A, AAC, OGG or WAV · max 30 MB':
+    'MP3፣ M4A፣ AAC፣ OGG ወይም WAV · ቢበዛ 30 MB',
+  'Or a link to a recording': 'ወይም የቅጂ ማገናኛ',
+  'The uploaded file is played instead of this link.':
+    'ከዚህ ማገናኛ ይልቅ የተጫነው ፋይል ይጫወታል።',
+  'Choose an audio file.': 'የድምጽ ፋይል ይምረጡ።',
+  'Audio file must be at most 30 MB.': 'የድምጽ ፋይሉ ከ30 MB መብለጥ የለበትም።',
+  'Only MP3, M4A, AAC, OGG and WAV audio files are allowed.':
+    'የሚፈቀዱት MP3፣ M4A፣ AAC፣ OGG እና WAV የድምጽ ፋይሎች ብቻ ናቸው።',
+  'Upload the audio file again.': 'የድምጽ ፋይሉን እንደገና ይጫኑ።',
+  'The audio upload did not finish. Please upload it again.':
+    'የድምጽ ፋይሉ መጫን አልተጠናቀቀም። እባክዎ እንደገና ይጫኑት።',
+  'The audio upload failed. Please try again.':
+    'የድምጽ ፋይሉን መጫን አልተሳካም። እባክዎ እንደገና ይሞክሩ።',
 };

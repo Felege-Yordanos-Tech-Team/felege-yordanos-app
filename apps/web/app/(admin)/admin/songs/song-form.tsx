@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import type {
@@ -24,7 +24,8 @@ import { useLocale, useT } from '@/lib/i18n/client';
 import { intlLocale } from '@/lib/i18n/config';
 import { cn } from '@/lib/utils';
 import { categoryDotMap, hasEthiopic } from '@/lib/category-color';
-import { createSong, updateSong } from './actions';
+import { createSong, discardAudioUpload, updateSong } from './actions';
+import { AudioField } from './audio-field';
 
 type Song = typeof songsTable.$inferSelect;
 type Category = typeof categoriesTable.$inferSelect;
@@ -55,13 +56,53 @@ export function SongForm({ categories, song }: SongFormProps) {
   const [category, setCategory] = useState(song?.category ?? '');
   const [lyrics, setLyrics] = useState(song?.lyrics ?? '');
   const [audioUrl, setAudioUrl] = useState(song?.audioUrl ?? '');
+  const [audioKey, setAudioKey] = useState<string | null>(
+    song?.audioKey ?? null,
+  );
+  const [uploading, setUploading] = useState(false);
   const [loading, setLoading] = useState(false);
+  // Files uploaded in this form. Those not saved with the song are deleted.
+  const uploaded = useRef(new Set<string>());
+
+  function showError(message: string) {
+    toast({
+      title: t('Error'),
+      description: t(message),
+      variant: 'destructive',
+    });
+  }
+
+  /** Deletes uploads from this form that the song does not use (keep = saved key). */
+  function discardUploads(keep: string | null) {
+    for (const key of uploaded.current) {
+      if (key !== keep) void discardAudioUpload(key);
+    }
+    uploaded.current.clear();
+  }
+
+  /** New file or removed file: an unsaved upload it replaces is deleted now. */
+  function changeAudio(key: string | null) {
+    if (audioKey && audioKey !== key && uploaded.current.has(audioKey)) {
+      uploaded.current.delete(audioKey);
+      void discardAudioUpload(audioKey);
+    }
+    setAudioKey(key);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (uploading) return;
     setLoading(true);
 
-    const payload = { number, title, titleEn, category, lyrics, audioUrl };
+    const payload = {
+      number,
+      title,
+      titleEn,
+      category,
+      lyrics,
+      audioUrl,
+      audioKey,
+    };
 
     const res = song
       ? await updateSong(song.id, payload)
@@ -70,12 +111,9 @@ export function SongForm({ categories, song }: SongFormProps) {
     setLoading(false);
 
     if (!res.ok) {
-      toast({
-        title: t('Error'),
-        description: t(res.error),
-        variant: 'destructive',
-      });
+      showError(res.error);
     } else {
+      discardUploads(audioKey);
       toast({ title: isEdit ? t('Song updated') : t('Song created') });
       router.push('/admin/songs');
       router.refresh();
@@ -224,10 +262,18 @@ export function SongForm({ categories, song }: SongFormProps) {
           </div>
         </div>
 
-        {/* Audio URL */}
+        {/* Recording: uploaded file, or an external link */}
+        <AudioField
+          value={audioKey}
+          onChange={changeAudio}
+          onUploaded={(key) => uploaded.current.add(key)}
+          onBusyChange={setUploading}
+          onError={showError}
+          labelClassName={FIELD_LABEL}
+        />
         <div>
           <Label htmlFor="audioUrl" className={FIELD_LABEL}>
-            {t('Audio URL')} · {t('optional')}
+            {t('Or a link to a recording')} · {t('optional')}
           </Label>
           <Input
             id="audioUrl"
@@ -237,20 +283,28 @@ export function SongForm({ categories, song }: SongFormProps) {
             placeholder="https://…"
             className={cn(FIELD, 'font-mono text-[12.5px]')}
           />
+          {audioKey && audioUrl.trim() && (
+            <p className="mt-1 text-[10px] text-ink-muted">
+              {t('The uploaded file is played instead of this link.')}
+            </p>
+          )}
         </div>
 
         {/* Actions */}
         <div className="flex gap-2.5 pt-2">
           <button
             type="button"
-            onClick={() => router.push('/admin/songs')}
+            onClick={() => {
+              discardUploads(song?.audioKey ?? null);
+              router.push('/admin/songs');
+            }}
             className="flex-1 rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-3 text-[12.5px] font-semibold text-brand transition-colors hover:bg-parchment-deep dark:text-gold md:bg-parchment md:dark:bg-parchment-deep"
           >
             {t('Cancel')}
           </button>
           <button
             type="submit"
-            disabled={loading}
+            disabled={loading || uploading}
             className="sacred-gradient flex flex-1 items-center justify-center gap-2 rounded-xl border border-gold/40 px-5 py-3 text-[13px] font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95 disabled:opacity-60"
           >
             {locale !== 'am' && (

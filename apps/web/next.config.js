@@ -3,6 +3,7 @@
 const path = require('node:path');
 const { composePlugins, withNx } = require('@nx/next');
 const withPWAInit = require('@ducanh2912/next-pwa').default;
+const { runtimeCaching: defaultRuntimeCaching } = require('@ducanh2912/next-pwa');
 
 const withPWA = withPWAInit({
   dest: 'public',
@@ -14,6 +15,25 @@ const withPWA = withPWAInit({
   },
   cacheOnFrontEndNav: true,
   reloadOnOnline: true,
+  workboxOptions: {
+    runtimeCaching: [
+      // Never cache our API routes or file storage in the service worker:
+      // receipts are private (the default rules would keep any URL ending in
+      // .jpg/.png on the device), and audio must stream and seek straight
+      // from R2. These go first, so the default rules below never see them.
+      {
+        urlPattern: ({ url, sameOrigin }) =>
+          sameOrigin && url.pathname.startsWith('/api/'),
+        handler: 'NetworkOnly',
+      },
+      {
+        urlPattern: ({ url }) =>
+          url.hostname.endsWith('.r2.cloudflarestorage.com'),
+        handler: 'NetworkOnly',
+      },
+      ...defaultRuntimeCaching,
+    ],
+  },
 });
 
 /**
@@ -38,6 +58,7 @@ const nextConfig = {
       'lib/**',
       '.data/**',
       'proxy.ts',
+      'instrumentation.ts',
       '*.config.{js,mjs}',
       'components.json',
       'project.json',
@@ -52,7 +73,8 @@ const nextConfig = {
     ],
   },
   experimental: {
-    // Donation receipts (max 5 MB) are uploaded through a server action.
+    // Donation receipts and notice images (max 5 MB) are uploaded through a
+    // server action. Song audio goes straight to storage (signed upload link).
     serverActions: { bodySizeLimit: '6mb' },
     // Client-side Router Cache retention. In Next.js 16 the default reuse time
     // for dynamic pages is 0s, so navigating back to a route you just visited
