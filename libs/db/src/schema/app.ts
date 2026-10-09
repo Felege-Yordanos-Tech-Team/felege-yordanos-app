@@ -459,3 +459,46 @@ export const memberLinkRequests = pgTable(
     }).onDelete('set null'),
   ],
 );
+
+/* ─── Notice board ───────────────────────────────────────── */
+
+/**
+ * Announcements on /notices. department_id null = for everyone (parish-wide).
+ * Who may post or edit: lib/permissions.ts (canPostNotice, canEditNotice).
+ */
+export const notices = pgTable(
+  'notices',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    title: text('title').notNull(),
+    // Plain text; line breaks are kept.
+    body: text('body').notNull(),
+    departmentId: bigintId('department_id'),
+    // Image in the media store ("notices/<uuid>.<ext>").
+    imageKey: text('image_key'),
+    pinned: boolean('pinned').notNull().default(false),
+    // Hidden from members from this moment on (staff still see it).
+    expiresAt: timestamp('expires_at', { withTimezone: true }),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    index('idx_notices_created_at').on(t.createdAt.desc()),
+    index('idx_notices_department_id').on(t.departmentId),
+    foreignKey({
+      name: 'notices_department_id_fkey',
+      columns: [t.departmentId],
+      foreignColumns: [departments.id],
+    }),
+    foreignKey({
+      name: 'notices_created_by_fkey',
+      columns: [t.createdBy],
+      foreignColumns: [profiles.id],
+    }).onDelete('set null'),
+  ],
+);

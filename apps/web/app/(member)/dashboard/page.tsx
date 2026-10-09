@@ -10,6 +10,8 @@ import {
 } from '@felege-yordanos/db/server';
 import { Card } from '@/components/ds';
 import { getLocale } from '@/lib/i18n/server';
+import { listNotices } from '@/lib/notice-queries';
+import { canViewNotices } from '@/lib/permissions';
 import { hasMemberAccess, requireUser } from '@/lib/session';
 import { EventFeed } from './event-feed';
 import { WelcomeBanner } from './cards/welcome-banner';
@@ -21,6 +23,7 @@ import {
   VerifyEmailPrompt,
 } from './cards/link-profile-prompt';
 import { QuickActions } from './cards/quick-actions';
+import { NoticesCard } from './cards/notices-card';
 
 /** Columns the event feed and welcome banner need. */
 const eventColumns = {
@@ -62,6 +65,7 @@ export default async function MemberDashboard() {
     [latestDonation],
     previewSongs,
     songCount,
+    latestNotices,
   ] = await Promise.all([
     db
       .select({
@@ -136,6 +140,10 @@ export default async function MemberDashboard() {
       .orderBy(asc(songsTable.number))
       .limit(3),
     db.$count(songsTable),
+    // Latest active notices (members never see expired ones here).
+    canViewNotices(user)
+      ? listNotices({ includeExpired: false, limit: 3 })
+      : Promise.resolve([]),
   ]);
 
   // Open link request: the prompt says "waiting for approval" instead.
@@ -185,6 +193,9 @@ export default async function MemberDashboard() {
           )
         )}
         <QuickActions songCount={songCount} />
+        {canViewNotices(user) && (
+          <NoticesCard notices={latestNotices} className="mt-4" />
+        )}
         {access && (
           <EventFeed
             upcoming={upcoming}
@@ -221,6 +232,7 @@ export default async function MemberDashboard() {
           )}
 
           <div className="flex flex-col gap-4">
+            {canViewNotices(user) && <NoticesCard notices={latestNotices} />}
             {access && <SongbookPreviewCard songs={previewSongs} />}
             {access && (
               <MyGivingCard

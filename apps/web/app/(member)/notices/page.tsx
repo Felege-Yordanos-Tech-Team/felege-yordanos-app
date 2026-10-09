@@ -1,45 +1,45 @@
-import { Megaphone } from 'lucide-react';
-import { Card, PageHead } from '@/components/ds';
-import { getLocale, getT } from '@/lib/i18n/server';
+import Link from 'next/link';
+import { redirect } from 'next/navigation';
+import { Plus } from 'lucide-react';
+import { PageHead } from '@/components/ds';
+import { getT } from '@/lib/i18n/server';
+import { listNotices } from '@/lib/notice-queries';
+import {
+  canManageNotices,
+  canSeeExpiredNotices,
+  canViewNotices,
+} from '@/lib/permissions';
 import { requireLinkedMember } from '@/lib/session';
-import { cn } from '@/lib/utils';
+import { NoticeBoard } from './notice-board';
 
-// Notice board: not built yet.
-// Header matches the design; the body is an honest empty state.
 export default async function NoticesPage() {
-  await requireLinkedMember();
-  const [t, locale] = await Promise.all([getT(), getLocale()]);
+  const user = await requireLinkedMember();
+  if (!canViewNotices(user)) redirect('/dashboard');
+  const [t, notices] = await Promise.all([
+    getT(),
+    listNotices({ includeExpired: canSeeExpiredNotices(user) }),
+  ]);
+
   return (
-    <div className="px-[22px] pb-6 pt-4 md:px-7 md:py-7">
+    <div className="mx-auto max-w-[920px] px-[22px] pb-6 pt-4 md:mx-0 md:px-7 md:py-7">
       <PageHead
         en="Notice board"
         am="የማስታወቂያ ሰሌዳ"
         sub="Announcements from the parish council and departments"
+        actions={
+          canManageNotices(user) ? (
+            <Link
+              href="/admin/notices/new"
+              className="sacred-gradient inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gold/40 px-4 py-[9px] text-[13px] font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95"
+            >
+              <Plus className="h-3.5 w-3.5 text-gold" />
+              <span className="md:hidden">{t('New')}</span>
+              <span className="hidden md:inline">{t('New notice')}</span>
+            </Link>
+          ) : undefined
+        }
       />
-      <Card className="relative flex flex-col items-center overflow-hidden px-6 py-16 text-center md:py-20">
-        <div
-          className="tibeb-gold pointer-events-none absolute inset-0 opacity-40"
-          aria-hidden
-        />
-        <div className="relative mb-4 rounded-full border border-gold/30 bg-gold/10 p-3.5 text-gold-deep">
-          <Megaphone className="h-6 w-6" />
-        </div>
-        <p
-          className={cn(
-            'relative leading-tight text-brand-ink',
-            locale === 'am'
-              ? 'font-ethiopic text-[19px] font-semibold'
-              : 'font-display text-[22px] font-medium',
-          )}
-        >
-          {t('No notices yet')}
-        </p>
-        <p className="relative mt-1.5 max-w-sm text-[12.5px] leading-relaxed text-ink-muted">
-          {t(
-            'Announcements from the parish council and departments will appear here.',
-          )}
-        </p>
-      </Card>
+      <NoticeBoard notices={notices} />
     </div>
   );
 }
