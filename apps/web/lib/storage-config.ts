@@ -28,6 +28,23 @@ export type StorageConfig =
 
 let cached: StorageConfig | undefined;
 
+/**
+ * Only "http(s)://host[:port]": a stray character (e.g. a ";" pasted into the
+ * secret) would otherwise pass and make every upload fail at runtime.
+ */
+export function isEndpoint(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      /^https?:$/.test(url.protocol) &&
+      /^[a-z0-9.-]+(:\d+)?$/i.test(url.host) &&
+      url.origin === value
+    );
+  } catch {
+    return false;
+  }
+}
+
 function required(name: string): string {
   const value = process.env[name]?.trim();
   if (!value) {
@@ -53,9 +70,9 @@ export function storageConfig(): StorageConfig {
     };
   } else if (driver === 's3') {
     const endpoint = required('R2_ENDPOINT').replace(/\/+$/, '');
-    if (!/^https?:\/\/[^/]+$/.test(endpoint)) {
+    if (!isEndpoint(endpoint)) {
       throw new Error(
-        'R2_ENDPOINT must be the account endpoint, e.g. https://<account id>.r2.cloudflarestorage.com (no bucket or path).',
+        'R2_ENDPOINT must be the account endpoint, e.g. https://<account id>.r2.cloudflarestorage.com (no bucket, path or extra characters).',
       );
     }
     cached = {
