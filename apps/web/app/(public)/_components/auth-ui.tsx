@@ -7,7 +7,6 @@ import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
-import { LogoMedallion } from '@/components/brand/logo-medallion';
 
 /* Shared pieces of the sign-in screens. */
 
@@ -126,8 +125,8 @@ function BrandPanel() {
 
 /**
  * Page frame. Desktop: floating teal brand panel on the left (styled like
- * the sidebar) + the form card on the right. Phone: compact brand header on
- * top + the form card below.
+ * the sidebar) + the form card on the right. Phone: the dome (medallion and
+ * name under an arch) on top + the form card centered below.
  */
 export function AuthFrame({ children }: { children: React.ReactNode }) {
   return (
@@ -142,35 +141,36 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
         <BrandPanel />
       </aside>
 
-      {/* Phone: compact brand header */}
-      <header
-        className={cn(
-          floatingRail,
-          'mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 px-3.5 py-3 md:hidden',
-        )}
-      >
-        <LogoMedallion size={44} />
-        <div className="min-w-0 flex-1 leading-tight">
-          <div className="truncate font-ethiopic text-[15px] font-semibold text-cream">
-            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
-          </div>
-          <div className="mt-0.5 truncate font-display text-[12px] italic text-gold-light/80">
-            Felege Yordanos Sunday School
+      {/* Phone: dome, with the language switch on its bottom edge */}
+      <div className="relative mx-4 mt-2 shrink-0 md:hidden">
+        <div className="sacred-gradient relative h-[212px] overflow-hidden rounded-b-xl rounded-t-[180px] shadow-[0_20px_40px_-20px_rgba(10,60,54,0.45),inset_0_-1px_0_rgba(212,168,67,0.25)]">
+          <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-70" />
+          <div className="pointer-events-none absolute left-1/2 top-[14%] h-[190px] w-[190px] -translate-x-1/2 bg-[radial-gradient(circle,rgba(212,168,67,0.50)_0%,transparent_60%)] blur-[12px]" />
+          <div className="relative flex h-full flex-col items-center justify-center px-6 pt-3">
+            <Medallion size={88} />
+            <div className="mt-3">
+              <ChurchName />
+            </div>
           </div>
         </div>
-        <LangToggle onDark />
-      </header>
+        <div className="absolute -bottom-4 right-4">
+          <LangToggle className="bg-parchment-soft shadow-[0_4px_12px_-6px_rgba(10,60,54,0.35)]" />
+        </div>
+      </div>
 
       {/* Form */}
-      <main className="relative flex flex-1 flex-col px-4 pb-6 pt-5 md:items-center md:justify-center md:px-10 md:py-16">
-        {/* Language switch: signed-out users need it too (phone: in the header) */}
+      <main className="relative flex flex-1 flex-col px-4 pb-5 pt-7 md:items-center md:justify-center md:px-10 md:py-16">
+        {/* Language switch: signed-out users need it too (phone: on the dome) */}
         <div className="absolute right-6 top-6 hidden md:block">
           <LangToggle />
         </div>
-        <div className="w-full rounded-2xl border border-parchment-edge bg-parchment-soft px-5 py-7 shadow-[0_1px_0_rgba(10,60,54,0.04),0_14px_36px_-18px_rgba(10,60,54,0.28)] md:max-w-[420px] md:px-9 md:py-10 dark:shadow-[0_14px_36px_-18px_rgba(0,0,0,0.6)]">
-          {children}
+        {/* Phone: the card sits in the middle of the space below the dome. */}
+        <div className="flex w-full flex-1 flex-col justify-center md:max-w-[420px] md:flex-none">
+          <div className="w-full rounded-2xl border border-parchment-edge bg-parchment-soft px-5 py-6 shadow-[0_1px_0_rgba(10,60,54,0.04),0_14px_36px_-18px_rgba(10,60,54,0.28)] md:px-9 md:py-10 dark:shadow-[0_14px_36px_-18px_rgba(0,0,0,0.6)]">
+            {children}
+          </div>
         </div>
-        <LegalFooter className="mt-auto pt-8 md:absolute md:inset-x-0 md:bottom-6 md:mt-0 md:pt-0" />
+        <LegalFooter className="pt-5 md:absolute md:inset-x-0 md:bottom-6 md:pt-0" />
       </main>
     </div>
   );
