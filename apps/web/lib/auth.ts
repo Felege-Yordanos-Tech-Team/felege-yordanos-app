@@ -33,8 +33,17 @@ const devTrustedOrigins = (request?: Request) => {
   return origin && LOCAL_ORIGIN.test(origin) ? [origin] : [];
 };
 
+// Google sign-in only when both keys are set (staging and production; local
+// dev without them hides the button).
+const googleClientId = process.env.GOOGLE_CLIENT_ID;
+const googleClientSecret = process.env.GOOGLE_CLIENT_SECRET;
+export const googleEnabled = Boolean(googleClientId && googleClientSecret);
+
 export const auth = betterAuth({
   appName: 'Felege Yordanos',
+  // OAuth errors (cancelled, account not linked, ...) come back as
+  // /login?error=<code>; login-form.tsx shows the message.
+  onAPIError: { errorURL: '/login' },
   trustedOrigins:
     process.env.NODE_ENV === 'production' ? [] : devTrustedOrigins,
   database: drizzleAdapter(db, {
@@ -59,6 +68,27 @@ export const auth = betterAuth({
     sendResetPassword: async ({ user, url }) => {
       await sendEmail({ to: user.email, ...passwordResetEmail({ url }) });
     },
+  },
+  // Google sets emailVerified from its email_verified claim, so Google
+  // accounts skip the code step. Profiles come from databaseHooks below.
+  socialProviders:
+    googleClientId && googleClientSecret
+      ? {
+          google: {
+            clientId: googleClientId,
+            clientSecret: googleClientSecret,
+            // Shared phones: always let the member pick the Google account.
+            prompt: 'select_account',
+          },
+        }
+      : {},
+  // A Google sign-in with the email of an existing account joins that
+  // account, but only when its email is already verified (Better Auth's
+  // requireLocalEmailVerified default). Otherwise whoever registered the
+  // email with a password could share the account; the member gets
+  // ?error=account_not_linked and verifies with their password first.
+  account: {
+    accountLinking: { enabled: true, trustedProviders: ['google'] },
   },
   // Email verification by 6-digit code (emailOTP below). Sign-in stays open
   // to unverified accounts; lib/session.ts limits what they can use.

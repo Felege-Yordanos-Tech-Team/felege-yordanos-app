@@ -157,6 +157,8 @@ jobs:
       PRODUCTION_BETTER_AUTH_SECRET: ci
       BREVO_SMTP_LOGIN: ci
       BREVO_SMTP_KEY: ci
+      GOOGLE_CLIENT_ID: ci
+      GOOGLE_CLIENT_SECRET: ci
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
@@ -202,6 +204,9 @@ jobs:
       # Brevo SMTP login and key (same names in both environments).
       BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
       BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+      # Google sign-in OAuth client (same names in both environments).
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v6
 
@@ -293,6 +298,9 @@ jobs:
       # Brevo SMTP login and key (same names in both environments).
       BREVO_SMTP_LOGIN: ${{ secrets.BREVO_SMTP_LOGIN }}
       BREVO_SMTP_KEY: ${{ secrets.BREVO_SMTP_KEY }}
+      # Google sign-in OAuth client (same names in both environments).
+      GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
+      GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
     steps:
       - uses: actions/checkout@v6
 

@@ -7,6 +7,7 @@ import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
+import { LogoMedallion } from '@/components/brand/logo-medallion';
 
 /* Shared pieces of the sign-in screens. */
 
@@ -83,41 +84,143 @@ export function HaloArch() {
   );
 }
 
+// Same floating look as the desktop sidebar (components/sidebar/sidebar-nav.tsx).
+const floatingRail =
+  'rail-sacred rounded-[14px] border border-gold/[0.22] shadow-[0_10px_30px_-14px_rgba(10,60,54,0.35),0_2px_6px_-2px_rgba(10,60,54,0.10)] dark:shadow-[0_10px_30px_-12px_rgba(0,0,0,0.6)]';
+
+/** Desktop brand panel content: medallion, church name, one line about the app. */
+function BrandPanel() {
+  const t = useT();
+  const locale = useLocale();
+  return (
+    <div className="relative flex max-w-[360px] flex-col items-center text-center">
+      <div className="pointer-events-none absolute left-1/2 top-[64px] h-72 w-72 -translate-x-1/2 -translate-y-1/2 bg-[radial-gradient(circle,rgba(212,168,67,0.32)_0%,transparent_62%)] blur-[14px]" />
+      <div className="relative">
+        <Medallion size={120} />
+      </div>
+      {/* Smaller below lg so the name stays on one line in the narrow panel. */}
+      <div className="mt-6 whitespace-nowrap">
+        <div className="font-ethiopic text-[21px] font-semibold tracking-[0.02em] text-cream lg:text-2xl">
+          ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+        </div>
+        <div className="mt-1 font-display text-sm italic tracking-[0.04em] text-gold-light">
+          Felege Yordanos Sunday School
+        </div>
+      </div>
+      <div className="my-6 flex w-40 items-center gap-2.5">
+        <span className="h-px flex-1 bg-gradient-to-r from-transparent to-gold/40" />
+        <DotTriplet size={4} />
+        <span className="h-px flex-1 bg-gradient-to-l from-transparent to-gold/40" />
+      </div>
+      <p
+        className={cn(
+          'text-cream/75',
+          locale === 'am' ? 'font-ethiopic text-[14px]' : 'text-[13.5px]',
+        )}
+      >
+        {t('Songbook, attendance and donations in one place.')}
+      </p>
+    </div>
+  );
+}
+
 /**
- * Page frame: phone = halo crown on top + form below;
- * desktop = brand panel (44%) on the left + centered form on the right.
+ * Page frame. Desktop: floating teal brand panel on the left (styled like
+ * the sidebar) + the form card on the right. Phone: compact brand header on
+ * top + the form card below.
  */
 export function AuthFrame({ children }: { children: React.ReactNode }) {
   return (
     <div className="parchment-bg flex min-h-screen flex-col md:flex-row">
-      {/* Phone: halo crown */}
-      <div className="sacred-gradient relative mx-4 mt-2 h-[280px] shrink-0 overflow-hidden rounded-b-xl rounded-t-[180px] shadow-[0_20px_40px_-20px_rgba(10,60,54,0.45),inset_0_-1px_0_rgba(212,168,67,0.25)] md:hidden">
-        <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-70" />
-        <div className="pointer-events-none absolute left-1/2 top-[14%] h-[220px] w-[220px] -translate-x-1/2 bg-[radial-gradient(circle,rgba(212,168,67,0.50)_0%,transparent_60%)] blur-[12px]" />
-        <div className="relative flex h-full flex-col items-center justify-center px-6">
-          <Medallion size={104} />
-          <div className="mt-3.5">
-            <ChurchName />
+      {/* Desktop: floating brand panel */}
+      <aside
+        className={cn(
+          floatingRail,
+          'sticky top-2.5 my-2.5 ml-2.5 hidden h-[calc(100vh-20px)] w-[42%] min-w-[340px] max-w-[600px] shrink-0 flex-col items-center justify-center self-start overflow-hidden px-8 md:flex lg:px-10',
+        )}
+      >
+        <BrandPanel />
+      </aside>
+
+      {/* Phone: compact brand header */}
+      <header
+        className={cn(
+          floatingRail,
+          'mx-2.5 mt-2.5 flex shrink-0 items-center gap-3 px-3.5 py-3 md:hidden',
+        )}
+      >
+        <LogoMedallion size={44} />
+        <div className="min-w-0 flex-1 leading-tight">
+          <div className="truncate font-ethiopic text-[15px] font-semibold text-cream">
+            ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
+          </div>
+          <div className="mt-0.5 truncate font-display text-[12px] italic text-gold-light/80">
+            Felege Yordanos Sunday School
           </div>
         </div>
-      </div>
-
-      {/* Desktop: brand panel */}
-      <div className="sacred-gradient relative hidden min-h-screen w-[44%] min-w-[380px] shrink-0 flex-col items-center justify-center overflow-hidden border-r border-gold/25 px-10 py-12 md:flex">
-        <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-70" />
-        <HaloArch />
-      </div>
+        <LangToggle onDark />
+      </header>
 
       {/* Form */}
-      <div className="relative flex flex-1 flex-col px-7 pb-6 pt-6 md:items-center md:justify-center md:p-10">
-        <div className="pointer-events-none absolute inset-0 hidden bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.10)_0%,transparent_55%)] md:block dark:bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.06)_0%,transparent_55%)]" />
-        {/* Language switch: signed-out users need it too */}
-        <div className="relative mb-4 flex justify-end md:absolute md:right-6 md:top-6 md:mb-0">
+      <main className="relative flex flex-1 flex-col px-4 pb-6 pt-5 md:items-center md:justify-center md:px-10 md:py-16">
+        {/* Language switch: signed-out users need it too (phone: in the header) */}
+        <div className="absolute right-6 top-6 hidden md:block">
           <LangToggle />
         </div>
-        <div className="relative w-full md:max-w-[380px]">{children}</div>
-        <LegalFooter className="relative mt-auto pt-8 md:absolute md:inset-x-0 md:bottom-6 md:mt-0 md:pt-0" />
-      </div>
+        <div className="w-full rounded-2xl border border-parchment-edge bg-parchment-soft px-5 py-7 shadow-[0_1px_0_rgba(10,60,54,0.04),0_14px_36px_-18px_rgba(10,60,54,0.28)] md:max-w-[420px] md:px-9 md:py-10 dark:shadow-[0_14px_36px_-18px_rgba(0,0,0,0.6)]">
+          {children}
+        </div>
+        <LegalFooter className="mt-auto pt-8 md:absolute md:inset-x-0 md:bottom-6 md:mt-0 md:pt-0" />
+      </main>
+    </div>
+  );
+}
+
+/** Google's "G" mark, unmodified (https://developers.google.com/identity/branding-guidelines). */
+function GoogleMark() {
+  return (
+    <svg aria-hidden viewBox="0 0 48 48" className="h-[18px] w-[18px] shrink-0">
+      <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z" />
+      <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z" />
+      <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z" />
+      <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z" />
+    </svg>
+  );
+}
+
+/**
+ * "Continue with Google" (Google's button guidelines: neutral button, the
+ * standard G mark). Colors in `.google-button` (app/global.css).
+ */
+export function GoogleButton({
+  onClick,
+  disabled,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+}) {
+  const t = useT();
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      className="google-button flex h-11 w-full items-center justify-center gap-3 rounded-xl border px-4 text-sm font-medium transition-colors disabled:opacity-60"
+    >
+      <GoogleMark />
+      <span>{disabled ? t('Opening Google…') : t('Continue with Google')}</span>
+    </button>
+  );
+}
+
+/** "or" rule between the Google button and the email form. */
+export function OrDivider() {
+  const t = useT();
+  return (
+    <div className="my-5 flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[0.16em] text-ink-faint">
+      <span className="h-px flex-1 bg-parchment-edge" />
+      <span>{t('or')}</span>
+      <span className="h-px flex-1 bg-parchment-edge" />
     </div>
   );
 }
