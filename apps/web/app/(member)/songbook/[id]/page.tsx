@@ -9,7 +9,8 @@ import { getT } from '@/lib/i18n/server';
 import { cn } from '@/lib/utils';
 import { categoryDotMap, hasEthiopic, songNumber } from '@/lib/category-color';
 import { LyricsCard } from '../lyrics';
-import { AudioPill } from './audio-pill';
+import { AudioPlayer } from '@/components/audio-player';
+import { songAudioSrc } from '@/lib/media';
 
 export default async function SongDetailPage({
   params,
@@ -34,6 +35,7 @@ export default async function SongDetailPage({
   if (!song) notFound();
 
   const dot = categoryDotMap(categoryRows).get(song.category);
+  const audioSrc = songAudioSrc(song);
 
   return (
     <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-3.5 md:px-7 md:py-7">
@@ -78,7 +80,7 @@ export default async function SongDetailPage({
           />
           {song.category}
         </span>
-        {song.audioUrl && <AudioPill src={song.audioUrl} />}
+        {audioSrc && <AudioPlayer src={audioSrc} className="flex-1" />}
       </div>
 
       <LyricsCard

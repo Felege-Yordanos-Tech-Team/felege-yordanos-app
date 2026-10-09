@@ -1,12 +1,25 @@
 'use server';
 
+import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { eq, sql } from 'drizzle-orm';
+import { and, eq, ne, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import { categories, db, songs } from '@felege-yordanos/db/server';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
+import {
+  AUDIO_MAX_BYTES,
+  audioFileType,
+  isAudioKey,
+  mediaContentType,
+} from '@/lib/media';
 import { canManageSongs } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
+import {
+  deleteObject,
+  headObject,
+  signedUploadUrl,
+  usesLocalStorage,
+} from '@/lib/storage';
 
 const LYRICS_MAX = 8000;
 
@@ -76,9 +89,47 @@ const songSchema = z.object({
       })
       .nullable(),
   ),
+  // Uploaded recording (from requestAudioUpload), or null for none.
+  audioKey: z.preprocess(
+    emptyToNull,
+    z
+      .string()
+      .refine(isAudioKey, 'Upload the audio file again.')
+      .nullable(),
+  ),
 });
 
 export type SongInput = z.input<typeof songSchema>;
+
+/**
+ * Checks a newly uploaded recording before a song points to it: the file
+ * arrived, is within the size limit, has the expected type, and no other
+ * song uses it. Returns an error message, or null when it is fine.
+ */
+async function checkUploadedAudio(
+  key: string,
+  songId: string | null,
+): Promise<string | null> {
+  const used = await db.$count(
+    songs,
+    songId
+      ? and(eq(songs.audioKey, key), ne(songs.id, songId))
+      : eq(songs.audioKey, key),
+  );
+  if (used > 0) return 'Upload the audio file again.';
+
+  const file = await headObject('media', key);
+  if (!file) return 'The audio upload did not finish. Please upload it again.';
+  if (file.size > AUDIO_MAX_BYTES || file.size === 0) {
+    await deleteObject('media', key);
+    return 'Audio file must be at most 30 MB.';
+  }
+  if (file.contentType && file.contentType !== mediaContentType(key)) {
+    await deleteObject('media', key);
+    return 'Only MP3, M4A, AAC, OGG and WAV audio files are allowed.';
+  }
+  return null;
+}
 
 function songWriteError(err: unknown): ActionResult<never> {
   if (uniqueViolation(err) !== null) {
@@ -94,6 +145,12 @@ export async function createSong(
   const parsed = songSchema.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error));
   if (!canManageSongs(user)) return fail(NOT_ALLOWED);
+
+  const { audioKey } = parsed.data;
+  if (audioKey) {
+    const problem = await checkUploadedAudio(audioKey, null);
+    if (problem) return fail(problem);
+  }
 
   try {
     const [row] = await db
@@ -118,6 +175,19 @@ export async function updateSong(
   if (!parsed.success) return fail(firstIssue(parsed.error));
   if (!canManageSongs(user)) return fail(NOT_ALLOWED);
 
+  const [current] = await db
+    .select({ audioKey: songs.audioKey })
+    .from(songs)
+    .where(eq(songs.id, songId.data))
+    .limit(1);
+  if (!current) return fail('Song not found.');
+
+  const { audioKey } = parsed.data;
+  if (audioKey && audioKey !== current.audioKey) {
+    const problem = await checkUploadedAudio(audioKey, songId.data);
+    if (problem) return fail(problem);
+  }
+
   try {
     const updated = await db
       .update(songs)
@@ -127,6 +197,11 @@ export async function updateSong(
     if (updated.length === 0) return fail('Song not found.');
   } catch (err) {
     return songWriteError(err);
+  }
+
+  // Replaced or removed recording: delete the old file.
+  if (current.audioKey && current.audioKey !== audioKey) {
+    await deleteObject('media', current.audioKey);
   }
 
   revalidateSongs(songId.data);
@@ -143,10 +218,65 @@ export async function deleteSong(id: string): Promise<ActionResult> {
   const deleted = await db
     .delete(songs)
     .where(eq(songs.id, songId.data))
-    .returning({ id: songs.id });
+    .returning({ id: songs.id, audioKey: songs.audioKey });
   if (deleted.length === 0) return fail('Song not found.');
+  if (deleted[0].audioKey) await deleteObject('media', deleted[0].audioKey);
 
   revalidateSongs(songId.data);
+  return ok();
+}
+
+/* ─── Song audio uploads ───────────────────────────────────── */
+
+const audioUploadSchema = z.object({
+  fileName: z.string().trim().min(1).max(255),
+  type: z.string().max(100),
+  size: z.number().int().positive(),
+});
+
+/**
+ * Step 1 of an audio upload: checks the file and returns where the browser
+ * sends it. R2: a signed PUT link (5 minutes) straight to the media bucket,
+ * so the file never passes through the server. Local: /api/media-upload.
+ * The browser must send `contentType` as the Content-Type header. Saving
+ * the song then checks that the file arrived (checkUploadedAudio).
+ */
+export async function requestAudioUpload(input: {
+  fileName: string;
+  type: string;
+  size: number;
+}): Promise<
+  ActionResult<{ key: string; uploadUrl: string; contentType: string }>
+> {
+  const user = await requireUser();
+  if (!canManageSongs(user)) return fail(NOT_ALLOWED);
+  const parsed = audioUploadSchema.safeParse(input);
+  if (!parsed.success) return fail('Choose an audio file.');
+
+  const fileType = audioFileType(parsed.data.fileName, parsed.data.type);
+  if (!fileType)
+    return fail('Only MP3, M4A, AAC, OGG and WAV audio files are allowed.');
+  if (parsed.data.size > AUDIO_MAX_BYTES)
+    return fail('Audio file must be at most 30 MB.');
+
+  const key = `audio/${randomUUID()}.${fileType.ext}`;
+  const uploadUrl = usesLocalStorage()
+    ? `/api/media-upload/${key}`
+    : await signedUploadUrl('media', key, fileType.contentType);
+  return ok({ key, uploadUrl, contentType: fileType.contentType });
+}
+
+/**
+ * Deletes an uploaded recording that was never saved (replaced or removed
+ * before saving, or the form was left). Files that a song uses are kept.
+ */
+export async function discardAudioUpload(key: string): Promise<ActionResult> {
+  const user = await requireUser();
+  if (!canManageSongs(user)) return fail(NOT_ALLOWED);
+  if (typeof key !== 'string' || !isAudioKey(key)) return ok();
+
+  const used = await db.$count(songs, eq(songs.audioKey, key));
+  if (used === 0) await deleteObject('media', key);
   return ok();
 }
 

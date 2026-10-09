@@ -1,13 +1,15 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { Play, Printer, Search } from 'lucide-react';
+import { Printer, Search } from 'lucide-react';
 import type {
   categories as categoriesTable,
   songs as songsTable,
 } from '@felege-yordanos/db/schema';
+import { AudioPlayer } from '@/components/audio-player';
 import { Card, Chip } from '@/components/ds';
 import { useT } from '@/lib/i18n/client';
+import { songAudioSrc } from '@/lib/media';
 import { cn } from '@/lib/utils';
 import {
   categoryDotMap,
@@ -51,6 +53,7 @@ export function SongbookDesktop({
 
   const selected =
     songs.find((s) => s.id === selectedId) ?? filtered[0] ?? songs[0] ?? null;
+  const audioSrc = selected ? songAudioSrc(selected) : null;
 
   return (
     <div className={className}>
@@ -212,16 +215,13 @@ export function SongbookDesktop({
                   />
                   {selected.category}
                 </span>
-                {selected.audioUrl && (
-                  <a
-                    href={selected.audioUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-full border border-gold/35 bg-brand px-3 py-1.5 text-[11px] font-semibold text-cream shadow-[0_4px_12px_-4px_rgba(10,60,54,0.4)] transition-opacity hover:opacity-95"
-                  >
-                    <Play className="h-[11px] w-[11px] text-gold" />
-                    {t('Play recording')}
-                  </a>
+                {audioSrc && (
+                  <AudioPlayer
+                    // A new player per song: switching songs stops playback.
+                    key={selected.id}
+                    src={audioSrc}
+                    className="max-w-[420px] flex-1"
+                  />
                 )}
                 <button
                   type="button"

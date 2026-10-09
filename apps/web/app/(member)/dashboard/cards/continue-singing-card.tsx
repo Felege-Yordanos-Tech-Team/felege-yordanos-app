@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { ArrowRight, ChevronRight, Play } from 'lucide-react';
 import { Card, SectionHeader } from '@/components/ds';
 import { getT } from '@/lib/i18n/server';
+import { songAudioSrc } from '@/lib/media';
 
 export interface SongbookPreviewSong {
   id: string;
@@ -9,6 +10,7 @@ export interface SongbookPreviewSong {
   title: string;
   titleEn: string | null;
   audioUrl: string | null;
+  audioKey: string | null;
 }
 
 /**
@@ -65,7 +67,7 @@ export async function SongbookPreviewCard({
                     </span>
                   )}
                 </span>
-                {song.audioUrl ? (
+                {songAudioSrc(song) ? (
                   <Play
                     className="h-3 w-3 shrink-0 text-gold-deep"
                     aria-label={t('Play recording')}

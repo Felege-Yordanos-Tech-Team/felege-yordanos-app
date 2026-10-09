@@ -242,7 +242,11 @@ export const songs = pgTable('songs', {
   // Category name. Production has no foreign key here.
   category: text('category').notNull(),
   lyrics: text('lyrics').notNull(),
+  // External recording link (pasted URL).
   audioUrl: text('audio_url'),
+  // Uploaded recording in the media store ("audio/<uuid>.<ext>"). Played
+  // instead of audio_url when both are set.
+  audioKey: text('audio_key'),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

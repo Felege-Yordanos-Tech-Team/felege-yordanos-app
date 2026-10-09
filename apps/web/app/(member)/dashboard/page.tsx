@@ -130,6 +130,7 @@ export default async function MemberDashboard() {
         title: songsTable.title,
         titleEn: songsTable.titleEn,
         audioUrl: songsTable.audioUrl,
+        audioKey: songsTable.audioKey,
       })
       .from(songsTable)
       .orderBy(asc(songsTable.number))
