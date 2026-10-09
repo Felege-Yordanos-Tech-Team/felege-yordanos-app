@@ -96,10 +96,20 @@ export async function putObject(
     await writeFile(full, body);
     return;
   }
-  const res = await s3().client.fetch(objectUrl(store, key), {
+  // Sign first, then send the bytes ourselves with an exact Content-Length.
+  // R2 refuses chunked uploads (411), and in the production build a body
+  // passed through aws4fetch's Request reaches R2 as a chunked stream.
+  const signed = await s3().client.sign(objectUrl(store, key), {
     method: 'PUT',
-    body: body as BodyInit,
     headers: { 'Content-Type': contentType },
+  });
+  const headers = new Headers(signed.headers);
+  headers.set('Content-Length', String(body.byteLength));
+  const res = await fetch(signed.url, {
+    method: 'PUT',
+    headers,
+    body: body as BodyInit,
+    cache: 'no-store',
   });
   if (!res.ok) throw new Error(`Storage upload failed (${res.status})`);
 }
