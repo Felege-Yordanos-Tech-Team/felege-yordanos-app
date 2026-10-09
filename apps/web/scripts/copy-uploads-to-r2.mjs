@@ -35,6 +35,10 @@ function env(name) {
 
 const uploadDir = path.resolve(env('UPLOAD_DIR'));
 const endpoint = env('R2_ENDPOINT').replace(/\/+$/, '');
+if (!/^https?:\/\/[a-z0-9.-]+(:\d+)?$/i.test(endpoint)) {
+  console.error('R2_ENDPOINT must look like https://<account id>.r2.cloudflarestorage.com');
+  process.exit(1);
+}
 const bucket = env('R2_UPLOADS_BUCKET');
 const client = new AwsClient({
   accessKeyId: env('R2_ACCESS_KEY_ID'),
