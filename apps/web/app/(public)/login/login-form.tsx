@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { authClient } from '@/lib/auth-client';
@@ -11,17 +11,67 @@ import {
   AuthField,
   AuthFrame,
   AuthHeading,
+  GoogleButton,
   linkClass,
+  OrDivider,
 } from '../_components/auth-ui';
 
-export function LoginForm() {
+/** ?error= codes from a Google sign-in (Better Auth callback) -> message. */
+function googleErrorMessage(code: string): string {
+  switch (code) {
+    case 'access_denied':
+      return 'Google sign-in was cancelled.';
+    case 'account_not_linked':
+      return 'This email already has an account. Sign in with your password and verify your email, then you can use Google.';
+    default:
+      return 'Google sign-in did not work. Please try again.';
+  }
+}
+
+export function LoginForm({
+  googleEnabled,
+  oauthError,
+}: {
+  /** Google keys are configured (lib/auth.ts). */
+  googleEnabled: boolean;
+  /** ?error= from a failed or cancelled Google sign-in. */
+  oauthError: string | null;
+}) {
   const t = useT();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [error, setError] = useState('');
+  const [error, setError] = useState(() =>
+    oauthError ? googleErrorMessage(oauthError) : '',
+  );
   const [loading, setLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const router = useRouter();
+
+  // The message is shown; drop ?error= so a reload starts clean.
+  useEffect(() => {
+    const url = new URL(window.location.href);
+    if (url.searchParams.has('error')) {
+      url.searchParams.delete('error');
+      url.searchParams.delete('error_description');
+      window.history.replaceState(null, '', url);
+    }
+  }, []);
+
+  async function handleGoogle() {
+    setGoogleLoading(true);
+    setError('');
+    // Redirects to Google; errors come back as /login?error=<code>.
+    const { error: googleError } = await authClient.signIn.social({
+      provider: 'google',
+      callbackURL: '/dashboard',
+      errorCallbackURL: '/login',
+    });
+    if (googleError) {
+      setError(googleErrorMessage(''));
+      setGoogleLoading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -61,6 +111,13 @@ export function LoginForm() {
           am={['እንኳን ደህና', 'መጡ']}
           sub={t('Sign in to continue to your Sunday School')}
         />
+      )}
+
+      {googleEnabled && (
+        <>
+          <GoogleButton onClick={handleGoogle} disabled={googleLoading} />
+          <OrDivider />
+        </>
       )}
 
       <form onSubmit={handleSubmit} className="flex flex-col">

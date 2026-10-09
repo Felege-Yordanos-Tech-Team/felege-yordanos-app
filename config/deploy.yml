@@ -54,6 +54,8 @@ env:
     - BETTER_AUTH_SECRET
     - SMTP_USER
     - SMTP_PASSWORD
+    - GOOGLE_CLIENT_ID
+    - GOOGLE_CLIENT_SECRET
 
 # Seconds a new version may take to pass /up (includes migrations).
 deploy_timeout: 60

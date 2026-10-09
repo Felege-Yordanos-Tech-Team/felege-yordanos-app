@@ -10,6 +10,18 @@ export const auth: Record<string, string> = {
   'Show password': 'የይለፍ ቃሉን አሳይ',
   'Hide password': 'የይለፍ ቃሉን ደብቅ',
   'Ethiopian Orthodox Tewahedo Church': 'የኢትዮጵያ ኦርቶዶክስ ተዋሕዶ ቤተ ክርስቲያን',
+  'Songbook, attendance and donations in one place.':
+    'መዝሙር፣ ክትትል እና መዋጮ በአንድ ቦታ።',
+
+  // Google sign-in
+  'Continue with Google': 'በGoogle ይቀጥሉ',
+  'Opening Google…': 'Googleን በመክፈት ላይ…',
+  or: 'ወይም',
+  'Google sign-in was cancelled.': 'በGoogle መግባት ተሰርዟል።',
+  'This email already has an account. Sign in with your password and verify your email, then you can use Google.':
+    'ይህ ኢሜይል ቀድሞ መለያ አለው። በይለፍ ቃልዎ ገብተው ኢሜይልዎን ያረጋግጡ፤ ከዚያ በGoogle መግባት ይችላሉ።',
+  'Google sign-in did not work. Please try again.':
+    'በGoogle መግባት አልተሳካም። እባክዎ እንደገና ይሞክሩ።',
 
   // Forgot password
   'Enter your email to receive a reset link':
