@@ -1,5 +1,6 @@
 import { getSessionCookie } from 'better-auth/cookies';
 import { NextResponse, type NextRequest } from 'next/server';
+import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE } from '@/lib/i18n/config';
 
 /**
  * Fast, optimistic route guard. It only checks that a session cookie exists
@@ -14,6 +15,8 @@ const PUBLIC_PATHS = [
   '/login',
   '/forgot-password',
   '/reset-password',
+  '/privacy',
+  '/terms',
   '/up', // health check (Kamal, uptime monitoring)
 ];
 
@@ -29,6 +32,21 @@ export function proxy(request: NextRequest) {
   // otherwise cause a redirect loop between /login and /dashboard.
   if (!hasSession && !isPublic) {
     return NextResponse.redirect(new URL('/login', request.url));
+  }
+
+  // ?lang=en / ?lang=am opens the page in that language right away (no
+  // redirect) and remembers it. Used for links such as /privacy?lang=en for
+  // Google's OAuth reviewers, who may not read the Amharic default.
+  const lang = request.nextUrl.searchParams.get('lang');
+  if (isLocale(lang)) {
+    request.cookies.set(LOCALE_COOKIE, lang);
+    const response = NextResponse.next({ request: { headers: request.headers } });
+    response.cookies.set(LOCALE_COOKIE, lang, {
+      path: '/',
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+      sameSite: 'lax',
+    });
+    return response;
   }
 
   return NextResponse.next();

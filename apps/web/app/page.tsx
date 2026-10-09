@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { getSession } from '@/lib/session';
 import { cn } from '@/lib/utils';
-import { HaloArch } from './(public)/_components/auth-ui';
+import { HaloArch, LegalFooter } from './(public)/_components/auth-ui';
 
 /** Signed-out landing: the brand panel of the sign-in design, full screen. */
 export default async function LandingPage() {
@@ -15,9 +15,25 @@ export default async function LandingPage() {
       <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-70" />
       <HaloArch />
 
+      {/* What the app is: public description (Google's OAuth review checks the home page). */}
+      <div
+        className={cn(
+          'relative mt-8 flex max-w-md flex-col gap-2 text-center text-[13.5px] leading-relaxed text-cream/80',
+          locale === 'am' && 'font-ethiopic',
+        )}
+      >
+        <p>
+          {t("Felege Yordanos Sunday School's app for its members.")}{' '}
+          {t(
+            'Sing from the songbook, check in to services and events, follow Sunday School notices, and send your donations with a payment receipt.',
+          )}
+        </p>
+        <p className="text-cream/60">{t('Sign in with your Sunday School account.')}</p>
+      </div>
+
       <Link
         href="/login"
-        className="relative mt-10 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl border border-gold/50 bg-gold px-6 py-[15px] text-sm font-semibold tracking-[0.04em] text-brand-deep shadow-fy-gold transition-colors hover:bg-gold-light"
+        className="relative mt-8 flex w-full max-w-xs items-center justify-center gap-2 rounded-xl border border-gold/50 bg-gold px-6 py-[15px] text-sm font-semibold tracking-[0.04em] text-brand-deep shadow-fy-gold transition-colors hover:bg-gold-light"
       >
         {locale !== 'am' && (
           <>
@@ -33,6 +49,8 @@ export default async function LandingPage() {
       <p className="relative mt-5 text-center font-display text-[13px] italic tracking-[0.04em] text-cream/45">
         {t('Ethiopian Orthodox Tewahedo Church')}
       </p>
+
+      <LegalFooter onDark className="relative mt-8" />
     </div>
   );
 }
