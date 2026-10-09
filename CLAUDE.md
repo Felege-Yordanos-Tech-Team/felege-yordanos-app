@@ -97,6 +97,8 @@ npx nx graph              # View project dependency graph
 
 See `.env.example` (copy to `.env.local` at the repo root): `DATABASE_URL`, `BETTER_AUTH_SECRET`, `BETTER_AUTH_URL`, optional `UPLOAD_DIR`, email: `EMAIL_TRANSPORT`, `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `EMAIL_FROM`.
 
+Google sign-in (optional locally): `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (OAuth client `felege-web`, Google Cloud project `felege-yordanos-511106`; GitHub environment secrets of the same names in `staging` and `production`). Without both, `googleEnabled` in `lib/auth.ts` is false and the "Continue with Google" button is hidden. A Google sign-in joins an existing account with the same email only when that account's email is verified (otherwise `/login?error=account_not_linked`). Google emails count as verified, so no code step.
+
 Email (`lib/email.ts`, templates in `lib/email-templates.ts`, Amharic in `lib/i18n/dict/email.ts`): `EMAIL_TRANSPORT=console` (default in development) prints emails in the terminal running the app; `smtp` sends them. Staging and production send through Brevo (SMTP relay, sender `no-reply@felegeyordanos.org`; GitHub environment secrets `BREVO_SMTP_LOGIN`, `BREVO_SMTP_KEY`). Emails are bilingual (Amharic first) with an HTML and a plain-text part. Test locally with Mailpit: see `.env.example`.
 Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budget.head@ (dept 9), events.head@ (dept 3), admin@, superadmin@ — all `@felege.test`.
 
