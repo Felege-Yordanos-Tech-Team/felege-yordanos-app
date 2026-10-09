@@ -120,7 +120,7 @@ export function AudioField({
       />
 
       {progress !== null ? (
-        <div className="rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 py-3 md:bg-parchment dark:bg-parchment-deep">
+        <div className="rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-3 md:bg-parchment dark:bg-parchment-deep">
           <div className="flex items-center justify-between gap-3 text-[12px]">
             <span className="min-w-0 truncate text-ink">{fileName}</span>
             <span className="shrink-0 font-mono tabular-nums text-gold-deep">
@@ -142,7 +142,7 @@ export function AudioField({
           </div>
         </div>
       ) : value ? (
-        <div className="rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 py-3 md:bg-parchment dark:bg-parchment-deep">
+        <div className="rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-3 md:bg-parchment dark:bg-parchment-deep">
           <div className="flex items-center gap-2 text-[12px] text-ink">
             <FileAudio className="h-4 w-4 shrink-0 text-gold-deep" />
             <span className="min-w-0 flex-1 truncate">
@@ -174,7 +174,7 @@ export function AudioField({
         <button
           type="button"
           onClick={() => inputRef.current?.click()}
-          className="flex w-full items-center gap-3 rounded-xl border border-dashed border-gold/50 bg-parchment-soft px-3.5 py-3 text-left transition-colors hover:bg-parchment-deep md:bg-parchment dark:bg-parchment-deep"
+          className="flex w-full items-center gap-3 rounded-[10px] border border-dashed border-gold/50 bg-parchment-soft px-3.5 py-3 text-left transition-colors hover:bg-parchment-deep md:bg-parchment dark:bg-parchment-deep"
         >
           <UploadCloud className="h-5 w-5 shrink-0 text-gold-deep" />
           <span className="min-w-0">
