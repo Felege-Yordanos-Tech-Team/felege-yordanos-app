@@ -4,27 +4,29 @@ import Link from 'next/link';
 import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { useT } from '@/lib/i18n/client';
 import { isElevated } from '@/lib/nav';
-import { LogoCross } from '@/components/brand/logo-cross';
+import { LogoMedallion } from '@/components/brand/logo-medallion';
 import { LangToggle } from '@/components/lang-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { roleLabel } from '@/components/role-badge';
-import { Avatar } from './sidebar/sidebar-nav';
+import { UserMenu } from '@/components/user-menu';
 
 /** Mobile header. Hidden on desktop, where the top bar is used. */
 export function MobileHeader({
   displayName,
+  email,
   role,
 }: {
   displayName: string;
+  email: string;
   role: UserRole;
 }) {
   const t = useT();
   return (
-    <header className="print:hidden sticky top-0 z-50 flex items-center justify-between border-b border-gold/15 bg-gradient-to-b from-brand to-brand-mid px-4 pb-3 pt-2.5 md:hidden">
-      <Link href="/dashboard" className="flex items-center gap-2.5">
-        <LogoCross size={32} />
-        <div>
-          <div className="font-ethiopic text-base font-semibold leading-none tracking-[0.01em] text-cream">
+    <header className="print:hidden sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-gold/15 bg-gradient-to-b from-brand to-brand-mid px-4 pb-3 pt-2.5 md:hidden">
+      <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
+        <LogoMedallion size={36} />
+        <div className="min-w-0">
+          <div className="truncate font-ethiopic text-base font-semibold leading-tight tracking-[0.01em] text-cream">
             ፈለገ ዮርዳኖስ
           </div>
           {isElevated(role) && (
@@ -34,18 +36,10 @@ export function MobileHeader({
           )}
         </div>
       </Link>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         <LangToggle onDark />
         <MobileThemeToggle />
-        <Link
-          href="/profile"
-          className="flex items-center gap-1.5 rounded-full border border-gold/20 bg-cream/[0.08] py-[5px] pl-1.5 pr-2.5"
-        >
-          <Avatar name={displayName} size={22} />
-          <span className="max-w-[80px] truncate text-[11px] font-medium text-cream/85">
-            {displayName.split(' ')[0]}
-          </span>
-        </Link>
+        <UserMenu displayName={displayName} email={email} role={role} onDark />
       </div>
     </header>
   );

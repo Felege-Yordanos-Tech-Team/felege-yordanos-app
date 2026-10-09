@@ -4,20 +4,20 @@ import { usePathname } from 'next/navigation';
 import { Bell, PanelLeft, Search } from 'lucide-react';
 import type { Role as UserRole } from '@felege-yordanos/db/schema';
 import { useLocale, useT } from '@/lib/i18n/client';
-import { breadcrumbForPath, isElevated } from '@/lib/nav';
+import { breadcrumbForPath } from '@/lib/nav';
 import { LangToggle } from '@/components/lang-toggle';
 import { ThemeToggle } from '@/components/theme-toggle';
-import { RoleBadge } from '@/components/role-badge';
-import { Avatar } from './sidebar/sidebar-nav';
+import { UserMenu } from '@/components/user-menu';
 import { useSidebar } from './sidebar/sidebar-provider';
 
 interface TopBarProps {
   displayName: string;
+  email: string;
   role: UserRole;
 }
 
 /** Desktop top bar. Transparent: it sits on the page glow (see AppShell). */
-export function TopBar({ displayName, role }: TopBarProps) {
+export function TopBar({ displayName, email, role }: TopBarProps) {
   const pathname = usePathname();
   const { toggle } = useSidebar();
   const locale = useLocale();
@@ -100,13 +100,7 @@ export function TopBar({ displayName, role }: TopBarProps) {
 
       <span className="h-[22px] w-px bg-parchment-edge" />
 
-      <div className="flex items-center gap-[7px] rounded-full border border-parchment-edge bg-brand/[0.05] py-1 pl-[5px] pr-2.5 dark:bg-gold/[0.08]">
-        <Avatar name={displayName} size={22} />
-        <span className="text-[11.5px] font-medium text-ink">
-          {displayName.split(' ')[0]}
-        </span>
-        {isElevated(role) && <RoleBadge role={role} t={t} />}
-      </div>
+      <UserMenu displayName={displayName} email={email} role={role} />
     </header>
   );
 }

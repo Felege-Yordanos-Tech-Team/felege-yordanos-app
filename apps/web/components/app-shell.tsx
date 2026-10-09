@@ -8,6 +8,7 @@ import { TopBar } from './top-bar';
 interface AppShellProps {
   role: UserRole;
   displayName: string;
+  email: string;
   /** Admin pages this user may open (adminHrefsFor, computed on the server). */
   adminHrefs: string[];
   children: React.ReactNode;
@@ -20,6 +21,7 @@ interface AppShellProps {
 export function AppShell({
   role,
   displayName,
+  email,
   adminHrefs,
   children,
 }: AppShellProps) {
@@ -36,8 +38,8 @@ export function AppShell({
         {/* The page glow sits behind both the top bar and the content, so
             the transparent top bar blends into the page. */}
         <div className="parchment-bg min-h-dvh md:flex md:h-screen md:min-h-0 md:min-w-0 md:flex-1 md:flex-col">
-          <TopBar displayName={displayName} role={role} />
-          <MobileHeader displayName={displayName} role={role} />
+          <TopBar displayName={displayName} email={email} role={role} />
+          <MobileHeader displayName={displayName} email={email} role={role} />
           {/* Phones: room for the floating tab bar (see BottomNav). */}
           <main className="pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
             {children}
