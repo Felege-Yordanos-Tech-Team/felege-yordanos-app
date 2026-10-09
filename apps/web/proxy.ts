@@ -14,6 +14,8 @@ const PUBLIC_PATHS = [
   '/login',
   '/forgot-password',
   '/reset-password',
+  '/privacy',
+  '/terms',
   '/up', // health check (Kamal, uptime monitoring)
 ];
 

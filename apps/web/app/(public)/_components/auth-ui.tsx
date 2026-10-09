@@ -3,6 +3,7 @@
 import { LangToggle } from '@/components/lang-toggle';
 import { useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { Eye, EyeOff } from 'lucide-react';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { cn } from '@/lib/utils';
@@ -115,6 +116,7 @@ export function AuthFrame({ children }: { children: React.ReactNode }) {
           <LangToggle />
         </div>
         <div className="relative w-full md:max-w-[380px]">{children}</div>
+        <LegalFooter className="relative mt-auto pt-8 md:absolute md:inset-x-0 md:bottom-6 md:mt-0 md:pt-0" />
       </div>
     </div>
   );
@@ -239,3 +241,39 @@ export function AuthError({ children }: { children: React.ReactNode }) {
 
 export const linkClass =
   'font-semibold text-brand underline-offset-2 hover:underline dark:text-gold-light';
+
+/** "Privacy · Terms" links. `onDark` for the brand gradient (landing page). */
+export function LegalFooter({
+  onDark = false,
+  className,
+}: {
+  onDark?: boolean;
+  className?: string;
+}) {
+  const t = useT();
+  const locale = useLocale();
+  const link = cn(
+    'underline-offset-2 transition-colors hover:underline',
+    onDark ? 'text-cream/60 hover:text-cream' : 'text-ink-muted hover:text-brand dark:hover:text-gold-light',
+  );
+  return (
+    <nav
+      aria-label={t('Privacy') + ' · ' + t('Terms')}
+      className={cn(
+        'flex items-center justify-center gap-2.5 text-[11.5px]',
+        locale === 'am' && 'font-ethiopic',
+        className,
+      )}
+    >
+      <Link href="/privacy" className={link}>
+        {t('Privacy')}
+      </Link>
+      <span aria-hidden className={onDark ? 'text-gold/50' : 'text-gold-deep/60'}>
+        ·
+      </span>
+      <Link href="/terms" className={link}>
+        {t('Terms')}
+      </Link>
+    </nav>
+  );
+}
