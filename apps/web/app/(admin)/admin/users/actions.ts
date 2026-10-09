@@ -17,7 +17,13 @@ const updateUserSchema = z.object({
     .int('Invalid department.')
     .positive('Invalid department.')
     .nullable(),
-});
+}).refine(
+  ({ role, departmentId }) => role !== 'dept_head' || departmentId !== null,
+  {
+    message: 'A department is required for department heads.',
+    path: ['departmentId'],
+  },
+);
 
 export type UpdateUserInput = z.input<typeof updateUserSchema>;
 
@@ -32,7 +38,10 @@ export async function updateUserRole(
   }
   if (!canManageUsers(user)) return fail(NOT_ALLOWED);
 
-  const { userId, role, departmentId } = parsed.data;
+  const { userId, role } = parsed.data;
+  // Department assignments only apply to department heads.
+  const departmentId =
+    role === 'dept_head' ? parsed.data.departmentId : null;
 
   // A super admin cannot take away their own super admin role
   // (avoids locking everyone out of user management).
