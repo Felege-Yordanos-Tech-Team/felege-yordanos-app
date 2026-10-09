@@ -19,6 +19,10 @@ export const getSession = cache(async () =>
 export type CurrentUser = {
   id: string;
   email: string;
+  /**
+   * Name shown in the app: the profile name, else the registered name of the
+   * linked member (name + father's name), else the email.
+   */
   displayName: string;
   /**
    * Role in effect: 'member' until the email is verified, so every rule in
@@ -40,7 +44,12 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   if (!session) return null;
 
   const [row] = await db
-    .select({ profile: profiles, memberRecordId: members.id })
+    .select({
+      profile: profiles,
+      memberRecordId: members.id,
+      memberName: members.name,
+      memberFatherName: members.fatherName,
+    })
     .from(profiles)
     .leftJoin(members, eq(members.authUserId, profiles.id))
     .where(eq(profiles.id, session.user.id))
@@ -49,11 +58,27 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const emailVerified = session.user.emailVerified;
   const assignedRole = profile?.role ?? 'member';
 
+  // New accounts start with their email as name (sign-up, old Supabase
+  // trigger): that does not count as a real name.
+  const email = session.user.email;
+  const realName = (n: string | null | undefined) => {
+    const v = n?.trim();
+    return v && v.toLowerCase() !== email.toLowerCase() ? v : '';
+  };
+  const memberName = [row?.memberName, row?.memberFatherName]
+    .filter(Boolean)
+    .join(' ');
+
   return {
     id: session.user.id,
-    email: session.user.email,
+    email,
+    // Profile name (editable on /profile), then the member register, then
+    // the login account's name.
     displayName:
-      profile?.displayName || session.user.name || session.user.email,
+      realName(profile?.displayName) ||
+      memberName ||
+      realName(session.user.name) ||
+      email,
     role: emailVerified ? assignedRole : 'member',
     departmentId: emailVerified ? (profile?.departmentId ?? null) : null,
     assignedRole,

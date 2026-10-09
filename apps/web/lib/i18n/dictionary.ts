@@ -351,6 +351,7 @@ const common: Record<string, string> = {
   'Try again': 'እንደገና ሞክር',
   'No notices yet': 'እስካሁን ማስታወቂያ የለም',
   'Toggle sidebar': 'የጎን አሞሌ',
+  'Account menu': 'የመለያ ምናሌ',
 };
 
 export const AM: Record<string, string> = {

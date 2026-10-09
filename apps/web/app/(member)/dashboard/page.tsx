@@ -66,8 +66,6 @@ export default async function MemberDashboard() {
     db
       .select({
         memberId: members.memberId,
-        name: members.name,
-        fatherName: members.fatherName,
       })
       .from(members)
       .where(eq(members.authUserId, user.id))
@@ -154,10 +152,8 @@ export default async function MemberDashboard() {
   const givingCurrency = latestDonation?.currency ?? 'ETB';
   const nextEvent = upcoming[0] ?? null;
 
-  const fullName = member
-    ? [member.name, member.fatherName].filter(Boolean).join(' ')
-    : user.displayName || user.email || 'User';
-  const firstName = fullName.split(' ')[0];
+  // Registered name once linked, else the email (see getCurrentUser).
+  const firstName = user.displayName.split(' ')[0];
 
   // Department names in the current language.
   const depts = departments.map((d) => ({
