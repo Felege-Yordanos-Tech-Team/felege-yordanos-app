@@ -6,7 +6,10 @@
  * members for all of 20 Oct.
  */
 
+import type { NoticeCategory } from '@felege-yordanos/db/schema';
+
 export const NOTICE_TITLE_MAX = 120;
+export const NOTICE_SUMMARY_MAX = 160;
 export const NOTICE_BODY_MAX = 4000;
 
 const ETHIOPIA_OFFSET = '+03:00';
@@ -29,7 +32,9 @@ export const todayInEthiopia = () => expiryToDate(new Date());
 export interface NoticeView {
   id: string;
   title: string;
+  summary: string | null;
   body: string;
+  category: NoticeCategory;
   departmentId: number | null;
   departmentNameEn: string | null;
   departmentNameAm: string | null;
@@ -39,4 +44,8 @@ export interface NoticeView {
   expired: boolean;
   createdAt: string;
   authorName: string | null;
+  /** The current user opened it (unread dots and count). */
+  read: boolean;
+  /** The current user may edit it (set by the page). */
+  canEdit?: boolean;
 }

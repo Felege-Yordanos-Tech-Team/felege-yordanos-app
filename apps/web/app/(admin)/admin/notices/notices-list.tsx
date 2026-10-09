@@ -1,11 +1,14 @@
 'use client';
 
 import { useState } from 'react';
-import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Megaphone, Pencil, Trash2 } from 'lucide-react';
-import { Card } from '@/components/ds';
+import { Megaphone, Pencil, Plus, Trash2 } from 'lucide-react';
+import { Card, PageHead } from '@/components/ds';
 import { NoticeCard } from '@/components/notices/notice-card';
+import {
+  NoticeFormDialog,
+  type PostableDepartment,
+} from '@/components/notices/notice-form-dialog';
 import {
   Dialog,
   DialogContent,
@@ -26,13 +29,26 @@ const DANGER_BTN =
 const SMALL_BTN =
   'inline-flex items-center gap-1 rounded-full border border-parchment-edge px-2.5 py-1 text-[11px] font-semibold transition-colors hover:bg-parchment-deep';
 
-/** Notices this user may edit, with edit and delete. */
-export function NoticesList({ notices }: { notices: NoticeView[] }) {
+/** Notices this user may edit, with new, edit and delete. */
+export function NoticesList({
+  notices,
+  departments,
+  canPostToEveryone,
+  sub,
+}: {
+  notices: NoticeView[];
+  departments: PostableDepartment[];
+  canPostToEveryone: boolean;
+  sub: string;
+}) {
   const t = useT();
   const router = useRouter();
   const { toast } = useToast();
   const [target, setTarget] = useState<NoticeView | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [editing, setEditing] = useState<{ notice: NoticeView | null } | null>(
+    null,
+  );
 
   async function handleDelete() {
     if (!target) return;
@@ -52,19 +68,52 @@ export function NoticesList({ notices }: { notices: NoticeView[] }) {
     router.refresh();
   }
 
+  const header = (
+    <PageHead
+      en="Notices"
+      am="ማስታወቂያዎች"
+      sub={sub}
+      actions={
+        <button
+          type="button"
+          onClick={() => setEditing({ notice: null })}
+          className="sacred-gradient inline-flex items-center gap-2 whitespace-nowrap rounded-xl border border-gold/40 px-4 py-[9px] text-[13px] font-semibold tracking-[0.04em] text-cream shadow-[0_6px_16px_-6px_rgba(10,60,54,0.4),inset_0_1px_0_rgba(212,168,67,0.25)] transition-opacity hover:opacity-95"
+        >
+          <Plus className="h-3.5 w-3.5 text-gold" />
+          <span className="md:hidden">{t('New')}</span>
+          <span className="hidden md:inline">{t('New notice')}</span>
+        </button>
+      }
+    />
+  );
+  const dialog = (
+    <NoticeFormDialog
+      open={!!editing}
+      onOpenChange={(open) => !open && setEditing(null)}
+      notice={editing?.notice ?? null}
+      departments={departments}
+      canPostToEveryone={canPostToEveryone}
+    />
+  );
+
   if (notices.length === 0) {
     return (
-      <Card className="flex flex-col items-center px-6 py-14 text-center">
-        <Megaphone className="mb-3 h-6 w-6 text-gold-deep" />
-        <p className="text-[13px] text-ink-muted">
-          {t('No notices yet. Post the first one.')}
-        </p>
-      </Card>
+      <>
+        {header}
+        <Card className="flex flex-col items-center px-6 py-14 text-center">
+          <Megaphone className="mb-3 h-6 w-6 text-gold-deep" />
+          <p className="text-[13px] text-ink-muted">
+            {t('No notices yet. Post the first one.')}
+          </p>
+        </Card>
+        {dialog}
+      </>
     );
   }
 
   return (
     <>
+      {header}
       <div className="grid items-start gap-3.5 md:grid-cols-2">
         {notices.map((n) => (
           <NoticeCard
@@ -72,13 +121,14 @@ export function NoticesList({ notices }: { notices: NoticeView[] }) {
             notice={n}
             actions={
               <>
-                <Link
-                  href={`/admin/notices/${n.id}/edit`}
+                <button
+                  type="button"
+                  onClick={() => setEditing({ notice: n })}
                   className={`${SMALL_BTN} text-brand dark:text-gold`}
                 >
                   <Pencil className="h-3 w-3" />
                   {t('Edit')}
-                </Link>
+                </button>
                 <button
                   type="button"
                   onClick={() => setTarget(n)}
@@ -125,6 +175,7 @@ export function NoticesList({ notices }: { notices: NoticeView[] }) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      {dialog}
     </>
   );
 }

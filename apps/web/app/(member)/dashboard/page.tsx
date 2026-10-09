@@ -142,7 +142,7 @@ export default async function MemberDashboard() {
     db.$count(songsTable),
     // Latest active notices (members never see expired ones here).
     canViewNotices(user)
-      ? listNotices({ includeExpired: false, limit: 3 })
+      ? listNotices({ userId: user.id, includeExpired: false, limit: 3 })
       : Promise.resolve([]),
   ]);
 

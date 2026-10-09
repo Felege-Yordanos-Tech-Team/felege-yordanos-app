@@ -3,11 +3,12 @@
 import { revalidatePath } from 'next/cache';
 import { eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, notices } from '@felege-yordanos/db/server';
+import { db, NOTICE_CATEGORIES, notices } from '@felege-yordanos/db/server';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
 import {
   expiryFromDate,
   NOTICE_BODY_MAX,
+  NOTICE_SUMMARY_MAX,
   NOTICE_TITLE_MAX,
   todayInEthiopia,
 } from '@/lib/notices';
@@ -21,6 +22,15 @@ const noticeSchema = z.object({
     .trim()
     .min(1, 'Title is required.')
     .max(NOTICE_TITLE_MAX, `Title must be at most ${NOTICE_TITLE_MAX} characters.`),
+  summary: z
+    .string()
+    .trim()
+    .max(
+      NOTICE_SUMMARY_MAX,
+      `Summary must be at most ${NOTICE_SUMMARY_MAX} characters.`,
+    )
+    .transform((v) => v || null),
+  category: z.enum(NOTICE_CATEGORIES, { error: 'Choose a type.' }),
   body: z
     .string()
     .trim()
@@ -49,6 +59,8 @@ const text = (formData: FormData, key: string) => {
 function parseNotice(formData: FormData) {
   return noticeSchema.safeParse({
     title: text(formData, 'title'),
+    summary: text(formData, 'summary'),
+    category: text(formData, 'category') || 'general',
     body: text(formData, 'body'),
     departmentId: text(formData, 'departmentId'),
     pinned: text(formData, 'pinned') === 'on',
@@ -79,7 +91,7 @@ function revalidateNotices() {
 }
 
 /**
- * FormData: title, body, departmentId ('' = everyone), pinned ('on'),
+ * FormData: title, summary, category, body, departmentId ('' = everyone), pinned ('on'),
  * expiresOn ('YYYY-MM-DD' or ''), image (optional file).
  */
 export async function createNotice(formData: FormData): Promise<ActionResult> {

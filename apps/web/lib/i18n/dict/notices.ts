@@ -5,6 +5,8 @@ export const notices: Record<string, string> = {
   Expired: 'ጊዜው ያለፈ',
   'Show less': 'አሳንስ',
   'No notices for this department.': 'ለዚህ ክፍል ማስታወቂያ የለም።',
+  unread: 'ያልተነበቡ',
+  Unread: 'ያልተነበበ',
 
   // Admin list
   'Manage notices': 'ማስታወቂያዎችን አስተዳድር',
@@ -22,13 +24,9 @@ export const notices: Record<string, string> = {
   'Edit notice': 'ማስታወቂያ አስተካክል',
   For: 'ለማን',
   'Show until': 'እስከ መቼ ይታይ',
-  'Members no longer see it after this day.':
-    'ከዚህ ቀን በኋላ አባላት አያዩትም።',
-  Image: 'ምስል',
   'Current image': 'አሁን ያለው ምስል',
   'Add an image': 'ምስል ያክሉ',
   'JPG, PNG or WEBP · max 5 MB': 'JPG፣ PNG ወይም WEBP · ቢበዛ 5 MB',
-  'Pin to the top': 'ከላይ ሰካ',
   'Pinned notices stay above the others; the newest is featured.':
     'የተሰኩ ማስታወቂያዎች ከሌሎቹ በላይ ይቆያሉ፤ አዲሱ በዋናነት ይታያል።',
   'Notice posted': 'ማስታወቂያው ወጥቷል',
@@ -36,6 +34,9 @@ export const notices: Record<string, string> = {
 
   // Server action messages (shown in toasts)
   'Message is required.': 'መልዕክት ያስፈልጋል።',
+  'Summary must be at most 160 characters.':
+    'ማጠቃለያው ከ160 ፊደላት መብለጥ የለበትም።',
+  'Choose a type.': 'ዓይነት ይምረጡ።',
   'Title must be at most 120 characters.': 'ርዕሱ ከ120 ፊደላት መብለጥ የለበትም።',
   'Message must be at most 4000 characters.':
     'መልዕክቱ ከ4000 ፊደላት መብለጥ የለበትም።',

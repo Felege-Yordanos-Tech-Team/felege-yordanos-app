@@ -1,5 +1,5 @@
 {
-  "id": "3ed6056f-c946-478c-aba5-5ff015e699f7",
+  "id": "6247a9c1-bae7-4a98-9aca-b6f4fbc609cd",
   "prevId": "fa779f83-c278-4d10-ac13-d46ddcfe9c80",
   "version": "7",
   "dialect": "postgresql",
@@ -1629,6 +1629,89 @@
       },
       "isRLSEnabled": false
     },
+    "public.notice_reads": {
+      "name": "notice_reads",
+      "schema": "",
+      "columns": {
+        "notice_id": {
+          "name": "notice_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "read_at": {
+          "name": "read_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_notice_reads_user_id": {
+          "name": "idx_notice_reads_user_id",
+          "columns": [
+            {
+              "expression": "user_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "notice_reads_notice_id_fkey": {
+          "name": "notice_reads_notice_id_fkey",
+          "tableFrom": "notice_reads",
+          "tableTo": "notices",
+          "columnsFrom": [
+            "notice_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "notice_reads_user_id_fkey": {
+          "name": "notice_reads_user_id_fkey",
+          "tableFrom": "notice_reads",
+          "tableTo": "auth_users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "notice_reads_pkey": {
+          "name": "notice_reads_pkey",
+          "columns": [
+            "notice_id",
+            "user_id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.notices": {
       "name": "notices",
       "schema": "",
@@ -1646,11 +1729,24 @@
           "primaryKey": false,
           "notNull": true
         },
+        "summary": {
+          "name": "summary",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
         "body": {
           "name": "body",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "category": {
+          "name": "category",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'general'"
         },
         "department_id": {
           "name": "department_id",
@@ -1761,7 +1857,12 @@
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
       "policies": {},
-      "checkConstraints": {},
+      "checkConstraints": {
+        "notices_category_check": {
+          "name": "notices_category_check",
+          "value": "\"notices\".\"category\" = ANY (ARRAY['general'::text, 'urgent'::text, 'event'::text, 'liturgical'::text, 'fundraising'::text, 'community'::text])"
+        }
+      },
       "isRLSEnabled": false
     },
     "public.profiles": {

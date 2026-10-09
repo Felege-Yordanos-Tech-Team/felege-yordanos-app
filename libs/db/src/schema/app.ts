@@ -26,6 +26,7 @@ import {
   integer,
   numeric,
   pgTable,
+  primaryKey,
   text,
   time,
   timestamp,
@@ -462,6 +463,16 @@ export const memberLinkRequests = pgTable(
 
 /* ─── Notice board ───────────────────────────────────────── */
 
+export const NOTICE_CATEGORIES = [
+  'general',
+  'urgent',
+  'event',
+  'liturgical',
+  'fundraising',
+  'community',
+] as const;
+export type NoticeCategory = (typeof NOTICE_CATEGORIES)[number];
+
 /**
  * Announcements on /notices. department_id null = for everyone (parish-wide).
  * Who may post or edit: lib/permissions.ts (canPostNotice, canEditNotice).
@@ -471,8 +482,14 @@ export const notices = pgTable(
   {
     id: uuid('id').primaryKey().defaultRandom(),
     title: text('title').notNull(),
+    // Optional one-sentence lead, shown above the message and in previews.
+    summary: text('summary'),
     // Plain text; line breaks are kept.
     body: text('body').notNull(),
+    category: text('category')
+      .$type<NoticeCategory>()
+      .notNull()
+      .default('general'),
     departmentId: bigintId('department_id'),
     // Image in the media store ("notices/<uuid>.<ext>").
     imageKey: text('image_key'),
@@ -488,6 +505,10 @@ export const notices = pgTable(
       .defaultNow(),
   },
   (t) => [
+    check(
+      'notices_category_check',
+      sql`${t.category} = ANY (ARRAY['general'::text, 'urgent'::text, 'event'::text, 'liturgical'::text, 'fundraising'::text, 'community'::text])`,
+    ),
     index('idx_notices_created_at').on(t.createdAt.desc()),
     index('idx_notices_department_id').on(t.departmentId),
     foreignKey({
@@ -500,5 +521,29 @@ export const notices = pgTable(
       columns: [t.createdBy],
       foreignColumns: [profiles.id],
     }).onDelete('set null'),
+  ],
+);
+
+/** Which notices each user has opened (unread count and dots on /notices). */
+export const noticeReads = pgTable(
+  'notice_reads',
+  {
+    noticeId: uuid('notice_id').notNull(),
+    userId: uuid('user_id').notNull(),
+    readAt: timestamp('read_at', { withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: 'notice_reads_pkey', columns: [t.noticeId, t.userId] }),
+    index('idx_notice_reads_user_id').on(t.userId),
+    foreignKey({
+      name: 'notice_reads_notice_id_fkey',
+      columns: [t.noticeId],
+      foreignColumns: [notices.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'notice_reads_user_id_fkey',
+      columns: [t.userId],
+      foreignColumns: [authUsers.id],
+    }).onDelete('cascade'),
   ],
 );

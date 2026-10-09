@@ -8,6 +8,7 @@ import { intlLocale } from '@/lib/i18n/config';
 import { hasEthiopic } from '@/lib/category-color';
 import { mediaUrl } from '@/lib/media';
 import type { NoticeView } from '@/lib/notices';
+import { NoticeCategoryChip } from './notice-category';
 import { cn } from '@/lib/utils';
 
 /** Long messages start collapsed, with "Read full notice". */
@@ -83,6 +84,7 @@ export function NoticeCard({
       )}
       <div className={cn('p-4', featured && 'md:p-5')}>
         <div className="flex flex-wrap items-center gap-1.5">
+          <NoticeCategoryChip category={notice.category} />
           {notice.pinned && (
             <span className="inline-flex items-center gap-1 rounded-full bg-gold/[0.16] px-2 py-[3px] text-[10.5px] font-semibold text-gold-deep">
               <Pin className="h-[10px] w-[10px]" />
@@ -119,6 +121,16 @@ export function NoticeCard({
           {notice.title}
         </h3>
 
+        {notice.summary && (
+          <p
+            className={cn(
+              'mt-1.5 whitespace-pre-line break-words text-[13px] font-semibold leading-relaxed text-ink',
+              hasEthiopic(notice.summary) && 'font-ethiopic',
+            )}
+          >
+            {notice.summary}
+          </p>
+        )}
         <p
           className={cn(
             'mt-1.5 whitespace-pre-line break-words text-[13px] leading-relaxed text-ink',

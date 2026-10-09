@@ -52,6 +52,9 @@ export async function NoticesCard({
                 className="-mx-1.5 block rounded-lg px-1.5 py-2.5 transition-colors hover:bg-gold/[0.06]"
               >
                 <span className="flex items-center gap-1.5 text-[10.5px] text-ink-muted">
+                  {!n.read && (
+                    <span className="h-[6px] w-[6px] shrink-0 rounded-full bg-gold" aria-label={t('Unread')} />
+                  )}
                   {n.pinned && <Pin className="h-[10px] w-[10px] text-gold-deep" />}
                   <span className={cn('truncate', locale === 'am' && 'font-ethiopic')}>
                     {n.departmentNameEn

@@ -5,6 +5,7 @@
 import 'server-only';
 import {
   and,
+  asc,
   desc,
   eq,
   gt,
@@ -16,16 +17,37 @@ import {
   db,
   departments,
   members,
+  noticeReads,
   notices,
   profiles,
 } from '@felege-yordanos/db/server';
 import type { NoticeView } from './notices';
+import { isAdmin } from './permissions';
+import type { CurrentUser } from './session';
+
+/** Departments a user may post notices to: all for admins, else their own. */
+export async function postableDepartments(user: CurrentUser) {
+  const query = db
+    .select({
+      id: departments.id,
+      nameEn: departments.nameEn,
+      nameAm: departments.nameAm,
+    })
+    .from(departments)
+    .orderBy(asc(departments.id));
+  if (isAdmin(user)) return query;
+  if (user.departmentId == null) return [];
+  return query.where(eq(departments.id, user.departmentId));
+}
 
 export async function listNotices({
+  userId,
   includeExpired,
   departmentId,
   limit,
 }: {
+  /** The current user: decides which notices count as read. */
+  userId: string;
   /** Staff see expired notices too (canSeeExpiredNotices). */
   includeExpired: boolean;
   /** undefined = all, null = only "Everyone", a number = that department. */
@@ -48,11 +70,16 @@ export async function listNotices({
       profileName: profiles.displayName,
       memberName: members.name,
       memberFatherName: members.fatherName,
+      readAt: noticeReads.readAt,
     })
     .from(notices)
     .leftJoin(departments, eq(departments.id, notices.departmentId))
     .leftJoin(profiles, eq(profiles.id, notices.createdBy))
     .leftJoin(members, eq(members.authUserId, notices.createdBy))
+    .leftJoin(
+      noticeReads,
+      and(eq(noticeReads.noticeId, notices.id), eq(noticeReads.userId, userId)),
+    )
     .where(and(...where))
     .orderBy(desc(notices.pinned), desc(notices.createdAt))
     .$dynamic();
@@ -68,7 +95,9 @@ export async function listNotices({
     return {
       id: n.id,
       title: n.title,
+      summary: n.summary,
       body: n.body,
+      category: n.category,
       departmentId: n.departmentId,
       departmentNameEn: r.departmentNameEn,
       departmentNameAm: r.departmentNameAm,
@@ -78,6 +107,7 @@ export async function listNotices({
       expired: !!n.expiresAt && n.expiresAt <= now,
       createdAt: n.createdAt.toISOString(),
       authorName: profileName?.trim() || memberName || null,
+      read: r.readAt !== null,
     };
   });
 }
