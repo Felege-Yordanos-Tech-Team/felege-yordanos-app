@@ -246,7 +246,7 @@ export default async function AdminDashboard() {
               >
                 {t(s.en)}
               </div>
-              <div className="mt-0.5 font-display text-[26px] font-medium leading-none tabular-nums text-brand dark:text-gold md:mt-2 md:text-[34px]">
+              <div className="mt-0.5 font-mono text-[26px] font-medium leading-none tabular-nums text-brand dark:text-gold md:mt-2 md:text-[34px]">
                 {num.format(s.value)}
               </div>
               <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-ink-muted md:mt-1 md:text-[10.5px]">
