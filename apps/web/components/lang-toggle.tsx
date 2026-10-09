@@ -16,6 +16,12 @@ export function LangToggle({ onDark = false, className }: { onDark?: boolean; cl
     if (next === locale || pending) return;
     start(async () => {
       await setLocale(next);
+      // A ?lang= in the URL would override the new choice (see proxy.ts).
+      const url = new URL(window.location.href);
+      if (url.searchParams.has('lang')) {
+        url.searchParams.delete('lang');
+        window.history.replaceState(null, '', url);
+      }
       router.refresh();
     });
   }
