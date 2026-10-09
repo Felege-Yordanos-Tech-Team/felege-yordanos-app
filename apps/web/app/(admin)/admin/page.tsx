@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, or, type SQL } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, or, type SQL } from 'drizzle-orm';
 import {
   attendance,
   db,
@@ -21,6 +21,7 @@ import {
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { intlLocale } from '@/lib/i18n/config';
+import { todayYmd } from '@/lib/events';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { bilingual } from '@/lib/i18n/translate';
 import { cn } from '@/lib/utils';
@@ -147,8 +148,10 @@ export default async function AdminDashboard() {
   const [t, locale] = await Promise.all([getT(), getLocale()]);
   const am = locale === 'am';
 
-  const today = new Date().toISOString().split('T')[0];
-  const startOfToday = new Date(`${today}T00:00:00.000Z`);
+  const today = todayYmd();
+  // Count check-ins from Ethiopian midnight (21:00 UTC the previous day).
+  const startOfToday = new Date(`${today}T00:00:00+03:00`);
+  const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
   // Counts are scoped exactly like the old RLS policies: reviewers see every
   // pending donation, others only their own; only admins see all profiles.
@@ -158,6 +161,7 @@ export default async function AdminDashboard() {
       and(
         inArray(attendance.status, ['present', 'late']),
         gte(attendance.createdAt, startOfToday),
+        lt(attendance.createdAt, startOfTomorrow),
         visibleAttendance(user),
       ),
     ),

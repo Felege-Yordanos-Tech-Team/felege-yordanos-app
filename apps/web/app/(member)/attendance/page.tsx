@@ -9,7 +9,7 @@ import {
 import { Link2 } from 'lucide-react';
 import Link from 'next/link';
 import { Card, PageHead } from '@/components/ds';
-import { deptShortLabel, hhmm } from '@/lib/events';
+import { deptShortLabel, hhmm, todayYmd } from '@/lib/events';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { requireLinkedMember } from '@/lib/session';
 import { cn } from '@/lib/utils';
@@ -59,7 +59,7 @@ export default async function MyAttendancePage() {
     );
   }
 
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYmd();
 
   const [attendanceRecords, departmentRows, upcomingData] = await Promise.all([
     // Only the signed-in user's own records.
