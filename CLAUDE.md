@@ -63,6 +63,7 @@ Email verification (6-digit code, Better Auth Email OTP, page `/verify-email`): 
 - Programs & Events dept gets cross-department read on events/attendance
 - Budget & Asset Management dept owns donation verification
 - Payment MVP: manual bank transfer + receipt upload (no Chapa/Telebirr API — requires business license)
+- Notice board (`/notices`, `/admin/notices`): admins post for everyone or any department, dept heads for their own; all linked members see all notices (department filter); expired notices are hidden from members, shown to staff. Type, optional summary and image; unread tracking in `notice_reads` (a notice is read once it is shown in the big card or phone carousel). New/edit in a dialog (`components/notices/notice-form-dialog.tsx`). Rules: `canPostNotice`, `canEditNotice`, `canViewNotices`; reads in `lib/notice-queries.ts`
 - Dept heads delegate by requesting admin/super_admin to grant `dept_head` role
 
 ## Library Imports
