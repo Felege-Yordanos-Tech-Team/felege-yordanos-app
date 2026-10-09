@@ -10,17 +10,23 @@ import {
   List,
   ScanLine,
   Search,
+  Undo2,
   Zap,
 } from 'lucide-react';
-import { Card, Eyebrow, PageHead, SectionHeader } from '@/components/ds';
+import { Card, Chip, Eyebrow, PageHead, SectionHeader } from '@/components/ds';
 import { Input } from '@/components/ui/input';
+import { ToastAction } from '@/components/ui/toast';
 import { useToast } from '@/hooks/use-toast';
 import { useLocale, useT } from '@/lib/i18n/client';
 import { formatYmd, hhmm } from '@/lib/events';
 import { eatDate, eatTime } from '@/lib/check-in-window';
 import { MEMBER_ID_PREFIX, normalizeMemberId } from '@/lib/member-id';
 import { cn } from '@/lib/utils';
-import { getEventAttendance, markAttendance } from '../actions';
+import {
+  clearAttendance,
+  getEventAttendance,
+  markAttendance,
+} from '../actions';
 import {
   BackLink,
   primaryBtn,
@@ -71,6 +77,8 @@ interface CheckInTabsProps {
 }
 
 interface CheckInLog {
+  /** Members row id (for Undo). */
+  id: number;
   name: string;
   memberId: string;
   time: string;
@@ -111,6 +119,20 @@ const STATUS_BTN: Record<
 };
 
 const STATUSES: AttendanceStatus[] = ['present', 'late', 'absent'];
+
+/** Member list filter: one status, members without a mark, or everyone. */
+type StatusFilter = 'all' | AttendanceStatus | 'unmarked';
+
+const STATUS_FILTERS: { key: StatusFilter; label: string }[] = [
+  { key: 'all', label: 'All' },
+  { key: 'present', label: 'Present' },
+  { key: 'late', label: 'Late' },
+  { key: 'absent', label: 'Absent' },
+  { key: 'unmarked', label: 'Not marked' },
+];
+
+/** How long the "Cleared · Undo" toast stays. */
+const UNDO_TOAST_MS = 6_000;
 
 function formatTime(d: Date): string {
   return d.toLocaleTimeString('en-US', {
@@ -198,6 +220,7 @@ export function CheckInTabs({
     },
   );
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [quickInput, setQuickInput] = useState('');
   const [checkInLogs, setCheckInLogs] = useState<CheckInLog[]>([]);
   const [page, setPage] = useState(0);
@@ -255,13 +278,28 @@ export function CheckInTabs({
     return map;
   }, [members]);
 
-  // Latest records for callbacks, and when this device last changed each
-  // member (so a sync started earlier never undoes a newer tap).
+  // Latest records for callbacks, when this device last changed each member,
+  // and how many saves per member are still on their way to the server (so a
+  // sync never undoes a newer or unsaved tap).
   const recordsRef = useRef(records);
   useEffect(() => {
     recordsRef.current = records;
   }, [records]);
   const localEdits = useRef(new Map<number, number>());
+  const inFlight = useRef(new Map<number, number>());
+  const track = useCallback(
+    async <T,>(memberId: number, save: () => Promise<T>): Promise<T> => {
+      inFlight.current.set(memberId, (inFlight.current.get(memberId) ?? 0) + 1);
+      try {
+        return await save();
+      } finally {
+        const left = (inFlight.current.get(memberId) ?? 1) - 1;
+        if (left > 0) inFlight.current.set(memberId, left);
+        else inFlight.current.delete(memberId);
+      }
+    },
+    [],
+  );
   // Message to show when a tap is refused because the window is closed.
   const lockedRef = useRef<string | null>(null);
   useEffect(() => {
@@ -278,14 +316,18 @@ export function CheckInTabs({
       const startedAt = Date.now();
       const res = await getEventAttendance(eventId).catch(() => null);
       if (stopped || !res || !res.ok) return;
+      // The server list is the truth: marks cleared here or on another
+      // device drop out. Only this device's own newer or unsaved taps win.
       setRecords((prev) => {
         const next: Record<number, AttendanceStatus> = {};
         for (const a of res.data) next[a.memberId] = a.status;
-        for (const [id, at] of localEdits.current) {
-          if (at < startedAt) continue;
+        const keep = (id: number) => {
           if (prev[id]) next[id] = prev[id];
           else delete next[id];
-        }
+        };
+        for (const [id, at] of localEdits.current)
+          if (at >= startedAt) keep(id);
+        for (const id of inFlight.current.keys()) keep(id);
         return next;
       });
     }
@@ -354,12 +396,12 @@ export function CheckInTabs({
       const previous = recordsRef.current[memberId];
       localEdits.current.set(memberId, Date.now());
       setRecords((prev) => ({ ...prev, [memberId]: status }));
-      const res = await markAttendance({ eventId, memberId, status }).catch(
-        () => ({
-          ok: false as const,
-          error: 'Could not save attendance. Please try again.',
-        }),
-      );
+      const res = await track(memberId, () =>
+        markAttendance({ eventId, memberId, status }),
+      ).catch(() => ({
+        ok: false as const,
+        error: 'Could not save attendance. Please try again.',
+      }));
       if (!res.ok) {
         localEdits.current.set(memberId, Date.now());
         setRecords((prev) => {
@@ -378,10 +420,67 @@ export function CheckInTabs({
       }
       return true;
     },
-    [eventId, toast, t],
+    [eventId, toast, t, track],
   );
 
-  const filteredMembers = useMemo(() => {
+  // Clears a mark (back to "not marked"), optimistic like upsertAttendance,
+  // then offers Undo, which puts the previous status back.
+  const clearMark = useCallback(
+    async (memberId: number, name: string) => {
+      if (lockedRef.current) {
+        toast({
+          title: t('Check-in is closed'),
+          description: lockedRef.current,
+          variant: 'destructive',
+        });
+        return false;
+      }
+      const previous = recordsRef.current[memberId];
+      if (!previous) return false;
+      localEdits.current.set(memberId, Date.now());
+      setRecords((prev) => {
+        const next = { ...prev };
+        delete next[memberId];
+        return next;
+      });
+      const res = await track(memberId, () =>
+        clearAttendance({ eventId, memberId }),
+      ).catch(() => ({
+        ok: false as const,
+        error: 'Could not clear attendance. Please try again.',
+      }));
+      if (!res.ok) {
+        localEdits.current.set(memberId, Date.now());
+        setRecords((prev) =>
+          prev[memberId] ? prev : { ...prev, [memberId]: previous },
+        );
+        toast({
+          title: t('Error'),
+          description: t(res.error),
+          variant: 'destructive',
+        });
+        return false;
+      }
+      setCheckInLogs((prev) => prev.filter((log) => log.id !== memberId));
+      toast({
+        title: name,
+        description: t('Cleared'),
+        duration: UNDO_TOAST_MS,
+        action: (
+          <ToastAction
+            altText={t('Undo')}
+            onClick={() => void upsertAttendance(memberId, previous)}
+          >
+            {t('Undo')}
+          </ToastAction>
+        ),
+      });
+      return true;
+    },
+    [eventId, toast, t, track, upsertAttendance],
+  );
+
+  const searchedMembers = useMemo(() => {
     const q = search.trim().toLowerCase();
     if (!q) return members;
     return members.filter(
@@ -392,6 +491,29 @@ export function CheckInTabs({
         fullName(m).toLowerCase().includes(q),
     );
   }, [members, search]);
+
+  // Counts per filter for the members that match the search.
+  const filterCounts = useMemo(() => {
+    const counts: Record<StatusFilter, number> = {
+      all: searchedMembers.length,
+      present: 0,
+      late: 0,
+      absent: 0,
+      unmarked: 0,
+    };
+    for (const m of searchedMembers) counts[records[m.id] ?? 'unmarked'] += 1;
+    return counts;
+  }, [searchedMembers, records]);
+
+  const filteredMembers = useMemo(
+    () =>
+      statusFilter === 'all'
+        ? searchedMembers
+        : searchedMembers.filter(
+            (m) => (records[m.id] ?? 'unmarked') === statusFilter,
+          ),
+    [searchedMembers, records, statusFilter],
+  );
 
   // Desktop member table pagination.
   const pageCount = Math.max(1, Math.ceil(filteredMembers.length / PAGE_SIZE));
@@ -442,6 +564,7 @@ export function CheckInTabs({
       toast({ title: name, description: t('Checked in') });
       setCheckInLogs((prev) => [
         {
+          id: member.id,
           name,
           memberId: member.memberId,
           time: formatTime(new Date()),
@@ -469,7 +592,13 @@ export function CheckInTabs({
     if (!ok) return { kind: 'invalid', code };
     const time = formatTime(new Date());
     setCheckInLogs((prev) => [
-      { name, memberId: member.memberId, time, status: 'present' },
+      {
+        id: member.id,
+        name,
+        memberId: member.memberId,
+        time,
+        status: 'present',
+      },
       ...prev.slice(0, 9),
     ]);
     return { kind: 'success', name, memberId: member.memberId, time };
@@ -556,12 +685,18 @@ export function CheckInTabs({
           <button
             key={status}
             type="button"
-            onClick={() => upsertAttendance(m.id, status)}
+            // Tapping the active status again clears the mark.
+            onClick={() =>
+              active
+                ? clearMark(m.id, fullName(m))
+                : upsertAttendance(m.id, status)
+            }
             disabled={locked}
             aria-pressed={active}
+            title={active ? t('Tap again to clear') : undefined}
             aria-label={t('{status} for {name}', {
               status: t(cfg.name),
-              name: m.name,
+              name: fullName(m),
             })}
             className={cn(
               'flex items-center justify-center font-bold transition-colors disabled:cursor-not-allowed disabled:opacity-40',
@@ -610,6 +745,51 @@ export function CheckInTabs({
             : t('{n} matches', { n: filteredMembers.length })}
         </span>
       )}
+    </div>
+  );
+
+  /** All · Present · Late · Absent · Not marked, with counts. */
+  const statusFilterChips = (cls?: string) => (
+    <div
+      role="group"
+      aria-label={t('Filter by status')}
+      className={cn(
+        'flex gap-1.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden',
+        cls,
+      )}
+    >
+      {STATUS_FILTERS.map(({ key, label }) => {
+        const active = statusFilter === key;
+        return (
+          <Chip
+            key={key}
+            active={active}
+            aria-pressed={active}
+            amharic={locale === 'am'}
+            onClick={() => {
+              setStatusFilter(key);
+              setPage(0);
+              setMobilePage(0);
+            }}
+          >
+            {key !== 'all' && key !== 'unmarked' && (
+              <span
+                aria-hidden
+                className={cn('h-1.5 w-1.5 rounded-full', STATUS_DOT[key])}
+              />
+            )}
+            {t(label)}
+            <span
+              className={cn(
+                'font-mono text-[10px] tabular-nums',
+                active ? 'text-cream/75' : 'text-ink-muted',
+              )}
+            >
+              {filterCounts[key]}
+            </span>
+          </Chip>
+        );
+      })}
     </div>
   );
 
@@ -673,6 +853,21 @@ export function CheckInTabs({
     </button>
   );
 
+  /** Undo on a Recent entry: clears that mark while it is still the one shown. */
+  const undoLog = (log: CheckInLog) =>
+    records[log.id] === log.status && (
+      <button
+        type="button"
+        onClick={() => clearMark(log.id, log.name)}
+        disabled={locked}
+        aria-label={t('Undo check-in for {name}', { name: log.name })}
+        className="flex shrink-0 items-center gap-1 rounded-md px-1.5 py-1 text-[10.5px] font-semibold text-ink-muted transition-colors hover:bg-parchment-deep hover:text-ink disabled:cursor-not-allowed disabled:opacity-40"
+      >
+        <Undo2 className="h-3 w-3" />
+        {t('Undo')}
+      </button>
+    );
+
   const recentRows = (variant: 'mobile' | 'desktop') =>
     checkInLogs.length === 0 ? (
       <p className="rounded-xl border border-dashed border-parchment-edge py-5 text-center text-xs text-ink-muted">
@@ -710,6 +905,7 @@ export function CheckInTabs({
             <span className="font-mono text-[10px] tabular-nums text-ink-muted">
               {log.time}
             </span>
+            {undoLog(log)}
           </div>
         ))}
       </div>
@@ -739,6 +935,7 @@ export function CheckInTabs({
             <span className="font-mono text-[10px] text-gold-deep">
               {log.time}
             </span>
+            {undoLog(log)}
           </div>
         ))}
       </div>
@@ -958,6 +1155,7 @@ export function CheckInTabs({
                 <span className="text-[10px] opacity-60">/ {total}</span>
               </div>
             </div>
+            {statusFilterChips('-mx-[18px] mb-3 px-[18px]')}
             {filteredMembers.length === 0 ? (
               <p className="py-8 text-center text-sm text-ink-muted">
                 {t('No members found')}
@@ -1163,6 +1361,7 @@ export function CheckInTabs({
               <SectionHeader en="Member list" />
               {searchBox('w-60', deskSearchRef)}
             </div>
+            {statusFilterChips('mb-3.5 flex-wrap')}
 
             {filteredMembers.length === 0 ? (
               <p className="py-12 text-center text-sm text-ink-muted">
