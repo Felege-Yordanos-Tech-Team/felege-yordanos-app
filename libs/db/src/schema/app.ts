@@ -282,6 +282,10 @@ export const events = pgTable(
     checkInClosesAfterMin: integer('check_in_closes_after_min')
       .notNull()
       .default(20),
+    // Set when a volunteer or admin closes the event: unmarked members were
+    // marked absent (method 'auto_close') and check-in stopped.
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    closedBy: uuid('closed_by'),
   },
   (t) => [
     check(
@@ -307,11 +311,20 @@ export const events = pgTable(
       columns: [t.createdBy],
       foreignColumns: [profiles.id],
     }),
+    foreignKey({
+      name: 'events_closed_by_fkey',
+      columns: [t.closedBy],
+      foreignColumns: [profiles.id],
+    }),
   ],
 );
 
 export const ATTENDANCE_STATUSES = ['present', 'absent', 'late'] as const;
 export type AttendanceStatus = (typeof ATTENDANCE_STATUSES)[number];
+
+/** How a check-in was made: which check-in tab, or the event close. */
+export const CHECK_IN_METHODS = ['qr', 'quick_id', 'list', 'auto_close'] as const;
+export type CheckInMethod = (typeof CHECK_IN_METHODS)[number];
 
 export const attendance = pgTable(
   'attendance',
@@ -322,12 +335,20 @@ export const attendance = pgTable(
     status: text('status').$type<AttendanceStatus>().notNull(),
     markedBy: uuid('marked_by'),
     createdAt: createdAt(),
+    // Server time of the first present/late mark; null for absent and for
+    // rows marked before times were recorded.
+    checkedInAt: timestamp('checked_in_at', { withTimezone: true }),
+    method: text('method').$type<CheckInMethod>(),
   },
   (t) => [
     unique('attendance_event_id_member_id_key').on(t.eventId, t.memberId),
     check(
       'attendance_status_check',
       sql`${t.status} = ANY (ARRAY['present'::text, 'absent'::text, 'late'::text])`,
+    ),
+    check(
+      'attendance_method_check',
+      sql`(${t.method} IS NULL) OR (${t.method} = ANY (ARRAY['qr'::text, 'quick_id'::text, 'list'::text, 'auto_close'::text]))`,
     ),
     index('idx_attendance_event_id').on(t.eventId),
     index('idx_attendance_member_id').on(t.memberId),

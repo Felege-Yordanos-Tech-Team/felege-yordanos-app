@@ -64,6 +64,7 @@ Email verification (6-digit code, Better Auth Email OTP, page `/verify-email`): 
 - Budget & Asset Management dept owns donation verification
 - Payment MVP: manual bank transfer + receipt upload (no Chapa/Telebirr API — requires business license)
 - Notice board (`/notices`, `/admin/notices`): admins post for everyone or any department, dept heads for their own; all linked members see all notices (department filter); expired notices are hidden from members, shown to staff. Type, optional summary and image; unread tracking in `notice_reads` (a notice is read once it is shown in the big card or phone carousel). New/edit in a dialog (`components/notices/notice-form-dialog.tsx`). Rules: `canPostNotice`, `canEditNotice`, `canViewNotices`; reads in `lib/notice-queries.ts`
+- Event close (`closeEvent` / `reopenEvent` in `app/(admin)/admin/attendance/actions.ts`): each check-in stores `checked_in_at` (server time of the first P/L) and `method` (`qr`, `quick_id`, `list`). Closing marks every active member without a row absent (`method = 'auto_close'`) and shows the summary (`lib/event-summary.ts`, unit tests via `pnpm test`); lateness comes from the time vs the start, not the P/L tap. Rules: `canCloseEvent` (dept heads after the start, admins any time), `canReopenEvent` (admins; removes only auto absents), `canViewEventSummary`
 - Dept heads delegate by requesting admin/super_admin to grant `dept_head` role
 
 ## Library Imports
@@ -87,7 +88,8 @@ pnpm install              # Install all dependencies
 pnpm db:setup             # Start local Postgres (Docker), migrate, seed
 pnpm db:generate          # Create a migration after changing libs/db/src/schema
 pnpm db:studio            # Browse the local database
-pnpm check                # Lint + typecheck + build (same as CI); run before every push
+pnpm test                 # Unit tests (node:test via tsx, apps/web/lib/**/*.test.ts)
+pnpm check                # Lint + typecheck + tests + build (same as CI); run before every push
 pnpm docker:app           # Run the production Docker image locally (http://localhost:3100)
 npx nx serve web          # Start dev server
 npx nx build web          # Production build

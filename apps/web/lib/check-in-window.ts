@@ -56,6 +56,18 @@ export function checkInWindow(event: CheckInWindowEvent): CheckInWindow {
   };
 }
 
+/**
+ * When the event starts: the start time on the event day (EAT), or the start
+ * of the event day when it has no start time.
+ */
+export function eventStartAt(
+  event: Pick<CheckInWindowEvent, 'eventDate' | 'startTime'>,
+): Date {
+  if (!event.startTime) return eatInstant(event.eventDate);
+  const [hh, mm] = event.startTime.split(':').map(Number);
+  return eatInstant(event.eventDate, hh, mm);
+}
+
 export function checkInState(
   window: CheckInWindow,
   now: Date = new Date(),

@@ -1,5 +1,6 @@
 import { asc, desc, eq } from 'drizzle-orm';
-import { DoorOpen } from 'lucide-react';
+import Link from 'next/link';
+import { DoorOpen, Lock } from 'lucide-react';
 import {
   attendance as attendanceTable,
   db,
@@ -11,6 +12,7 @@ import { checkInWindow } from '@/lib/check-in-window';
 import {
   canMarkAttendance,
   canViewEventAttendance,
+  closableFrom,
   isLimitedToCheckInWindow,
 } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
@@ -19,7 +21,7 @@ import {
   CheckInTabs,
   type CheckInAttendance,
 } from '../attendance/[eventId]/check-in-tabs';
-import { BackLink } from '@/components/events/event-ui';
+import { BackLink, secondaryBtn } from '@/components/events/event-ui';
 import { CheckInEventPicker, type PickerEvent } from './check-in-event-picker';
 
 type Event = typeof eventsTable.$inferSelect;
@@ -92,6 +94,40 @@ export default async function CheckInHubPage({
     />
   );
 
+  // A closed event has no check-in: point to its summary instead.
+  if (selectedEvent?.closedAt) {
+    return (
+      <div className="px-[18px] pb-6 pt-3 md:px-7 md:py-7">
+        <div className="mb-2.5 md:hidden">
+          <BackLink href="/admin">{t('Admin panel')}</BackLink>
+        </div>
+        <PageHead
+          en="Check-in"
+          am="መግቢያ"
+          sub="Pick an event, then scan or mark members present."
+          actions={<div className="hidden md:block">{picker}</div>}
+        />
+        <div className="md:hidden">{picker}</div>
+        <div className="mt-5 flex flex-col items-center gap-3 rounded-2xl border border-dashed border-parchment-edge bg-parchment-soft/50 py-12 text-center md:mt-2">
+          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-gold/[0.14]">
+            <Lock className="h-5 w-5 text-gold-deep" />
+          </div>
+          <p className="text-sm text-ink-muted">
+            {t('This event is closed.')}
+          </p>
+          {canView && (
+            <Link
+              href={`/admin/attendance/${selectedEvent.id}`}
+              className={secondaryBtn}
+            >
+              {t('View summary')}
+            </Link>
+          )}
+        </div>
+      </div>
+    );
+  }
+
   if (selectedEvent) {
     const times = checkInWindow(selectedEvent);
     return (
@@ -116,6 +152,7 @@ export default async function CheckInHubPage({
         back={{ href: '/admin', label: 'Admin panel' }}
         picker={picker}
         canExport={canView}
+        closableFrom={closableFrom(user, selectedEvent)}
       />
     );
   }
