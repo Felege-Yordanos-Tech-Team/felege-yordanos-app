@@ -11,6 +11,7 @@ import { PageHead } from '@/components/ds';
 import { checkInWindow } from '@/lib/check-in-window';
 import {
   canMarkAttendance,
+  canReopenEvent,
   canViewEventAttendance,
   closableFrom,
   isLimitedToCheckInWindow,
@@ -153,6 +154,7 @@ export default async function CheckInHubPage({
         picker={picker}
         canExport={canView}
         closableFrom={closableFrom(user, selectedEvent)}
+        canReopen={canReopenEvent(user)}
       />
     );
   }

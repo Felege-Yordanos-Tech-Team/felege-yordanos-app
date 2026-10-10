@@ -110,6 +110,7 @@ export default async function CheckInPage({
       }}
       back={{ href: '/admin/attendance', label: 'Events' }}
       closableFrom={closableFrom(user, event)}
+      canReopen={canReopenEvent(user)}
     />
   );
 }

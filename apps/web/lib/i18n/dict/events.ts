@@ -163,6 +163,12 @@ export const events: Record<string, string> = {
   '{n} members who are not marked will be marked absent. Check-in stops.':
     'ያልተመዘገቡ {n} አባላት እንደቀሩ ይመዘገባሉ። መመዝገብ ይቆማል።',
   'Closing…': 'በመዝጋት ላይ…',
+  'You cannot undo this. Once the event is closed, only an admin or super admin can reopen it. Contact them if you close it by mistake.':
+    'ይህን መቀልበስ አይችሉም። ዝግጅቱ ከተዘጋ በኋላ እንደገና ሊከፍቱት የሚችሉት አድሚን ወይም ሱፐር አድሚን ብቻ ናቸው። በስህተት ከዘጉት እነርሱን ያነጋግሩ።',
+  'This cannot be undone from the check-in screen. Only an admin or super admin can reopen the event, from its summary.':
+    'ይህ ከመመዝገቢያ ገጹ ሊቀለበስ አይችልም። ዝግጅቱን እንደገና ሊከፍቱ የሚችሉት አድሚን ወይም ሱፐር አድሚን ብቻ ናቸው፤ ከማጠቃለያው ገጽ።',
+  'I understand: unmarked members become absent and check-in stops.':
+    'ተረድቻለሁ፦ ያልተመዘገቡ አባላት እንደቀሩ ይመዘገባሉ፤ መመዝገብም ይቆማል።',
   'Event closed': 'ዝግጅቱ ተዘግቷል',
   '{n} marked absent.': '{n} እንደቀሩ ተመዝግበዋል።',
   Reopen: 'እንደገና ክፈት',

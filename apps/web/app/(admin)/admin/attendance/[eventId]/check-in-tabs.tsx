@@ -82,6 +82,8 @@ interface CheckInTabsProps {
    * department heads, 0 for admins), or null when they may not close it.
    */
   closableFrom?: number | null;
+  /** Whether this user may reopen the event after closing it (admins). */
+  canReopen?: boolean;
 }
 
 interface CheckInLog {
@@ -217,6 +219,7 @@ export function CheckInTabs({
   canExport = true,
   checkIn,
   closableFrom = null,
+  canReopen = false,
 }: CheckInTabsProps) {
   const t = useT();
   const locale = useLocale();
@@ -874,7 +877,11 @@ export function CheckInTabs({
   // Close event: department heads once the event has started, admins always.
   const unmarkedCount = members.filter((m) => !records[m.id]).length;
   const closeBtn = closableFrom !== null && now >= closableFrom && (
-    <CloseEventButton eventId={eventId} unmarked={unmarkedCount} />
+    <CloseEventButton
+      eventId={eventId}
+      unmarked={unmarkedCount}
+      canReopen={canReopen}
+    />
   );
 
   const exportBtn = canExport && (

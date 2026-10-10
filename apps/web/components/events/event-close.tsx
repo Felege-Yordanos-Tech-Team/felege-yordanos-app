@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, RotateCcw } from 'lucide-react';
+import { Lock, RotateCcw, TriangleAlert } from 'lucide-react';
 import {
   Dialog,
   DialogClose,
@@ -30,6 +30,7 @@ function ConfirmDialog({
   confirmLabel,
   busy,
   onConfirm,
+  destructive,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -39,12 +40,25 @@ function ConfirmDialog({
   confirmLabel: string;
   busy: boolean;
   onConfirm: () => void;
+  /**
+   * A red warning, a red confirm button, and a checkbox that must be ticked
+   * before the confirm button works.
+   */
+  destructive?: { warning: React.ReactNode; acknowledge: string };
 }) {
   const t = useT();
   const locale = useLocale();
+  const [acknowledged, setAcknowledged] = useState(false);
+  const blocked = busy || (!!destructive && !acknowledged);
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 rounded-[18px] border-parchment-edge bg-parchment p-6 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.6)] sm:max-w-[420px] [&>button:last-child]:hidden">
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        if (!next) setAcknowledged(false);
+        onOpenChange(next);
+      }}
+    >
+      <DialogContent className="gap-0 rounded-xl border-parchment-edge bg-parchment p-6 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.6)] sm:max-w-[420px] [&>button:last-child]:hidden">
         <div
           className={cn(
             'text-[11px] tracking-[0.06em] text-gold-deep',
@@ -66,6 +80,26 @@ function ConfirmDialog({
         <DialogDescription className="mt-2.5 text-[13px] leading-relaxed text-ink-muted">
           {body}
         </DialogDescription>
+        {destructive && (
+          <>
+            <div
+              role="alert"
+              className="mt-4 flex items-start gap-2.5 rounded-lg border border-status-absent/30 bg-status-absent-bg px-3.5 py-3 text-[12.5px] leading-snug text-status-absent"
+            >
+              <TriangleAlert className="mt-px h-4 w-4 shrink-0" />
+              <div className="font-medium">{destructive.warning}</div>
+            </div>
+            <label className="mt-3.5 flex cursor-pointer items-start gap-2.5 text-[12.5px] leading-snug text-ink">
+              <input
+                type="checkbox"
+                checked={acknowledged}
+                onChange={(e) => setAcknowledged(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 cursor-pointer accent-[rgb(var(--fy-absent))]"
+              />
+              {destructive.acknowledge}
+            </label>
+          </>
+        )}
         <div className="mt-5 flex gap-2.5">
           <DialogClose
             type="button"
@@ -75,9 +109,13 @@ function ConfirmDialog({
           </DialogClose>
           <button
             type="button"
-            disabled={busy}
+            disabled={blocked}
             onClick={onConfirm}
-            className={cn(primaryBtn, 'flex-[1.4] px-5 py-3 text-[13px]')}
+            className={
+              destructive
+                ? 'inline-flex flex-[1.4] items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-status-absent px-5 py-3 text-[13px] font-semibold text-cream transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40'
+                : cn(primaryBtn, 'flex-[1.4] px-5 py-3 text-[13px]')
+            }
           >
             {confirmLabel}
           </button>
@@ -91,10 +129,13 @@ function ConfirmDialog({
 export function CloseEventButton({
   eventId,
   unmarked,
+  canReopen,
 }: {
   eventId: string;
   /** Members on the check-in list without a mark (shown in the confirm). */
   unmarked: number;
+  /** Whether this user may reopen it afterwards (canReopenEvent). */
+  canReopen: boolean;
 }) {
   const t = useT();
   const locale = useLocale();
@@ -146,6 +187,18 @@ export function CloseEventButton({
           '{n} members who are not marked will be marked absent. Check-in stops.',
           { n: unmarked },
         )}
+        destructive={{
+          warning: canReopen
+            ? t(
+                'This cannot be undone from the check-in screen. Only an admin or super admin can reopen the event, from its summary.',
+              )
+            : t(
+                'You cannot undo this. Once the event is closed, only an admin or super admin can reopen it. Contact them if you close it by mistake.',
+              ),
+          acknowledge: t(
+            'I understand: unmarked members become absent and check-in stops.',
+          ),
+        }}
         confirmLabel={busy ? t('Closing…') : t('Close event')}
         busy={busy}
         onConfirm={confirm}
