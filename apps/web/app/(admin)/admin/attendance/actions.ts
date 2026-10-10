@@ -2,13 +2,14 @@
 
 import { randomUUID } from 'node:crypto';
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm';
 import { z } from 'zod';
 import {
   attendance,
   ATTENDANCE_STATUSES,
   db,
   events,
+  members,
   RECURRENCES,
 } from '@felege-yordanos/db/server';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
@@ -25,9 +26,11 @@ import {
 } from '@/lib/check-in-window';
 import {
   canCheckInNow,
+  canCloseEvent,
   canCreateEvent,
   canEditEvent,
   canMarkAttendance,
+  canReopenEvent,
   canViewEventAttendance,
 } from '@/lib/permissions';
 import { requireUser, type CurrentUser } from '@/lib/session';
@@ -349,16 +352,19 @@ export async function updateSeriesEnd(input: {
 
 /* ─── Attendance ───────────────────────────────────────────── */
 
+const EVENT_CLOSED = 'This event is closed.';
+
 /**
  * Why this user may not mark or clear attendance of this event right now, or
- * null when they may: canMarkAttendance, then the check-in window
- * (canCheckInNow) for department heads.
+ * null when they may: canMarkAttendance, the event is still open, then the
+ * check-in window (canCheckInNow) for department heads.
  */
 function checkInRefusal(
   user: CurrentUser,
   event: typeof events.$inferSelect,
 ): string | null {
   if (!canMarkAttendance(user, event)) return NOT_ALLOWED;
+  if (event.closedAt) return EVENT_CLOSED;
   if (!canCheckInNow(user, event)) {
     return checkInState(checkInWindow(event)) === 'before'
       ? 'Check-in for this event has not opened yet.'
@@ -367,16 +373,24 @@ function checkInRefusal(
   return null;
 }
 
+/** Check-in tabs a volunteer can tap from ('auto_close' is server only). */
+const TAP_METHODS = ['qr', 'quick_id', 'list'] as const;
+export type TapMethod = (typeof TAP_METHODS)[number];
+
 const markSchema = z.object({
   eventId,
   memberId: z.number().int().positive(),
   status: z.enum(ATTENDANCE_STATUSES),
+  method: z.enum(TAP_METHODS),
 });
 
 /**
- * Marks (or changes) one member's attendance for an event.
- * Permission: canMarkAttendance(user, event) on the stored event, and for
- * department heads the event's check-in window (canCheckInNow).
+ * Marks (or changes) one member's attendance for an event, with the server
+ * time and the tab it was tapped in. The check-in time is set by the first
+ * present/late mark and kept (with its method) when present and late are
+ * swapped; marking absent clears it.
+ * Permission: canMarkAttendance(user, event) on the stored event, the event
+ * is not closed, and for department heads the check-in window (canCheckInNow).
  *
  * No revalidatePath here on purpose: any revalidation makes Next.js send the
  * whole check-in page (every member) back with each tap, which is slow on
@@ -387,6 +401,7 @@ export async function markAttendance(input: {
   eventId: string;
   memberId: number;
   status: (typeof ATTENDANCE_STATUSES)[number];
+  method: TapMethod;
 }): Promise<ActionResult> {
   const user = await requireUser();
 
@@ -398,18 +413,33 @@ export async function markAttendance(input: {
   const refused = checkInRefusal(user, event);
   if (refused) return fail(refused);
 
+  const { status, method } = parsed.data;
+  const attended = status !== 'absent';
+  // Already present or late: keep the time and how it was made.
+  const wasAttended = sql`${attendance.status} IN ('present', 'late')`;
   try {
     await db
       .insert(attendance)
       .values({
         eventId: event.id,
         memberId: parsed.data.memberId,
-        status: parsed.data.status,
+        status,
         markedBy: user.id,
+        method,
+        checkedInAt: attended ? sql`now()` : null,
       })
       .onConflictDoUpdate({
         target: [attendance.eventId, attendance.memberId],
-        set: { status: parsed.data.status, markedBy: user.id },
+        set: {
+          status,
+          markedBy: user.id,
+          checkedInAt: attended
+            ? sql`CASE WHEN ${wasAttended} THEN ${attendance.checkedInAt} ELSE now() END`
+            : null,
+          method: attended
+            ? sql`CASE WHEN ${wasAttended} THEN coalesce(${attendance.method}, ${method}) ELSE ${method} END`
+            : method,
+        },
       });
   } catch (err) {
     if (isForeignKeyViolation(err)) return fail('Member not found.');
@@ -467,12 +497,14 @@ export async function clearAttendance(input: {
  * Permission: canViewEventAttendance(user, event), same as the page.
  */
 export async function getEventAttendance(id: string): Promise<
-  ActionResult<
-    {
+  ActionResult<{
+    rows: {
       memberId: number;
       status: (typeof ATTENDANCE_STATUSES)[number];
-    }[]
-  >
+    }[];
+    /** Closed since the page loaded: the screen reloads into the summary. */
+    closed: boolean;
+  }>
 > {
   const user = await requireUser();
   const parsed = eventId.safeParse(id);
@@ -485,5 +517,93 @@ export async function getEventAttendance(id: string): Promise<
     .select({ memberId: attendance.memberId, status: attendance.status })
     .from(attendance)
     .where(eq(attendance.eventId, event.id));
-  return ok(rows);
+  return ok({ rows, closed: event.closedAt !== null });
+}
+
+/* ─── Close and reopen ─────────────────────────────────────── */
+
+/**
+ * Closes an event: everyone on the check-in list (active members) without a
+ * mark becomes absent (method 'auto_close'), and check-in stops.
+ * Permission: canCloseEvent(user, event) on the stored row.
+ */
+export async function closeEvent(
+  id: string,
+): Promise<ActionResult<{ markedAbsent: number }>> {
+  const user = await requireUser();
+
+  const parsed = eventId.safeParse(id);
+  if (!parsed.success) return fail('Event not found.');
+  const event = await loadEvent(parsed.data);
+  if (!event) return fail('Event not found.');
+  if (!canCloseEvent(user, event)) {
+    return canMarkAttendance(user, event)
+      ? fail('This event has not started yet.')
+      : fail(NOT_ALLOWED);
+  }
+  if (event.closedAt) return fail('This event is already closed.');
+
+  try {
+    const markedAbsent = await db.transaction(async (tx) => {
+      const [closed] = await tx
+        .update(events)
+        .set({ closedAt: sql`now()`, closedBy: user.id })
+        .where(and(eq(events.id, event.id), isNull(events.closedAt)))
+        .returning({ id: events.id });
+      if (!closed) return null;
+      const inserted = await tx.execute(sql`
+        INSERT INTO ${attendance} (event_id, member_id, status, marked_by, method)
+        SELECT ${event.id}::uuid, ${members.id}, 'absent', ${user.id}::uuid, 'auto_close'
+        FROM ${members}
+        WHERE ${members.status} = 'Active'
+        ON CONFLICT (event_id, member_id) DO NOTHING
+      `);
+      return inserted.count ?? 0;
+    });
+    if (markedAbsent === null) return fail('This event is already closed.');
+    revalidateAttendance();
+    return ok({ markedAbsent });
+  } catch (err) {
+    console.error('[events] close failed:', err);
+    return fail('Could not close the event. Please try again.');
+  }
+}
+
+/**
+ * Reopens a closed event (after a mistaken close): removes the automatic
+ * absents of the close; marks made by volunteers stay.
+ * Permission: canReopenEvent(user).
+ */
+export async function reopenEvent(id: string): Promise<ActionResult> {
+  const user = await requireUser();
+  if (!canReopenEvent(user)) return fail(NOT_ALLOWED);
+
+  const parsed = eventId.safeParse(id);
+  if (!parsed.success) return fail('Event not found.');
+  const event = await loadEvent(parsed.data);
+  if (!event) return fail('Event not found.');
+  if (!event.closedAt) return fail('This event is not closed.');
+
+  try {
+    await db.transaction(async (tx) => {
+      await tx
+        .delete(attendance)
+        .where(
+          and(
+            eq(attendance.eventId, event.id),
+            eq(attendance.method, 'auto_close'),
+          ),
+        );
+      await tx
+        .update(events)
+        .set({ closedAt: null, closedBy: null })
+        .where(eq(events.id, event.id));
+    });
+  } catch (err) {
+    console.error('[events] reopen failed:', err);
+    return fail('Could not reopen the event. Please try again.');
+  }
+
+  revalidateAttendance();
+  return ok();
 }

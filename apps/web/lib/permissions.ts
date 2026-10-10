@@ -10,6 +10,7 @@
 import {
   checkInState,
   checkInWindow,
+  eventStartAt,
   type CheckInWindowEvent,
 } from './check-in-window';
 import { isAudioKey, isNoticeImageKey } from './media';
@@ -161,6 +162,42 @@ export const canViewEventAttendance = (
   u: User,
   event: { departmentId: number | null },
 ) => canViewAllAttendance(u) || canMarkAttendance(u, event);
+
+/**
+ * Close an event (unmarked members become absent, check-in stops): the people
+ * who mark its attendance. Department heads only once the event has started
+ * (even after the check-in window), admins and super admins at any time.
+ */
+export const canCloseEvent = (
+  u: User,
+  event: { departmentId: number | null } & CheckInWindowEvent,
+  now: Date = new Date(),
+) =>
+  canMarkAttendance(u, event) && (isAdmin(u) || now >= eventStartAt(event));
+
+/**
+ * From when this user may close the event (epoch ms; 0 = any time), or null
+ * when they may not: what the check-in screen needs to show "Close event"
+ * without asking the server again. Same rule as canCloseEvent.
+ */
+export const closableFrom = (
+  u: User,
+  event: { departmentId: number | null } & CheckInWindowEvent,
+): number | null =>
+  !canMarkAttendance(u, event)
+    ? null
+    : isAdmin(u)
+      ? 0
+      : eventStartAt(event).getTime();
+
+/** Reopen a closed event (to fix a mistaken close): admins and super admins. */
+export const canReopenEvent = (u: User) => isAdmin(u);
+
+/** See the summary of a closed event: whoever can read its attendance. */
+export const canViewEventSummary = (
+  u: User,
+  event: { departmentId: number | null },
+) => canViewEventAttendance(u, event);
 
 /* ─── Donations ────────────────────────────────────────────── */
 
