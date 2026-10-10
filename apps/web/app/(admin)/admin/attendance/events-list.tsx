@@ -16,6 +16,7 @@ import {
   todayYmd,
 } from '@/lib/events';
 import { cn } from '@/lib/utils';
+import { eventStartAt } from '@/lib/check-in-window';
 import { EventFormDialog } from './event-form-dialog';
 import {
   EventsCalendar,
@@ -33,6 +34,27 @@ import {
 } from '@/components/events/event-ui';
 
 type EventRow = typeof events.$inferSelect;
+
+/**
+ * Where an event stands: closed (summary), ongoing (today and started, until
+ * someone closes it), upcoming, or past and never closed.
+ */
+type EventPhase = 'closed' | 'ongoing' | 'upcoming' | 'past';
+
+function eventPhase(e: EventRow, today: string, now: number): EventPhase {
+  if (e.closedAt) return 'closed';
+  if (e.eventDate === today && now >= eventStartAt(e).getTime()) return 'ongoing';
+  return e.eventDate >= today ? 'upcoming' : 'past';
+}
+
+/** Status pill for an event that is not simply past. */
+function PhasePill({ phase }: { phase: EventPhase }) {
+  const t = useT();
+  if (phase === 'closed') return <StatusPill tone="neutral">{t('closed')}</StatusPill>;
+  if (phase === 'ongoing') return <StatusPill tone="present">{t('ongoing')}</StatusPill>;
+  if (phase === 'upcoming') return <StatusPill tone="upcoming">{t('upcoming')}</StatusPill>;
+  return null;
+}
 type Department = typeof departments.$inferSelect;
 
 interface EventsListProps {
@@ -92,6 +114,7 @@ export function EventsList({
   const [dialog, setDialog] = useState<DialogState | null>(null);
 
   const today = todayYmd();
+  const now = Date.now();
   const attendedSet = useMemo(() => new Set(attendedIds), [attendedIds]);
   const editableSet = useMemo(() => new Set(editableIds), [editableIds]);
   const canEdit = (event: EventRow) => editableSet.has(event.id);
@@ -254,6 +277,9 @@ export function EventsList({
                             {event.recurrenceGroup && (
                               <Repeat className="h-[11px] w-[11px] shrink-0 text-gold" />
                             )}
+                            {eventPhase(event, today, now) !== 'upcoming' && (
+                              <PhasePill phase={eventPhase(event, today, now)} />
+                            )}
                           </div>
                           <div className="mt-0.5 flex items-center gap-[5px]">
                             <span
@@ -329,6 +355,7 @@ export function EventsList({
                           })}
                         </div>
                       </div>
+                      {event.closedAt && <PhasePill phase="closed" />}
                       <span className="inline-flex items-center gap-1 rounded-md bg-gold/[0.14] px-[9px] py-1 dark:bg-gold/10">
                         <Users className="h-[11px] w-[11px] text-gold-deep" />
                         <span className="font-mono text-[11px] font-semibold text-gold-deep">
@@ -392,7 +419,7 @@ export function EventsList({
                   ))}
                 </div>
                 {rows.map((event) => {
-                  const isUpcoming = event.eventDate >= today;
+                  const phase = eventPhase(event, today, now);
                   return (
                     <div
                       key={event.id}
@@ -465,14 +492,17 @@ export function EventsList({
                       >
                         {hhmm(event.startTime) || '—'}
                       </span>
-                      {isUpcoming ? (
-                        <StatusPill tone="upcoming">{t('upcoming')}</StatusPill>
+                      {phase === 'upcoming' ? (
+                        <PhasePill phase={phase} />
                       ) : (
-                        <span className="font-mono text-[11.5px] text-ink">
-                          {attendanceCounts[event.id] ?? 0}{' '}
-                          <span className="font-body text-[10px] text-ink-faint">
-                            {t('present')}
+                        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <span className="font-mono text-[11.5px] text-ink">
+                            {attendanceCounts[event.id] ?? 0}{' '}
+                            <span className="font-body text-[10px] text-ink-faint">
+                              {t('present')}
+                            </span>
                           </span>
+                          <PhasePill phase={phase} />
                         </span>
                       )}
                       <div className="flex items-center justify-end gap-1">

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Check,
   ChevronLeft,
@@ -26,12 +27,14 @@ import {
   clearAttendance,
   getEventAttendance,
   markAttendance,
+  type TapMethod,
 } from '../actions';
 import {
   BackLink,
   primaryBtn,
   secondaryBtn,
 } from '@/components/events/event-ui';
+import { CloseEventButton } from '@/components/events/event-close';
 import { QRScanner, type ScanResult } from './qr-scanner';
 
 type AttendanceStatus = 'present' | 'absent' | 'late';
@@ -74,6 +77,13 @@ interface CheckInTabsProps {
    * time, and whether this user is limited to the window (department heads).
    */
   checkIn: { opensAt: string; closesAt: string; now: number; limited: boolean };
+  /**
+   * When this user may close the event (epoch ms: the start time for
+   * department heads, 0 for admins), or null when they may not close it.
+   */
+  closableFrom?: number | null;
+  /** Whether this user may reopen the event after closing it (admins). */
+  canReopen?: boolean;
 }
 
 interface CheckInLog {
@@ -149,7 +159,7 @@ const fullName = (m: CheckInMember) =>
  * A member ID on one line: the shared register prefix faint, the member's
  * own number in bold ("ssu/01/03/05/" + "00042").
  */
-function MemberIdText({ memberId }: { memberId: string }) {
+export function MemberIdText({ memberId }: { memberId: string }) {
   const hasPrefix = memberId
     .toLowerCase()
     .startsWith(MEMBER_ID_PREFIX.toLowerCase());
@@ -208,9 +218,12 @@ export function CheckInTabs({
   picker,
   canExport = true,
   checkIn,
+  closableFrom = null,
+  canReopen = false,
 }: CheckInTabsProps) {
   const t = useT();
   const locale = useLocale();
+  const router = useRouter();
   const [tab, setTab] = useState<MobileTab>('quick');
   const [records, setRecords] = useState<Record<number, AttendanceStatus>>(
     () => {
@@ -316,11 +329,16 @@ export function CheckInTabs({
       const startedAt = Date.now();
       const res = await getEventAttendance(eventId).catch(() => null);
       if (stopped || !res || !res.ok) return;
+      // Closed on another device: reload into the summary.
+      if (res.data.closed) {
+        router.refresh();
+        return;
+      }
       // The server list is the truth: marks cleared here or on another
       // device drop out. Only this device's own newer or unsaved taps win.
       setRecords((prev) => {
         const next: Record<number, AttendanceStatus> = {};
-        for (const a of res.data) next[a.memberId] = a.status;
+        for (const a of res.data.rows) next[a.memberId] = a.status;
         const keep = (id: number) => {
           if (prev[id]) next[id] = prev[id];
           else delete next[id];
@@ -342,7 +360,7 @@ export function CheckInTabs({
       clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [eventId, canExport]);
+  }, [eventId, canExport, router]);
 
   // Phone List tab: the header shrinks (no back link; no event title when the
   // picker already shows the event) to leave room for the member rows.
@@ -381,10 +399,13 @@ export function CheckInTabs({
   const total = members.length;
   const progress = total ? Math.min(100, (presentCount / total) * 100) : 0;
 
+  // Which tab this device last marked each member from (for Undo).
+  const lastMethod = useRef(new Map<number, TapMethod>());
+
   // Optimistic: the button changes at once; on failure it goes back and a
-  // toast explains why.
+  // toast explains why. `method` is the tab the tap came from.
   const upsertAttendance = useCallback(
-    async (memberId: number, status: AttendanceStatus) => {
+    async (memberId: number, status: AttendanceStatus, method: TapMethod) => {
       if (lockedRef.current) {
         toast({
           title: t('Check-in is closed'),
@@ -397,7 +418,7 @@ export function CheckInTabs({
       localEdits.current.set(memberId, Date.now());
       setRecords((prev) => ({ ...prev, [memberId]: status }));
       const res = await track(memberId, () =>
-        markAttendance({ eventId, memberId, status }),
+        markAttendance({ eventId, memberId, status, method }),
       ).catch(() => ({
         ok: false as const,
         error: 'Could not save attendance. Please try again.',
@@ -418,6 +439,7 @@ export function CheckInTabs({
         });
         return false;
       }
+      lastMethod.current.set(memberId, method);
       return true;
     },
     [eventId, toast, t, track],
@@ -469,7 +491,13 @@ export function CheckInTabs({
         action: (
           <ToastAction
             altText={t('Undo')}
-            onClick={() => void upsertAttendance(memberId, previous)}
+            onClick={() =>
+              void upsertAttendance(
+                memberId,
+                previous,
+                lastMethod.current.get(memberId) ?? 'list',
+              )
+            }
           >
             {t('Undo')}
           </ToastAction>
@@ -559,7 +587,7 @@ export function CheckInTabs({
       return;
     }
 
-    const ok = await upsertAttendance(member.id, 'present');
+    const ok = await upsertAttendance(member.id, 'present', 'quick_id');
     if (ok) {
       toast({ title: name, description: t('Checked in') });
       setCheckInLogs((prev) => [
@@ -588,7 +616,7 @@ export function CheckInTabs({
     if (records[member.id] === 'present' || records[member.id] === 'late') {
       return { kind: 'already', name, memberId: member.memberId };
     }
-    const ok = await upsertAttendance(member.id, 'present');
+    const ok = await upsertAttendance(member.id, 'present', 'qr');
     if (!ok) return { kind: 'invalid', code };
     const time = formatTime(new Date());
     setCheckInLogs((prev) => [
@@ -689,7 +717,7 @@ export function CheckInTabs({
             onClick={() =>
               active
                 ? clearMark(m.id, fullName(m))
-                : upsertAttendance(m.id, status)
+                : upsertAttendance(m.id, status, 'list')
             }
             disabled={locked}
             aria-pressed={active}
@@ -846,6 +874,16 @@ export function CheckInTabs({
     );
   };
 
+  // Close event: department heads once the event has started, admins always.
+  const unmarkedCount = members.filter((m) => !records[m.id]).length;
+  const closeBtn = closableFrom !== null && now >= closableFrom && (
+    <CloseEventButton
+      eventId={eventId}
+      unmarked={unmarkedCount}
+      canReopen={canReopen}
+    />
+  );
+
   const exportBtn = canExport && (
     <button type="button" onClick={exportCsv} className={secondaryBtn}>
       <Download className="h-[13px] w-[13px]" />
@@ -963,8 +1001,9 @@ export function CheckInTabs({
         )}
       >
         {!compactHeader && (
-          <div className="mb-2.5">
+          <div className="mb-2.5 flex items-center justify-between gap-3">
             <BackLink href={back.href}>{t(back.label)}</BackLink>
+            {closeBtn}
           </div>
         )}
 
@@ -1216,10 +1255,11 @@ export function CheckInTabs({
           am="መግቢያ"
           sub={sub}
           actions={
-            picker || exportBtn ? (
+            picker || exportBtn || closeBtn ? (
               <>
                 {picker}
                 {exportBtn}
+                {closeBtn}
               </>
             ) : undefined
           }
