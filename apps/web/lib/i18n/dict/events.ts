@@ -138,6 +138,15 @@ export const events: Record<string, string> = {
   Retry: 'እንደገና ሞክር',
   'Scanner unavailable': 'ስካነሩ አይገኝም',
   'Your browser may not support camera access.': 'አሳሽዎ ካሜራን ላይደግፍ ይችላል።',
+  // Clearing a mark + status filter
+  Cleared: 'ተሰርዟል',
+  Undo: 'ቀልብስ',
+  'Tap again to clear': 'ለመሰረዝ እንደገና ይንኩ',
+  'Undo check-in for {name}': 'የ{name}ን ምዝገባ ቀልብስ',
+  'Filter by status': 'በሁኔታ አጣራ',
+  'Not marked': 'ያልተመዘገበ',
+  'Could not clear attendance. Please try again.':
+    'መገኘቱን መሰረዝ አልተቻለም። እባክዎ እንደገና ይሞክሩ።',
 
   // Check-in hub
   'Select an event…': 'ዝግጅት ይምረጡ…',

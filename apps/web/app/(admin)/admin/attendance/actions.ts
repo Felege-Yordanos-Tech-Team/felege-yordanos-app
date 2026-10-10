@@ -30,7 +30,7 @@ import {
   canMarkAttendance,
   canViewEventAttendance,
 } from '@/lib/permissions';
-import { requireUser } from '@/lib/session';
+import { requireUser, type CurrentUser } from '@/lib/session';
 
 /* ─── Validation ───────────────────────────────────────────── */
 
@@ -349,6 +349,24 @@ export async function updateSeriesEnd(input: {
 
 /* ─── Attendance ───────────────────────────────────────────── */
 
+/**
+ * Why this user may not mark or clear attendance of this event right now, or
+ * null when they may: canMarkAttendance, then the check-in window
+ * (canCheckInNow) for department heads.
+ */
+function checkInRefusal(
+  user: CurrentUser,
+  event: typeof events.$inferSelect,
+): string | null {
+  if (!canMarkAttendance(user, event)) return NOT_ALLOWED;
+  if (!canCheckInNow(user, event)) {
+    return checkInState(checkInWindow(event)) === 'before'
+      ? 'Check-in for this event has not opened yet.'
+      : 'Check-in for this event has closed.';
+  }
+  return null;
+}
+
 const markSchema = z.object({
   eventId,
   memberId: z.number().int().positive(),
@@ -377,14 +395,8 @@ export async function markAttendance(input: {
 
   const event = await loadEvent(parsed.data.eventId);
   if (!event) return fail('Event not found.');
-  if (!canMarkAttendance(user, event)) return fail(NOT_ALLOWED);
-  if (!canCheckInNow(user, event)) {
-    return fail(
-      checkInState(checkInWindow(event)) === 'before'
-        ? 'Check-in for this event has not opened yet.'
-        : 'Check-in for this event has closed.',
-    );
-  }
+  const refused = checkInRefusal(user, event);
+  if (refused) return fail(refused);
 
   try {
     await db
@@ -403,6 +415,47 @@ export async function markAttendance(input: {
     if (isForeignKeyViolation(err)) return fail('Member not found.');
     console.error('[attendance] mark failed:', err);
     return fail('Could not save attendance. Please try again.');
+  }
+
+  return ok();
+}
+
+const clearSchema = z.object({
+  eventId,
+  memberId: z.number().int().positive(),
+});
+
+/**
+ * Clears one member's attendance for an event (back to "not marked"), e.g.
+ * after a wrong tap. Same permission as markAttendance, and no revalidatePath
+ * for the same reason.
+ */
+export async function clearAttendance(input: {
+  eventId: string;
+  memberId: number;
+}): Promise<ActionResult> {
+  const user = await requireUser();
+
+  const parsed = clearSchema.safeParse(input);
+  if (!parsed.success) return fail(firstIssue(parsed.error, 'Invalid input.'));
+
+  const event = await loadEvent(parsed.data.eventId);
+  if (!event) return fail('Event not found.');
+  const refused = checkInRefusal(user, event);
+  if (refused) return fail(refused);
+
+  try {
+    await db
+      .delete(attendance)
+      .where(
+        and(
+          eq(attendance.eventId, event.id),
+          eq(attendance.memberId, parsed.data.memberId),
+        ),
+      );
+  } catch (err) {
+    console.error('[attendance] clear failed:', err);
+    return fail('Could not clear attendance. Please try again.');
   }
 
   return ok();
