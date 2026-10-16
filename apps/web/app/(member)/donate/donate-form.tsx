@@ -227,7 +227,7 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
         placeholder={t('For Easter offering')}
         rows={2}
         maxLength={500}
-        className="block min-h-[48px] w-full resize-y rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-faint focus-visible:border-gold focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep"
+        className="block min-h-[48px] w-full resize-y rounded-[10px] border border-parchment-edge bg-parchment-soft px-3.5 py-2.5 text-[13px] text-ink outline-none placeholder:text-ink-muted focus-visible:border-gold focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep"
       />
     </div>
   );
@@ -283,7 +283,7 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0"
                 required
-                className="w-full min-w-0 bg-transparent font-mono text-[36px] font-medium leading-none tabular-nums text-brand outline-none placeholder:text-ink-faint/60 dark:text-gold"
+                className="w-full min-w-0 bg-transparent font-mono text-[36px] font-medium leading-none tabular-nums text-brand outline-none placeholder:text-ink-muted dark:text-gold"
               />
               <span className="font-mono text-sm font-medium text-ink-muted">
                 {t('ETB')}
@@ -469,7 +469,7 @@ export function DonateForm({ pastDonations }: DonateFormProps) {
                   onChange={(e) => setAmount(e.target.value)}
                   placeholder="0"
                   required
-                  className="w-full min-w-0 bg-transparent font-mono text-2xl leading-none tabular-nums text-ink outline-none placeholder:text-ink-faint/60"
+                  className="w-full min-w-0 bg-transparent font-mono text-2xl leading-none tabular-nums text-ink outline-none placeholder:text-ink-muted"
                 />
               </div>
               <div className="mt-2.5 flex gap-1.5">
