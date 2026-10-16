@@ -9,6 +9,7 @@ import {
   songs as songsTable,
 } from '@felege-yordanos/db/server';
 import { Card } from '@/components/ds';
+import { todayYmd } from '@/lib/events';
 import { getLocale } from '@/lib/i18n/server';
 import { listNotices } from '@/lib/notice-queries';
 import { canViewNotices } from '@/lib/permissions';
@@ -42,8 +43,7 @@ export default async function MemberDashboard() {
   const access = hasMemberAccess(user);
   const staffRole = user.assignedRole !== 'member';
 
-  // Same day boundary as before: the UTC date.
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayYmd();
 
   // My-giving summary (desktop card): verified total this year + latest verified.
   // Year boundaries in server-local time, as the old JS filter did.

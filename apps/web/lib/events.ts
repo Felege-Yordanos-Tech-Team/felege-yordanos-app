@@ -48,9 +48,17 @@ function addMonthsClamped(date: Date, months: number): Date {
   );
 }
 
-/** Today as `YYYY-MM-DD` (local). */
-export function todayYmd(): string {
-  return toYmd(new Date());
+/** Gregorian `YYYY-MM-DD` in Addis Ababa for the given instant. */
+export function todayYmd(now: Date = new Date()): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    calendar: 'gregory',
+    timeZone: 'Africa/Addis_Ababa',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(now);
+  const date = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${date.year}-${date.month}-${date.day}`;
 }
 
 /** The furthest Until date allowed for a series starting on `startYmd`. */
