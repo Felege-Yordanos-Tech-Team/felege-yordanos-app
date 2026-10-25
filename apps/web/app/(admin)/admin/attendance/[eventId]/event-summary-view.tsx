@@ -233,7 +233,7 @@ export function EventSummaryView({
           </div>
           <div className="mt-2.5 flex items-baseline justify-between gap-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="font-display text-[36px] font-medium leading-[0.9] tabular-nums text-cream md:text-[46px]">
+              <span className="font-display text-[36px] font-medium leading-[0.9] tabular-nums lining-nums text-cream md:text-[46px]">
                 {s.attended}
               </span>
               <span className="font-mono text-[12px] text-gold-light/80 md:text-[14px]">
@@ -650,7 +650,7 @@ function StatCard({
         <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', dot)} />
         {label}
       </div>
-      <div className="mt-2.5 font-display text-[36px] font-medium leading-[0.9] tabular-nums text-brand-ink md:text-[42px]">
+      <div className="mt-2.5 font-display text-[36px] font-medium leading-[0.9] tabular-nums lining-nums text-brand-ink md:text-[42px]">
         {value}
       </div>
       <div className="mt-2.5 text-[11px] leading-snug text-ink-muted md:text-[11.5px]">{sub}</div>
