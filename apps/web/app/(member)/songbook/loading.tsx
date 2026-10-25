@@ -47,8 +47,8 @@ export default function SongbookLoading() {
 
       {/* Desktop */}
       <div className="hidden px-7 py-7 md:block">
-        <div className="grid h-[calc(100vh-110px)] min-h-[560px] grid-cols-[350px_1fr] gap-4">
-          <Card className="flex flex-col overflow-hidden p-5">
+        <div className="grid grid-cols-[350px_1fr] items-start gap-4">
+          <Card className="flex max-h-[calc(100dvh-110px)] flex-col overflow-hidden p-5">
             <div className="flex items-end justify-between">
               <div>
                 <Bone className="mb-1.5 h-6 w-24" />
@@ -74,7 +74,7 @@ export default function SongbookLoading() {
               ))}
             </div>
           </Card>
-          <Card className="p-[30px]">
+          <Card className="max-h-[calc(100dvh-110px)] overflow-hidden p-[30px]">
             <div className="max-w-[640px]">
               <div className="flex items-start gap-4">
                 <Bone className="h-[60px] w-[60px] shrink-0 rounded-[14px]" />
