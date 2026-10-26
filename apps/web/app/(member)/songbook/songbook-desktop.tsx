@@ -57,9 +57,9 @@ export function SongbookDesktop({
 
   return (
     <div className={className}>
-      <div className="grid h-[calc(100vh-110px)] min-h-[560px] grid-cols-[350px_1fr] items-stretch gap-4">
+      <div className="grid grid-cols-[350px_1fr] items-start gap-4">
         {/* ── Left: list pane ── */}
-        <Card className="flex flex-col overflow-hidden p-0">
+        <Card className="flex max-h-[calc(100dvh-110px)] flex-col overflow-hidden p-0">
           <div className="px-5 pt-5">
             <div className="flex items-end justify-between">
               <div>
@@ -176,7 +176,7 @@ export function SongbookDesktop({
         </Card>
 
         {/* ── Right: detail pane ── */}
-        <Card className="overflow-y-auto p-[30px]">
+        <Card className="max-h-[calc(100dvh-110px)] overflow-y-auto p-[30px]">
           {selected ? (
             <div className="max-w-[640px]">
               <div className="flex items-start gap-4">
