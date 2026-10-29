@@ -1099,10 +1099,10 @@ export function CheckInTabs({
                   </div>
                 </div>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="font-display text-[64px] font-medium leading-[0.95] tracking-[-0.02em] tabular-nums text-gold">
+                  <span className="font-display text-[64px] font-medium leading-[0.95] tracking-[-0.02em] tabular-nums lining-nums text-gold">
                     {presentCount}
                   </span>
-                  <span className="font-display text-[28px] font-normal tabular-nums text-gold-light/50">
+                  <span className="font-display text-[28px] font-normal tabular-nums lining-nums text-gold-light/50">
                     / {total}
                   </span>
                   <span className="ml-auto text-[11px] text-cream/60">
@@ -1281,7 +1281,7 @@ export function CheckInTabs({
                   {t('Live')} · {t('present')}
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
-                  <span className="font-display text-[58px] font-medium leading-[0.9] tabular-nums text-cream">
+                  <span className="font-display text-[58px] font-medium leading-[0.9] tabular-nums lining-nums text-cream">
                     {presentCount}
                   </span>
                   <span className="font-mono text-[15px] text-gold-light/80">

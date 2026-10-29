@@ -259,7 +259,7 @@ export function EventsList({
                         className="flex items-center gap-2.5 rounded-xl border border-parchment-edge bg-parchment-soft py-[11px] pl-[18px] pr-3"
                       >
                         <div className="w-10 shrink-0 border-r border-parchment-edge pr-2.5 text-center">
-                          <div className="font-display text-[17px] font-medium leading-none tabular-nums text-brand dark:text-gold-light">
+                          <div className="font-display text-[17px] font-medium leading-none tabular-nums lining-nums text-brand dark:text-gold-light">
                             {day}
                           </div>
                           <div className="mt-0.5 text-[8px] uppercase tracking-[0.16em] text-ink-muted">
