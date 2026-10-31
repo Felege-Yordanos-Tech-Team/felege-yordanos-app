@@ -18,6 +18,7 @@ import {
 import { cn } from '@/lib/utils';
 import { eventStartAt } from '@/lib/check-in-window';
 import { EventFormDialog } from './event-form-dialog';
+import { AudienceTag } from '@/components/forms/audience-tag';
 import {
   EventsCalendar,
   type CalEvent,
@@ -277,6 +278,10 @@ export function EventsList({
                             {event.recurrenceGroup && (
                               <Repeat className="h-[11px] w-[11px] shrink-0 text-gold" />
                             )}
+                            <AudienceTag
+                              audience={event.audience}
+                              className="shrink-0 px-1.5 py-px text-[9.5px]"
+                            />
                             {eventPhase(event, today, now) !== 'upcoming' && (
                               <PhasePill phase={eventPhase(event, today, now)} />
                             )}
@@ -347,6 +352,10 @@ export function EventsList({
                           {event.recurrenceGroup && (
                             <Repeat className="h-[11px] w-[11px] shrink-0 text-gold" />
                           )}
+                          <AudienceTag
+                            audience={event.audience}
+                            className="shrink-0 px-1.5 py-px text-[9.5px]"
+                          />
                         </div>
                         <div className="mt-0.5 font-mono text-[10px] text-ink-muted">
                           {formatYmd(event.eventDate, locale, {
@@ -443,6 +452,10 @@ export function EventsList({
                             {event.title}
                           </span>
                           <RecurBadge recurrence={event.recurrence} />
+                          <AudienceTag
+                            audience={event.audience}
+                            className="shrink-0"
+                          />
                         </div>
                         {/* Narrow desktops: the hidden columns, on one line. */}
                         <div className="mt-1 flex min-w-0 items-center gap-2 lg:hidden">
