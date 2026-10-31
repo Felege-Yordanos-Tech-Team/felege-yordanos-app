@@ -164,4 +164,89 @@ export const preMembers: Record<string, string> = {
   'As registered for your pre-member ID. Changes are recorded.':
     'ለቅድመ አባልነት መታወቂያዎ እንደተመዘገበው። ለውጦች ይመዘገባሉ።',
   'Your details were updated.': 'መረጃዎ ተዘምኗል።',
+
+  // Registration sessions and /join
+  'Registration sessions': 'የምዝገባ ጊዜያት',
+  'Open a session to show a QR code people scan to register themselves.':
+    'ሰዎች ስካን አድርገው ራሳቸውን እንዲመዘግቡ QR ኮድ ለማሳየት የምዝገባ ጊዜ ይክፈቱ።',
+  'No sessions yet.': 'ገና ምንም የምዝገባ ጊዜ የለም።',
+  'e.g. Saturday class, main hall': 'ለምሳሌ፦ የቅዳሜ ትምህርት፣ ዋናው አዳራሽ',
+  Opens: 'የሚከፈትበት',
+  Closes: 'የሚዘጋበት',
+  'Ethiopian time. You can close it early at any time.':
+    'በኢትዮጵያ ሰዓት። በማንኛውም ጊዜ ቀደም ብለው መዝጋት ይችላሉ።',
+  'Open and show QR': 'ክፈትና QR አሳይ',
+  'Show QR': 'QR አሳይ',
+  Open: 'ክፍት',
+  Scheduled: 'የታቀደ',
+  Closed: 'ተዘግቷል',
+  'Session closed': 'የምዝገባ ጊዜው ተዘግቷል',
+  '{n} registered': '{n} ተመዝግበዋል',
+  'registered so far': 'እስካሁን ተመዝግበዋል',
+  Registrations: 'ምዝገባዎች',
+  Session: 'የምዝገባ ጊዜ',
+  'Show all': 'ሁሉንም አሳይ',
+  Reference: 'መለያ ቁጥር',
+  'Name, ID, phone, email or R-…': 'ስም፣ መታወቂያ፣ ስልክ፣ ኢሜይል ወይም R-…',
+  'Give the session a name.': 'ለምዝገባ ጊዜው ስም ይስጡ።',
+  'The name must be at most 80 characters.': 'ስሙ ከ80 ፊደላት መብለጥ የለበትም።',
+  'Enter a valid date and time.': 'ትክክለኛ ቀንና ሰዓት ያስገቡ።',
+  'The session must close after it opens.': 'የምዝገባ ጊዜው ከተከፈተ በኋላ መዘጋት አለበት።',
+  'The closing time is in the past.': 'የመዝጊያ ሰዓቱ ያለፈ ነው።',
+  'A session can be open for at most 7 days.':
+    'የምዝገባ ጊዜ ቢበዛ ለ7 ቀናት ክፍት ሊሆን ይችላል።',
+  'Session not found.': 'የምዝገባ ጊዜው አልተገኘም።',
+  'This session is already closed.': 'ይህ የምዝገባ ጊዜ ቀድሞውኑ ተዘግቷል።',
+  'For people learning at the Sunday School who are not registered members yet.':
+    'በሰንበት ት/ቤቱ ለሚማሩና ገና በአባልነት ላልተመዘገቡ።',
+  'Please complete the check that you are not a robot.':
+    'እባክዎ ሮቦት አለመሆንዎን የሚያረጋግጠውን ይጨርሱ።',
+  'Thank you!': 'እናመሰግናለን!',
+  'A volunteer will confirm your registration. You will get your ID by email.':
+    'አንድ አገልጋይ ምዝገባዎን ያረጋግጣል። መታወቂያዎን በኢሜይል ያገኛሉ።',
+  'Your reference': 'የእርስዎ መለያ ቁጥር',
+  'Registration is closed. Please ask a volunteer at the desk.':
+    'ምዝገባው ተዘግቷል። እባክዎ በጠረጴዛው ያሉትን አገልጋዮች ይጠይቁ።',
+  'Too many registrations right now. Please wait a few minutes or ask a volunteer at the desk.':
+    'አሁን በጣም ብዙ ምዝገባዎች አሉ። እባክዎ ጥቂት ደቂቃዎች ይጠብቁ ወይም በጠረጴዛው ያሉትን አገልጋዮች ይጠይቁ።',
+
+  // Approval email feedback
+  'ID {code} · email sent': 'መታወቂያ {code} · ኢሜይል ተልኳል',
+  '{id} · email sent': '{id} · ኢሜይል ተልኳል',
+
+  // Promotion
+  Promote: 'ወደ አባልነት አዛውር',
+  'Ready to promote': 'ለዝውውር ዝግጁ',
+  'These pre-members match a member row (names, phone or email). Open one and choose Promote.':
+    'እነዚህ ቅድመ አባላት ከአንድ የአባል መዝገብ ጋር ይዛመዳሉ (ስም፣ ስልክ ወይም ኢሜይል)። አንዱን ከፍተው «ወደ አባልነት አዛውር»ን ይምረጡ።',
+  'Promote to member': 'ወደ አባልነት ማዛወር',
+  'Pick the member row of their new SSU ID, compare, then confirm.':
+    'የአዲሱን የSSU መታወቂያ የአባል መዝገብ ይምረጡ፣ ያነጻጽሩ፣ ከዚያ ያረጋግጡ።',
+  'SSU ID or name…': 'የSSU መታወቂያ ወይም ስም…',
+  'Search results': 'የፍለጋ ውጤቶች',
+  'Suggested matches': 'የተጠቆሙ ተዛማጆች',
+  'No member row matches the names, phone or email.':
+    'ከስሞቹ፣ ከስልኩ ወይም ከኢሜይሉ ጋር የሚዛመድ የአባል መዝገብ የለም።',
+  'Pick a member row on the left.': 'በግራ በኩል የአባል መዝገብ ይምረጡ።',
+  'The pre-member’s account is already linked to this member row.':
+    'የቅድመ አባሉ መለያ ቀድሞውኑ ከዚህ የአባል መዝገብ ጋር ተገናኝቷል።',
+  'The pre-member’s account will be linked to this member row.':
+    'የቅድመ አባሉ መለያ ከዚህ የአባል መዝገብ ጋር ይገናኛል።',
+  'The pre-member has no account; the member row keeps its link as it is.':
+    'ቅድመ አባሉ መለያ የለውም፤ የአባል መዝገቡ ግንኙነት እንዳለ ይቆያል።',
+  'Promote to {id}': 'ወደ {id} አዛውር',
+  'This member row is already the promotion of another pre-member.':
+    'ይህ የአባል መዝገብ ቀድሞውኑ ሌላ ቅድመ አባል የተዛወረበት ነው።',
+  'This member row is already linked to another account. Unlink it under Member links first.':
+    'ይህ የአባል መዝገብ ቀድሞውኑ ከሌላ መለያ ጋር ተገናኝቷል። መጀመሪያ በአባልነት ማገናኛዎች ውስጥ ያላቅቁት።',
+  "The pre-member's account is already linked to another member row.":
+    'የቅድመ አባሉ መለያ ቀድሞውኑ ከሌላ የአባል መዝገብ ጋር ተገናኝቷል።',
+  'Only active or withdrawn pre-members can be promoted.':
+    'ወደ አባልነት የሚዛወሩት ንቁ ወይም የወጡ ቅድመ አባላት ብቻ ናቸው።',
+  'Member not found.': 'አባሉ አልተገኘም።',
+  'Could not promote. Please try again.': 'ማዛወር አልተቻለም። እባክዎ እንደገና ይሞክሩ።',
+  'Undo promotion': 'ዝውውሩን ሰርዝ',
+  'Undo the promotion?': 'ዝውውሩ ይሰረዝ?',
+  'The record goes back to active with its FYP ID and QR. Only the account link the promotion made is removed.':
+    'መዝገቡ በFYP መታወቂያውና QR ኮዱ ወደ ንቁ ይመለሳል። የሚወገደው ዝውውሩ የፈጠረው የመለያ ግንኙነት ብቻ ነው።',
 };

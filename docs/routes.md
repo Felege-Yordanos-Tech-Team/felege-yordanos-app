@@ -7,6 +7,7 @@ graph TD
     subgraph PUBLIC["(public) — No auth required"]
         LANDING["/<br/>Landing page with Sign In"]
         LOGIN["/login<br/>Sign-in / sign-up form"]
+        JOIN["/join?s=token<br/>Pre-member self-registration"]
     end
 
     subgraph MEMBER["(member) — Authenticated users"]
@@ -28,6 +29,9 @@ graph TD
         ADMIN_PRE["/admin/pre-members<br/>Pre-members by status (admins)"]
         ADMIN_PRE_NEW["/admin/pre-members/new<br/>Register a walk-in"]
         ADMIN_PRE_ID["/admin/pre-members/[id]<br/>Approve, edit, withdraw, QR, history"]
+        ADMIN_PRE_PROMOTE["/admin/pre-members/[id]/promote<br/>Pick member row, compare, promote"]
+        ADMIN_PRE_SESSIONS["/admin/pre-members/sessions<br/>Open/close registration sessions"]
+        ADMIN_PRE_SESSION["/admin/pre-members/sessions/[id]<br/>Full-screen QR + live count"]
     end
 
     LANDING -->|authenticated| DASHBOARD
@@ -40,6 +44,10 @@ graph TD
     ADMIN_HOME --> ADMIN_PRE
     ADMIN_PRE --> ADMIN_PRE_NEW
     ADMIN_PRE --> ADMIN_PRE_ID
+    ADMIN_PRE_ID --> ADMIN_PRE_PROMOTE
+    ADMIN_PRE --> ADMIN_PRE_SESSIONS
+    ADMIN_PRE_SESSIONS --> ADMIN_PRE_SESSION
+    ADMIN_PRE_SESSION -.->|QR| JOIN
 
     style PUBLIC fill:#f0fdf4,stroke:#16a34a
     style MEMBER fill:#eff6ff,stroke:#2563eb
@@ -52,6 +60,7 @@ graph TD
 |-------|------|-------|--------|--------|
 | `/` | Public | Any (authenticated → /dashboard) | Root | Working (landing page) |
 | `/login` | Public | Any (authenticated → /dashboard) | Root > Public | Working |
+| `/join?s=<token>` | Public | Anyone, while the session is open | Root > Public | Pre-member self-registration (Turnstile, rate limits) |
 | `/dashboard` | Protected | All authenticated | Root > Member | Working (greeting, events, claim, links) |
 | `/claim` | Protected | All authenticated | Root > Member | Working (member ID claim) |
 | `/profile` | Protected | All authenticated | Root > Member | Working (name, role, member info) |
@@ -68,6 +77,9 @@ graph TD
 | `/admin/pre-members` | Protected | admin, super_admin | Root > Admin | Tabs by status, search |
 | `/admin/pre-members/new` | Protected | admin, super_admin | Root > Admin | Admin registration (approve on the spot) |
 | `/admin/pre-members/[id]` | Protected | admin, super_admin | Root > Admin | Details, duplicates, actions, QR, history |
+| `/admin/pre-members/[id]/promote` | Protected | admin, super_admin | Root > Admin | Suggested matches, SSU ID search, side-by-side compare |
+| `/admin/pre-members/sessions` | Protected | admin, super_admin | Root > Admin | Open, close, past sessions with counts |
+| `/admin/pre-members/sessions/[id]` | Protected | admin, super_admin | Root > Admin | Full-screen QR for a TV or tablet, live count |
 
 ## Layout Hierarchy
 

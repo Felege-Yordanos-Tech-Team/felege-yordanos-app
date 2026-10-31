@@ -2,7 +2,17 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Check, Pencil, RotateCcw, Unlink, UserMinus, X } from 'lucide-react';
+import Link from 'next/link';
+import {
+  ArrowUpRight,
+  Check,
+  Pencil,
+  RotateCcw,
+  Undo2,
+  Unlink,
+  UserMinus,
+  X,
+} from 'lucide-react';
 import type { PreMemberStatus } from '@felege-yordanos/db/schema';
 import {
   Dialog,
@@ -12,7 +22,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Textarea } from '@/components/ui/textarea';
-import { primaryBtn, secondaryBtn } from '@/components/events/event-ui';
+import { primaryBtn, secondaryBtn } from '@/components/events/button-classes';
 import { useToast } from '@/hooks/use-toast';
 import { useT } from '@/lib/i18n/client';
 import type { PreMemberField } from '@/lib/pre-member-schema';
@@ -22,6 +32,7 @@ import {
   approvePreMember,
   reinstatePreMember,
   rejectPreMember,
+  undoPromotion,
   unlinkPreMemberAccount,
   withdrawPreMember,
 } from '../actions';
@@ -50,12 +61,15 @@ export function PreMemberActions({
   status,
   name,
   linked,
+  canPromote,
   initial,
 }: {
   id: number;
   status: PreMemberStatus;
   name: string;
   linked: boolean;
+  /** Promote and undo promotion (canPromotePreMembers). */
+  canPromote: boolean;
   initial: Record<PreMemberField, string>;
 }) {
   const t = useT();
@@ -100,7 +114,9 @@ export function PreMemberActions({
     }
     toast({
       title: t('Approved'),
-      description: t('ID {code}', { code: res.data.code }),
+      description: res.data.emailed
+        ? t('ID {code} · email sent', { code: res.data.code })
+        : t('ID {code}', { code: res.data.code }),
     });
     router.refresh();
   }
@@ -138,6 +154,36 @@ export function PreMemberActions({
         >
           <X className="h-3.5 w-3.5" />
           {t('Reject')}
+        </button>
+      )}
+      {canPromote && (status === 'active' || status === 'withdrawn') && (
+        <Link
+          href={`/admin/pre-members/${id}/promote`}
+          className={cn(primaryBtn, 'px-4 py-2 text-[12.5px]')}
+        >
+          <ArrowUpRight className="h-3.5 w-3.5 text-gold" />
+          {t('Promote')}
+        </Link>
+      )}
+      {canPromote && status === 'promoted' && (
+        <button
+          type="button"
+          className={btn}
+          onClick={() =>
+            setConfirm({
+              title: t('Undo the promotion?'),
+              body: t(
+                'The record goes back to active with its FYP ID and QR. Only the account link the promotion made is removed.',
+              ),
+              confirmLabel: t('Undo promotion'),
+              danger: true,
+              run: () => undoPromotion(id),
+              done: 'Promotion undone',
+            })
+          }
+        >
+          <Undo2 className="h-3.5 w-3.5" />
+          {t('Undo promotion')}
         </button>
       )}
       {status !== 'promoted' && (

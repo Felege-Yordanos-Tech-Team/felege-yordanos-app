@@ -47,9 +47,9 @@ export async function loadPreMember(id: number): Promise<PreMemberRow | null> {
 }
 
 /** Last 9 digits of a phone column, for matching (see phoneKey). */
-const phoneDigits = (col: AnyColumn) =>
+export const phoneDigits = (col: AnyColumn) =>
   sql`right(regexp_replace(coalesce(${col}, ''), '[^0-9]', '', 'g'), 9)`;
-const normName = (col: AnyColumn) =>
+export const normName = (col: AnyColumn) =>
   sql`lower(regexp_replace(trim(coalesce(${col}, '')), '\\s+', ' ', 'g'))`;
 
 export interface DuplicateMatch {
@@ -222,3 +222,40 @@ export async function loadHistory(
 /** Pre-members waiting for approval (admin home and nav). */
 export const countPendingPreMembers = () =>
   db.$count(preMembers, eq(preMembers.status, 'pending'));
+
+/**
+ * SQL: the member row `m` matches pre-member `p` (same three names, same
+ * phone or same email) and is not already someone's promotion. Shared by
+ * the "Ready to promote" tab and the suggestions on the promote screen.
+ */
+export const memberMatchesPreMember = sql`(
+  (${normName(members.name)} = ${normName(preMembers.name)}
+    AND ${normName(members.fatherName)} = ${normName(preMembers.fatherName)}
+    AND ${normName(members.grandfatherName)} = ${normName(preMembers.grandfatherName)})
+  OR (length(${phoneDigits(preMembers.phone)}) = 9 AND (
+    ${phoneDigits(members.addressPhone)} = ${phoneDigits(preMembers.phone)}
+    OR ${phoneDigits(members.addressPhoneTwo)} = ${phoneDigits(preMembers.phone)}))
+  OR (${preMembers.email} IS NOT NULL AND lower(${members.addressEmail}) = lower(${preMembers.email}))
+) AND NOT EXISTS (
+  SELECT 1 FROM pre_members promoted
+  WHERE promoted.status = 'promoted' AND promoted.promoted_member_id = ${members.id}
+)`;
+
+/** Member rows that could be this pre-member's own (suggestions), best first. */
+export async function suggestedMembers(preMemberId: number) {
+  return db
+    .select({
+      id: members.id,
+      memberId: members.memberId,
+      name: members.name,
+      fatherName: members.fatherName,
+      grandfatherName: members.grandfatherName,
+      phone: members.addressPhone,
+      linked: sql<boolean>`${members.authUserId} IS NOT NULL`,
+    })
+    .from(members)
+    .innerJoin(preMembers, eq(preMembers.id, preMemberId))
+    .where(memberMatchesPreMember)
+    .orderBy(asc(members.name))
+    .limit(10);
+}

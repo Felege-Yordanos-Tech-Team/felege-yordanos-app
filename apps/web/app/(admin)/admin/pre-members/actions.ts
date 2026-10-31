@@ -1,16 +1,22 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray, ne } from 'drizzle-orm';
 import { z } from 'zod';
 import {
+  authUsers,
   db,
+  members,
   preMembers,
   type PreMemberStatus,
 } from '@felege-yordanos/db/server';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
-import { canManagePreMembers } from '@/lib/permissions';
+import { canManagePreMembers, canPromotePreMembers } from '@/lib/permissions';
 import { nextPreMemberCode } from '@/lib/pre-member-ids';
+import {
+  sendPreMemberApprovedEmail,
+  sendPromotedEmail,
+} from '@/lib/pre-member-emails';
 import { logPreMember } from '@/lib/pre-member-queries';
 import {
   adminPreMemberSchema,
@@ -73,10 +79,11 @@ async function transition(
  * Approves a pending record inside `tx`: assigns the next FYP ID of the
  * approval's Ethiopian year (counter row locked until commit, so two
  * approvals never get the same ID), status 'active', history 'approved'.
+ * Returns the ID and the email to send it to.
  */
 async function approveInTx(tx: Tx, id: number, adminId: string) {
   const [locked] = await tx
-    .select({ status: preMembers.status })
+    .select({ status: preMembers.status, email: preMembers.email })
     .from(preMembers)
     .where(eq(preMembers.id, id))
     .for('update')
@@ -92,7 +99,7 @@ async function approveInTx(tx: Tx, id: number, adminId: string) {
   });
   if (!row) return null;
   await logPreMember(tx, id, 'approved', adminId, { code });
-  return code;
+  return { code, email: locked.email };
 }
 
 /**
@@ -102,7 +109,9 @@ async function approveInTx(tx: Tx, id: number, adminId: string) {
  */
 export async function createPreMember(
   input: PreMemberDetailsInput & { approveNow: boolean },
-): Promise<ActionResult<{ id: number; code: string | null }>> {
+): Promise<
+  ActionResult<{ id: number; code: string | null; emailed: boolean }>
+> {
   const admin = await requireUser();
   if (!canManagePreMembers(admin)) return fail(NOT_ALLOWED);
   const parsed = adminPreMemberSchema.safeParse(input);
@@ -118,32 +127,48 @@ export async function createPreMember(
       await logPreMember(tx, row.id, 'created', admin.id, {
         source: 'admin',
       });
-      const code = input.approveNow
+      const approved = input.approveNow
         ? await approveInTx(tx, row.id, admin.id)
         : null;
-      return { id: row.id, code };
+      return { id: row.id, approved };
     });
     revalidate(result.id);
-    return ok(result);
+    const code = result.approved?.code ?? null;
+    const emailed = result.approved
+      ? await sendPreMemberApprovedEmail(
+          result.approved.email,
+          result.approved.code,
+        )
+      : false;
+    return ok({ id: result.id, code, emailed });
   } catch (err) {
     console.error('[pre-members] create failed:', err);
     return fail('Could not save. Please try again.');
   }
 }
 
-/** Approves a pending record (ID assigned now). Permission: canManagePreMembers. */
+/**
+ * Approves a pending record (ID assigned now) and emails the ID and QR when
+ * the record has an email. Permission: canManagePreMembers.
+ */
 export async function approvePreMember(
   id: number,
-): Promise<ActionResult<{ code: string }>> {
+): Promise<ActionResult<{ code: string; emailed: boolean }>> {
   const admin = await requireUser();
   if (!canManagePreMembers(admin)) return fail(NOT_ALLOWED);
   if (!idSchema.safeParse(id).success) return fail(NOT_FOUND);
 
   try {
-    const code = await db.transaction((tx) => approveInTx(tx, id, admin.id));
-    if (!code) return fail(CHANGED);
+    const approved = await db.transaction((tx) =>
+      approveInTx(tx, id, admin.id),
+    );
+    if (!approved) return fail(CHANGED);
     revalidate(id);
-    return ok({ code });
+    const emailed = await sendPreMemberApprovedEmail(
+      approved.email,
+      approved.code,
+    );
+    return ok({ code: approved.code, emailed });
   } catch (err) {
     console.error('[pre-members] approve failed:', err);
     return fail('Could not approve. Please try again.');
@@ -315,5 +340,190 @@ export async function unlinkPreMemberAccount(
     throw err;
   }
   revalidate(id);
+  return ok();
+}
+
+const promoteSchema = z.object({
+  id: idSchema,
+  memberRecordId: z.number().int().positive(),
+});
+
+/**
+ * Promotes a pre-member (active or withdrawn) to the member row of their
+ * new SSU ID, in one transaction: status 'promoted' with who and when, the
+ * pre-member's login account linked to the member row (blocked when that
+ * row is linked to another account), history 'promoted'. Then emails the
+ * member ID. Attendance rows stay on the pre-member record.
+ * Permission: canPromotePreMembers.
+ */
+export async function promotePreMember(input: {
+  id: number;
+  memberRecordId: number;
+}): Promise<ActionResult<{ memberId: string; emailed: boolean }>> {
+  const admin = await requireUser();
+  if (!canPromotePreMembers(admin)) return fail(NOT_ALLOWED);
+  const parsed = promoteSchema.safeParse(input);
+  if (!parsed.success) return fail(NOT_FOUND);
+  const { id, memberRecordId } = parsed.data;
+
+  type Done = { memberId: string; email: string | null };
+  let result: Done | string;
+  try {
+    result = await db.transaction(async (tx): Promise<Done | string> => {
+      const [pm] = await tx
+        .select()
+        .from(preMembers)
+        .where(eq(preMembers.id, id))
+        .for('update')
+        .limit(1);
+      if (!pm) return NOT_FOUND;
+      if (pm.status !== 'active' && pm.status !== 'withdrawn')
+        return 'Only active or withdrawn pre-members can be promoted.';
+
+      const [member] = await tx
+        .select({
+          id: members.id,
+          memberId: members.memberId,
+          authUserId: members.authUserId,
+        })
+        .from(members)
+        .where(eq(members.id, memberRecordId))
+        .for('update')
+        .limit(1);
+      if (!member) return 'Member not found.';
+
+      const [taken] = await tx
+        .select({ id: preMembers.id })
+        .from(preMembers)
+        .where(
+          and(
+            eq(preMembers.status, 'promoted'),
+            eq(preMembers.promotedMemberId, member.id),
+            ne(preMembers.id, id),
+          ),
+        )
+        .limit(1);
+      if (taken)
+        return 'This member row is already the promotion of another pre-member.';
+
+      // Link the pre-member's account to the member row.
+      let linked = false;
+      if (pm.authUserId && member.authUserId !== pm.authUserId) {
+        if (member.authUserId)
+          return 'This member row is already linked to another account. Unlink it under Member links first.';
+        const [other] = await tx
+          .select({ id: members.id })
+          .from(members)
+          .where(eq(members.authUserId, pm.authUserId))
+          .limit(1);
+        if (other)
+          return "The pre-member's account is already linked to another member row.";
+        await tx
+          .update(members)
+          .set({ authUserId: pm.authUserId, updatedAt: new Date() })
+          .where(eq(members.id, member.id));
+        linked = true;
+      }
+
+      await tx
+        .update(preMembers)
+        .set({
+          status: 'promoted',
+          promotedMemberId: member.id,
+          promotedAt: new Date(),
+          promotedBy: admin.id,
+          promotionLinkedAccount: linked,
+          updatedAt: new Date(),
+        })
+        .where(eq(preMembers.id, id));
+      await logPreMember(tx, id, 'promoted', admin.id, {
+        memberRecordId: member.id,
+        memberCode: member.memberId,
+        from: pm.status,
+        linkedAccount: linked,
+      });
+
+      // Email: the record's address, else the linked account's.
+      let email = pm.email;
+      if (!email && pm.authUserId) {
+        const [account] = await tx
+          .select({ email: authUsers.email })
+          .from(authUsers)
+          .where(eq(authUsers.id, pm.authUserId))
+          .limit(1);
+        email = account?.email ?? null;
+      }
+      return { memberId: member.memberId, email };
+    });
+  } catch (err) {
+    if (isUniqueViolation(err)) return fail(CHANGED);
+    console.error('[pre-members] promote failed:', err);
+    return fail('Could not promote. Please try again.');
+  }
+  if (typeof result === 'string') return fail(result);
+
+  revalidate(id);
+  revalidatePath('/admin/member-links');
+  const emailed = await sendPromotedEmail(result.email, result.memberId);
+  return ok({ memberId: result.memberId, emailed });
+}
+
+/**
+ * Undoes a promotion: back to 'active' with the FYP ID, and removes only
+ * the account link the promotion made. Permission: canPromotePreMembers.
+ */
+export async function undoPromotion(id: number): Promise<ActionResult> {
+  const admin = await requireUser();
+  if (!canPromotePreMembers(admin)) return fail(NOT_ALLOWED);
+  if (!idSchema.safeParse(id).success) return fail(NOT_FOUND);
+
+  const done = await db.transaction(async (tx) => {
+    const [pm] = await tx
+      .select()
+      .from(preMembers)
+      .where(eq(preMembers.id, id))
+      .for('update')
+      .limit(1);
+    if (pm?.status !== 'promoted' || pm.promotedMemberId === null) return false;
+    const [member] = await tx
+      .select({ memberId: members.memberId })
+      .from(members)
+      .where(eq(members.id, pm.promotedMemberId))
+      .limit(1);
+    let unlinked = false;
+    if (pm.promotionLinkedAccount && pm.authUserId) {
+      const rows = await tx
+        .update(members)
+        .set({ authUserId: null, updatedAt: new Date() })
+        .where(
+          and(
+            eq(members.id, pm.promotedMemberId),
+            eq(members.authUserId, pm.authUserId),
+          ),
+        )
+        .returning({ id: members.id });
+      unlinked = rows.length > 0;
+    }
+    await tx
+      .update(preMembers)
+      .set({
+        status: 'active',
+        promotedMemberId: null,
+        promotedAt: null,
+        promotedBy: null,
+        promotionLinkedAccount: false,
+        updatedAt: new Date(),
+      })
+      .where(eq(preMembers.id, id));
+    await logPreMember(tx, id, 'promotion_undone', admin.id, {
+      memberRecordId: pm.promotedMemberId,
+      memberCode: member?.memberId ?? null,
+      unlinkedAccount: unlinked,
+    });
+    return true;
+  });
+  if (!done) return fail(CHANGED);
+  revalidate(id);
+  revalidatePath('/admin/member-links');
   return ok();
 }
