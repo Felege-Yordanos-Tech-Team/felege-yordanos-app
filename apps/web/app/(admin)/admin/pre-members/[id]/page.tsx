@@ -2,12 +2,17 @@ import Link from 'next/link';
 import { notFound, redirect } from 'next/navigation';
 import { eq } from 'drizzle-orm';
 import { AlertTriangle, Link2 } from 'lucide-react';
-import { authUsers, db, members } from '@felege-yordanos/db/server';
+import {
+  authUsers,
+  db,
+  members,
+  registrationSessions,
+} from '@felege-yordanos/db/server';
 import { Card, Eyebrow, SectionHeader } from '@/components/ds';
 import { BackLink } from '@/components/events/event-ui';
 import { PreMemberBadge } from '@/components/pre-members/pre-member-badge';
 import { getLocale, getT } from '@/lib/i18n/server';
-import { canManagePreMembers } from '@/lib/permissions';
+import { canManagePreMembers, canPromotePreMembers } from '@/lib/permissions';
 import {
   findDuplicates,
   loadHistory,
@@ -39,27 +44,35 @@ export default async function PreMemberPage({
   ]);
   if (!pm) notFound();
 
-  const [history, duplicates, [account], [promotedTo]] = await Promise.all([
-    loadHistory(pm.id),
-    // Likely duplicates matter before approval (and help on active records).
-    pm.status === 'pending' || pm.status === 'active'
-      ? findDuplicates(pm)
-      : Promise.resolve([]),
-    pm.authUserId
-      ? db
-          .select({ email: authUsers.email, name: authUsers.name })
-          .from(authUsers)
-          .where(eq(authUsers.id, pm.authUserId))
-          .limit(1)
-      : Promise.resolve([]),
-    pm.promotedMemberId
-      ? db
-          .select({ memberId: members.memberId })
-          .from(members)
-          .where(eq(members.id, pm.promotedMemberId))
-          .limit(1)
-      : Promise.resolve([]),
-  ]);
+  const [history, duplicates, [account], [promotedTo], [session]] =
+    await Promise.all([
+      loadHistory(pm.id),
+      // Likely duplicates matter before approval (and help on active records).
+      pm.status === 'pending' || pm.status === 'active'
+        ? findDuplicates(pm)
+        : Promise.resolve([]),
+      pm.authUserId
+        ? db
+            .select({ email: authUsers.email, name: authUsers.name })
+            .from(authUsers)
+            .where(eq(authUsers.id, pm.authUserId))
+            .limit(1)
+        : Promise.resolve([]),
+      pm.promotedMemberId
+        ? db
+            .select({ memberId: members.memberId })
+            .from(members)
+            .where(eq(members.id, pm.promotedMemberId))
+            .limit(1)
+        : Promise.resolve([]),
+      pm.sessionId
+        ? db
+            .select({ label: registrationSessions.label })
+            .from(registrationSessions)
+            .where(eq(registrationSessions.id, pm.sessionId))
+            .limit(1)
+        : Promise.resolve([]),
+    ]);
 
   const fullName = preMemberFullName(pm);
   const readOnly = pm.status === 'promoted';
@@ -121,6 +134,7 @@ export default async function PreMemberPage({
           status={pm.status}
           name={fullName}
           linked={!!pm.authUserId}
+          canPromote={canPromotePreMembers(user)}
           initial={{
             name: pm.name,
             fatherName: pm.fatherName,
@@ -206,6 +220,12 @@ export default async function PreMemberPage({
                 t('Registered'),
                 `${formatDateTime(pm.createdAt, locale)} · ${t(pm.source === 'self' ? 'Self-registered' : 'Registered by an admin')}`,
               )}
+              {pm.source === 'self' &&
+                detail(
+                  t('Reference'),
+                  `R-${pm.id}${session ? ` · ${session.label}` : ''}`,
+                  true,
+                )}
               {pm.note && detail(t('Note'), pm.note)}
             </div>
             {readOnly && (
