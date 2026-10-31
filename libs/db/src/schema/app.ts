@@ -225,6 +225,66 @@ export const memberSpiritualEducation = pgTable(
   ],
 );
 
+/* ─── Registration sessions (/join) ──────────────────────── */
+
+/**
+ * A self-registration window for pre-members: an admin opens it, the app
+ * shows a QR to /join?s=<token>. The token only works while the session is
+ * open (opens_at <= now < closes_at, not closed early).
+ */
+export const registrationSessions = pgTable(
+  'registration_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    // Random, unguessable; never reused.
+    token: text('token').notNull().unique('registration_sessions_token_key'),
+    label: text('label').notNull(),
+    opensAt: timestamp('opens_at', { withTimezone: true }).notNull(),
+    closesAt: timestamp('closes_at', { withTimezone: true }).notNull(),
+    // Closed early by an admin.
+    closedAt: timestamp('closed_at', { withTimezone: true }),
+    closedBy: uuid('closed_by'),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    check(
+      'registration_sessions_window_check',
+      sql`${t.closesAt} > ${t.opensAt}`,
+    ),
+    index('idx_registration_sessions_opens_at').on(t.opensAt.desc()),
+    foreignKey({
+      name: 'registration_sessions_created_by_fkey',
+      columns: [t.createdBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'registration_sessions_closed_by_fkey',
+      columns: [t.closedBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
+  ],
+);
+
+/**
+ * Request counts per key and time window (self-registration rate limits:
+ * per IP and per session). Old windows are pruned as new ones are written.
+ */
+export const rateLimits = pgTable(
+  'rate_limits',
+  {
+    key: text('key').notNull(),
+    windowStart: timestamp('window_start', { withTimezone: true }).notNull(),
+    count: integer('count').notNull().default(0),
+  },
+  (t) => [
+    primaryKey({ name: 'rate_limits_pkey', columns: [t.key, t.windowStart] }),
+    index('idx_rate_limits_window_start').on(t.windowStart),
+  ],
+);
+
 /* ─── Pre-members (ቅድመ አባል) ─────────────────────────────── */
 
 /**
@@ -266,6 +326,8 @@ export const preMembers = pgTable(
     phone: text('phone'),
     // Rejection or withdrawal note (admins only).
     note: text('note'),
+    // Self-registration: the session whose QR was used.
+    sessionId: uuid('session_id'),
     // Login account linked through /claim.
     authUserId: uuid('auth_user_id').unique('pre_members_auth_user_id_key'),
     approvedAt: timestamp('approved_at', { withTimezone: true }),
@@ -304,6 +366,12 @@ export const preMembers = pgTable(
       sql`${t.status} <> 'promoted' OR ${t.promotedMemberId} IS NOT NULL`,
     ),
     index('idx_pre_members_status').on(t.status),
+    index('idx_pre_members_session_id').on(t.sessionId),
+    foreignKey({
+      name: 'pre_members_session_id_fkey',
+      columns: [t.sessionId],
+      foreignColumns: [registrationSessions.id],
+    }).onDelete('set null'),
     index('idx_pre_members_phone').on(t.phone),
     index('idx_pre_members_email').on(sql`lower(${t.email})`),
     // One promotion per member row.
