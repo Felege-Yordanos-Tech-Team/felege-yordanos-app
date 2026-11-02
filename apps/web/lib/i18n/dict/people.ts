@@ -67,6 +67,8 @@ export const people: Record<string, string> = {
     'የራስዎን የዋና አስተዳዳሪ ሚና ማስወገድ አይችሉም።',
   'User not found.': 'ተጠቃሚው አልተገኘም።',
   'Department not found.': 'ክፍሉ አልተገኘም።',
+  'A department is required for department heads.':
+    'ለክፍል ኃላፊዎች ክፍል መመደብ ያስፈልጋል።',
   'Invalid role.': 'ልክ ያልሆነ ሚና።',
   'Invalid department.': 'ልክ ያልሆነ ክፍል።',
 

@@ -115,7 +115,13 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
   }
 
   async function handleSave() {
-    if (!selected) return;
+    if (
+      !selected ||
+      saving ||
+      (editRole === 'dept_head' && !editDeptId)
+    ) {
+      return;
+    }
     setSaving(true);
     const res = await updateUserRole({
       userId: selected.id,
@@ -353,6 +359,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                 value={editRole}
                 onValueChange={(v) => {
                   setEditRole(v as UserRole);
+                  // Department assignments only apply to department heads.
                   if (v !== 'dept_head') setEditDeptId('');
                 }}
               >
@@ -378,6 +385,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                 <Select value={editDeptId} onValueChange={setEditDeptId}>
                   <SelectTrigger
                     aria-label={t('Department')}
+                    aria-required
                     className={cn(SELECT_TRIGGER, 'font-ethiopic')}
                   >
                     <SelectValue placeholder={t('Select department')} />
@@ -400,7 +408,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
             <button
               type="button"
               onClick={handleSave}
-              disabled={saving}
+              disabled={saving || (editRole === 'dept_head' && !editDeptId)}
               className="sacred-gradient mt-2 flex w-full items-center justify-center gap-2 rounded-xl border border-gold/40 py-3 text-[13px] font-semibold tracking-[0.04em] text-cream shadow-fy-md transition-opacity hover:opacity-95 disabled:opacity-60"
             >
               {saving ? t('Saving…') : t('Save changes')}

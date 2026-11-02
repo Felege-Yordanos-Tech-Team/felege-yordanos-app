@@ -1,4 +1,4 @@
-import { and, eq, gte, inArray, or, type SQL } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, or, type SQL } from 'drizzle-orm';
 import {
   attendance,
   db,
@@ -14,6 +14,7 @@ import {
   DoorOpen,
   Megaphone,
   Music,
+  Sprout,
   UserCheck,
   Users,
   Wallet,
@@ -21,13 +22,16 @@ import {
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { intlLocale } from '@/lib/i18n/config';
+import { todayYmd } from '@/lib/events';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { bilingual } from '@/lib/i18n/translate';
 import { cn } from '@/lib/utils';
 import { requireUser, type CurrentUser } from '@/lib/session';
 import { adminHrefsFor } from '@/lib/nav';
+import { countPendingPreMembers } from '@/lib/pre-member-queries';
 import {
   canAccessAdmin,
+  canManagePreMembers,
   canReviewDonations,
   canViewAllAttendance,
   canViewAllProfiles,
@@ -41,7 +45,8 @@ interface AdminLinkDef {
   description: string;
   cta: string;
   featured?: boolean;
-  showBadge?: boolean;
+  /** "N pending" badge: pending donations or pending pre-members. */
+  badge?: 'donations' | 'pre_members';
 }
 
 const adminLinks: AdminLinkDef[] = [
@@ -87,7 +92,7 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Donations',
     description: 'Verify tithes, special contributions, and charitable funds.',
     cta: 'Verification queue',
-    showBadge: true,
+    badge: 'donations',
   },
   {
     href: '/admin/member-links',
@@ -96,6 +101,16 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Member links',
     description: 'Confirm which account belongs to which registered member.',
     cta: 'Review requests',
+  },
+  {
+    href: '/admin/pre-members',
+    icon: Sprout,
+    am: 'ቅድመ አባላት',
+    en: 'Pre-members',
+    description:
+      'Register, approve and promote people who are not registered members yet.',
+    cta: 'Manage pre-members',
+    badge: 'pre_members',
   },
   {
     href: '/admin/users',
@@ -147,17 +162,21 @@ export default async function AdminDashboard() {
   const [t, locale] = await Promise.all([getT(), getLocale()]);
   const am = locale === 'am';
 
-  const today = new Date().toISOString().split('T')[0];
-  const startOfToday = new Date(`${today}T00:00:00.000Z`);
+  const today = todayYmd();
+  // Count check-ins from Ethiopian midnight (21:00 UTC the previous day).
+  const startOfToday = new Date(`${today}T00:00:00+03:00`);
+  const startOfTomorrow = new Date(startOfToday.getTime() + 24 * 60 * 60 * 1000);
 
   // Counts are scoped exactly like the old RLS policies: reviewers see every
   // pending donation, others only their own; only admins see all profiles.
-  const [todayCheckIns, pendingDonations, membersTotal] = await Promise.all([
+  const [todayCheckIns, pendingDonations, membersTotal, pendingPreMembers] =
+    await Promise.all([
     db.$count(
       attendance,
       and(
         inArray(attendance.status, ['present', 'late']),
         gte(attendance.createdAt, startOfToday),
+        lt(attendance.createdAt, startOfTomorrow),
         visibleAttendance(user),
       ),
     ),
@@ -172,6 +191,9 @@ export default async function AdminDashboard() {
       profiles,
       canViewAllProfiles(user) ? undefined : eq(profiles.id, user.id),
     ),
+    canManagePreMembers(user)
+      ? countPendingPreMembers()
+      : Promise.resolve(0),
   ]);
 
   // Only the pages this user may open (same rules as the sidebar).
@@ -246,7 +268,7 @@ export default async function AdminDashboard() {
               >
                 {t(s.en)}
               </div>
-              <div className="mt-0.5 font-display text-[26px] font-medium leading-none tabular-nums text-brand dark:text-gold md:mt-2 md:text-[34px]">
+              <div className="mt-0.5 font-display text-[26px] font-medium leading-none tabular-nums lining-nums text-brand dark:text-gold md:mt-2 md:text-[34px]">
                 {num.format(s.value)}
               </div>
               <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-ink-muted md:mt-1 md:text-[10.5px]">
@@ -269,9 +291,15 @@ export default async function AdminDashboard() {
           const featured = link.featured;
           const Icon = link.icon;
           const title = bilingual(locale, link.en, link.am);
+          const pendingCount =
+            link.badge === 'donations'
+              ? pendingDonations
+              : link.badge === 'pre_members'
+                ? pendingPreMembers
+                : 0;
           const badge =
-            link.showBadge && pendingDonations > 0
-              ? t('{n} pending', { n: num.format(pendingDonations) })
+            pendingCount > 0
+              ? t('{n} pending', { n: num.format(pendingCount) })
               : null;
           return (
             <Link
