@@ -17,7 +17,7 @@ import {
 } from '@/lib/events';
 import { cn } from '@/lib/utils';
 import { eventStartAt } from '@/lib/check-in-window';
-import { EventFormDialog } from './event-form-dialog';
+import { EventFormDialog, type EventSmsProps } from './event-form-dialog';
 import { AudienceTag } from '@/components/forms/audience-tag';
 import {
   EventsCalendar,
@@ -70,6 +70,7 @@ interface EventsListProps {
   canCreate: boolean;
   /** May choose any department, or none (canManageAllEvents). */
   canPickDepartment: boolean;
+  sms: EventSmsProps;
 }
 
 type DialogState = {
@@ -107,6 +108,7 @@ export function EventsList({
   editableIds,
   canCreate,
   canPickDepartment,
+  sms,
 }: EventsListProps) {
   const router = useRouter();
   const t = useT();
@@ -555,6 +557,7 @@ export function EventsList({
         lockDepartment={!canPickDepartment}
         seriesEvents={seriesEvents}
         attendedIds={attendedSet}
+        sms={sms}
       />
     </>
   );

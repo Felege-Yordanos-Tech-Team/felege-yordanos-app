@@ -14,6 +14,13 @@ import {
   canViewPeople,
   canViewPersonAttendance,
   closableFrom,
+  canSendMessages,
+  canGrantMessaging,
+  canReceiveMessagingGrant,
+  canViewBroadcast,
+  canCancelBroadcast,
+  canSetEventReminder,
+  canChangeSmsOptOut,
 } from './permissions';
 
 // Department 2 event, Sunday 15:30 EAT, check-in 15:10–15:50.
@@ -147,5 +154,63 @@ describe('canViewPeople / canViewPersonAttendance', () => {
     assert.equal(canViewPersonAttendance(head, other), false);
     assert.equal(canViewPersonAttendance(programsHead, other), true);
     assert.equal(canViewPersonAttendance(admin, { authUserId: null }), true);
+  });
+});
+
+describe('messages (SMS)', () => {
+  const grantedHead = { ...head, canSendMessages: true };
+  const plainHead = { ...head, canSendMessages: false };
+  const superAdmin = { id: 's', role: 'super_admin' as const, departmentId: null, canSendMessages: false };
+  const adminWithFlag = { ...admin, canSendMessages: true };
+  const memberWithFlag = { ...member, canSendMessages: true };
+  const headWithoutDept = { id: 'x', role: 'dept_head' as const, departmentId: null, canSendMessages: true };
+
+  it('super admins always, department heads only when granted', () => {
+    assert.equal(canSendMessages(superAdmin), true);
+    assert.equal(canSendMessages(grantedHead), true);
+    assert.equal(canSendMessages(plainHead), false);
+    assert.equal(canSendMessages(headWithoutDept), false);
+  });
+
+  it('admins and members never, even with the flag', () => {
+    assert.equal(canSendMessages(adminWithFlag), false);
+    assert.equal(canSendMessages(memberWithFlag), false);
+  });
+
+  it('only super admins grant, only department heads can be granted', () => {
+    assert.equal(canGrantMessaging(superAdmin), true);
+    assert.equal(canGrantMessaging(admin), false);
+    assert.equal(canGrantMessaging(head), false);
+    assert.equal(canReceiveMessagingGrant({ role: 'dept_head' }), true);
+    assert.equal(canReceiveMessagingGrant({ role: 'admin' }), false);
+    assert.equal(canReceiveMessagingGrant({ role: 'member' }), false);
+  });
+
+  it('super admins see every broadcast, senders their own', () => {
+    const own = { createdBy: grantedHead.id };
+    const other = { createdBy: 'someone-else' };
+    assert.equal(canViewBroadcast(superAdmin, other), true);
+    assert.equal(canViewBroadcast(grantedHead, own), true);
+    assert.equal(canViewBroadcast(grantedHead, other), false);
+    assert.equal(canCancelBroadcast(grantedHead, other), false);
+    // The right was taken away: not even their own.
+    assert.equal(canViewBroadcast(plainHead, own), false);
+    assert.equal(canViewBroadcast(adminWithFlag, { createdBy: admin.id }), false);
+  });
+
+  it('event reminders: may edit the event and may send', () => {
+    assert.equal(canSetEventReminder(grantedHead, { departmentId: 2 }), true);
+    assert.equal(canSetEventReminder(grantedHead, { departmentId: 6 }), false);
+    assert.equal(canSetEventReminder(plainHead, { departmentId: 2 }), false);
+    assert.equal(canSetEventReminder(adminWithFlag, { departmentId: 2 }), false);
+    assert.equal(canSetEventReminder(superAdmin, { departmentId: 6 }), true);
+  });
+
+  it('SMS opt-out: people with a linked record', () => {
+    const base = { emailVerified: true, memberRecordId: null, preMemberRecordId: null };
+    assert.equal(canChangeSmsOptOut(base), false);
+    assert.equal(canChangeSmsOptOut({ ...base, memberRecordId: 1 }), true);
+    assert.equal(canChangeSmsOptOut({ ...base, preMemberRecordId: 3 }), true);
+    assert.equal(canChangeSmsOptOut({ ...base, memberRecordId: 1, emailVerified: false }), false);
   });
 });

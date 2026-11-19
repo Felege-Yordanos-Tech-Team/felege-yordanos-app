@@ -7,7 +7,9 @@ import {
   profiles,
 } from '@felege-yordanos/db/server';
 import { PageHead } from '@/components/ds';
+import { canChangeSmsOptOut } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
+import { SmsSetting } from './sms-setting';
 import { PreMemberDetailsForm } from './pre-member-details-form';
 import { ProfileForm } from './profile-form';
 
@@ -29,6 +31,7 @@ export default async function ProfilePage() {
         grandfatherName: members.grandfatherName,
         gender: members.gender,
         addressPhone: members.addressPhone,
+        smsOptOut: members.smsOptOut,
       })
       .from(members)
       .where(eq(members.authUserId, user.id))
@@ -79,6 +82,9 @@ export default async function ProfilePage() {
         preMember={!member && !!pre}
         deptName={deptName}
       />
+      {canChangeSmsOptOut(user) && (member || pre) && (
+        <SmsSetting receive={!(member ? member.smsOptOut : pre?.smsOptOut)} />
+      )}
       {pre && (
         <PreMemberDetailsForm
           initial={{

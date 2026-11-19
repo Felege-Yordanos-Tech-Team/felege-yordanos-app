@@ -9,6 +9,7 @@ import {
   ATTENDANCE_STATUSES,
   AUDIENCES,
   db,
+  eventReminders,
   events,
   preMembers,
   RECURRENCES,
@@ -36,9 +37,19 @@ import {
   canEditEvent,
   canMarkAttendance,
   canReopenEvent,
+  canSetEventReminder,
   canViewEventAttendance,
 } from '@/lib/permissions';
 import { requireUser, type CurrentUser } from '@/lib/session';
+import { defaultReminderText } from '@/lib/sms/reminder-time';
+import {
+  cancelReminder,
+  deleteReminder,
+  reminderInputRefusal,
+  rescheduleReminder,
+  saveReminder,
+  type ReminderEvent,
+} from '@/lib/sms/reminders';
 
 /* ─── Validation ───────────────────────────────────────────── */
 
@@ -83,6 +94,14 @@ const eventFields = z.object({
   // Check-in window around the start time, in minutes.
   checkInOpensBeforeMin: windowMinutes,
   checkInClosesAfterMin: windowMinutes,
+  // SMS reminder; undefined = leave it as it is (lib/sms/reminders.ts).
+  reminder: z
+    .object({
+      enabled: z.boolean(),
+      daysBefore: z.number().int('Enter whole days.'),
+      text: z.string().max(1000).nullable(),
+    })
+    .optional(),
 });
 
 export type EventInput = z.input<typeof eventFields>;
@@ -96,6 +115,17 @@ export type CreateEventInput = z.input<typeof createEventSchema>;
 
 const firstIssue = (error: z.ZodError, fallback: string) =>
   error.issues[0]?.message ?? fallback;
+
+type ReminderFields = NonNullable<z.output<typeof eventFields>['reminder']>;
+
+/** Blank or default text is stored as null (follows the event). */
+const reminderInput = (r: ReminderFields, event: Omit<ReminderEvent, 'id'>) => {
+  const text = r.text?.trim() || null;
+  return {
+    daysBefore: r.daysBefore,
+    text: text === defaultReminderText(event).trim() ? null : text,
+  };
+};
 
 /* ─── Helpers ──────────────────────────────────────────────── */
 
@@ -139,9 +169,11 @@ export async function createEvent(
 
   const parsed = createEventSchema.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error, 'Invalid event.'));
-  const { recurrence, until, ...fields } = parsed.data;
+  const { recurrence, until, reminder, ...fields } = parsed.data;
 
   if (!canCreateEvent(user, fields.departmentId)) return fail(NOT_ALLOWED);
+  const withReminder = !!reminder?.enabled;
+  if (withReminder && !canSetEventReminder(user, fields)) return fail(NOT_ALLOWED);
 
   const base = { ...fields, createdBy: user.id };
   let rows: (typeof events.$inferInsert)[];
@@ -164,8 +196,32 @@ export async function createEvent(
     );
   }
 
+  if (withReminder && reminder) {
+    for (const row of rows) {
+      const refusal = reminderInputRefusal(
+        { title: row.title, eventDate: row.eventDate, startTime: row.startTime ?? null },
+        reminderInput(reminder, {
+          title: row.title,
+          eventDate: row.eventDate,
+          startTime: row.startTime ?? null,
+        }),
+      );
+      if (refusal) return fail(refusal);
+    }
+  }
+
   try {
-    await db.insert(events).values(rows);
+    await db.transaction(async (tx) => {
+      const inserted = await tx.insert(events).values(rows).returning({
+        id: events.id,
+        title: events.title,
+        eventDate: events.eventDate,
+        startTime: events.startTime,
+      });
+      if (withReminder && reminder)
+        for (const e of inserted)
+          await saveReminder(tx, e, reminderInput(reminder, e), user.id);
+    });
   } catch (err) {
     if (isForeignKeyViolation(err)) return fail('Unknown department.');
     console.error('[events] create failed:', err);
@@ -194,9 +250,46 @@ export async function updateEvent(
   const event = await loadEvent(idParsed.data);
   if (!event) return fail('Event not found.');
   if (!canEditEvent(user, event)) return fail(NOT_ALLOWED);
+  const { reminder, ...fields } = parsed.data;
+  // The reminder: only who may send messages, for the stored and new department.
+  if (
+    reminder &&
+    (!canSetEventReminder(user, event) || !canSetEventReminder(user, fields))
+  )
+    return fail(NOT_ALLOWED);
+  const updated: ReminderEvent = {
+    id: event.id,
+    title: fields.title,
+    eventDate: fields.eventDate,
+    startTime: fields.startTime,
+  };
+  if (reminder?.enabled) {
+    const refusal = reminderInputRefusal(updated, reminderInput(reminder, updated));
+    if (refusal) return fail(refusal);
+  }
 
   try {
-    await db.update(events).set(parsed.data).where(eq(events.id, event.id));
+    const error = await db.transaction(async (tx) => {
+      await tx.update(events).set(fields).where(eq(events.id, event.id));
+      if (!reminder) {
+        // Moves with the event (or is cancelled when it no longer works).
+        await rescheduleReminder(tx, updated);
+        return null;
+      }
+      const [current] = await tx
+        .select({ status: eventReminders.status })
+        .from(eventReminders)
+        .where(eq(eventReminders.eventId, event.id))
+        .for('update')
+        .limit(1);
+      const gone = current?.status === 'sent' || current?.status === 'paused';
+      if (gone) return 'This reminder has already been sent.';
+      if (reminder.enabled)
+        await saveReminder(tx, updated, reminderInput(reminder, updated), user.id);
+      else await deleteReminder(tx, event.id);
+      return null;
+    });
+    if (error) return fail(error);
   } catch (err) {
     if (isForeignKeyViolation(err)) return fail('Unknown department.');
     console.error('[events] update failed:', err);
@@ -692,6 +785,8 @@ export async function closeEvent(
         .where(and(eq(events.id, event.id), isNull(events.closedAt)))
         .returning({ id: events.id });
       if (!closed) return null;
+      // A reminder that has not gone out is not sent for a closed event.
+      await cancelReminder(tx, event.id);
       return insertAutoAbsents(tx, event, user.id);
     });
     if (markedAbsent === null) return fail('This event is already closed.');
