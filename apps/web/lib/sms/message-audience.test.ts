@@ -54,7 +54,7 @@ describe('selectRecipients', () => {
       recipients: 3,
       ethio: 2,
       safaricom: 1,
-      skipped: { child_member: 0, no_phone: 1, invalid_phone: 1, opted_out: 1, duplicate_phone: 0 },
+      skipped: { inactive: 0, child_member: 0, no_phone: 1, invalid_phone: 1, opted_out: 1, duplicate_phone: 0 },
     });
   });
 

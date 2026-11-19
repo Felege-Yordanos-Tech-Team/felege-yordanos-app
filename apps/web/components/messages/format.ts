@@ -10,7 +10,19 @@ export const MESSAGE_AUDIENCE_LABEL: Record<BroadcastAudience, string> = {
   pre_members: 'Pre-members',
   everyone: 'Members & pre-members',
   event: 'Expected at an event',
+  selected: 'Selected people',
 };
+
+/** Member types (member_types.name), English (translated in the UI). */
+export const MEMBER_TYPE_LABEL: Record<string, string> = {
+  Regular: 'Regular',
+  Regular_Youth: 'Children (regular)',
+  Special_Regular: 'Special regular',
+  Honorary: 'Honorary',
+};
+
+export const memberTypeLabel = (name: string): string =>
+  MEMBER_TYPE_LABEL[name] ?? name.replace(/_/g, ' ');
 
 /** "Nov 19, 14:05" in Addis Ababa time. */
 export function formatSentAt(d: Date | string, locale: Locale): string {
@@ -32,6 +44,7 @@ export function formatScheduled(d: Date | string, locale: Locale): string {
 
 /** Why a person was skipped (English, translated in the UI). */
 export const SKIP_LABEL: Record<SkipReason, string> = {
+  inactive: 'No longer active',
   child_member: 'Child member',
   no_phone: 'No phone number',
   invalid_phone: 'Not a mobile number',

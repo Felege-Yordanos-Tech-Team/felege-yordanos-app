@@ -9,7 +9,7 @@ import { getLocale, getT } from '@/lib/i18n/server';
 import { canCancelBroadcast, canEditBroadcast, canViewBroadcast } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 import type { SkipReason } from '@/lib/sms/message-audience';
-import { loadBroadcast, loadRecipients } from '@/lib/sms/message-queries';
+import { loadBroadcast, loadRecipients, loadTargetOptions } from '@/lib/sms/message-queries';
 import { signatureSuffix } from '@/lib/sms/split';
 import { smsSignature } from '@/lib/sms/transport';
 import { BroadcastActions } from './broadcast-actions';
@@ -60,6 +60,9 @@ export default async function BroadcastPage({
   const finished = b.totals.sent + b.totals.failed;
   const pct = total ? Math.round((finished / total) * 100) : 100;
   const sig = signatureSuffix(smsSignature());
+  // Audience 'selected' before it went out: the chosen people.
+  const chosen =
+    notStarted && b.audience === 'selected' ? await loadTargetOptions(b.id) : [];
 
   return (
     <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:max-w-[1040px] md:px-7 md:py-7">
@@ -105,7 +108,9 @@ export default async function BroadcastPage({
                 <span className="font-semibold">
                   {t('Goes out {when}.', { when: formatScheduled(b.scheduledAt, locale) })}
                 </span>{' '}
-                {t('Recipients are worked out when it goes out.')}
+                {b.audience === 'selected'
+                  ? t('Each person is checked again when it goes out.')
+                  : t('Recipients are worked out when it goes out.')}
               </p>
             )}
             {b.status === 'missed' && (
@@ -146,7 +151,9 @@ export default async function BroadcastPage({
             </>)}
             <dl className="space-y-1 border-t border-parchment-edge pt-3 text-[12px]">
               <Row label={t('Audience')}>
-                {b.audience === 'event' && b.eventTitle
+                {b.audience === 'selected'
+                  ? t('Selected people ({n})', { n: b.targetCount })
+                  : b.audience === 'event' && b.eventTitle
                   ? `${t('Event')}: ${b.eventTitle}`
                   : t(MESSAGE_AUDIENCE_LABEL[b.audience])}
               </Row>
@@ -178,10 +185,40 @@ export default async function BroadcastPage({
 
         <Card className="p-0">
           <div className="border-b border-parchment-edge px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
-            {t('Recipients')}
+            {chosen.length > 0 ? t('Selected people') : t('Recipients')}
             {!notStarted && ` · ${recipients.length}`}
+            {chosen.length > 0 && ` · ${chosen.length}`}
           </div>
-          {notStarted && (
+          {chosen.length > 0 && (
+            <>
+              {scheduled && (
+                <p className="border-b border-parchment-edge px-4 py-2.5 text-[11.5px] text-ink-muted">
+                  {t('Each person is checked again when it goes out: anyone who has left, turned off SMS, lost their number or is a child member by then is skipped.')}
+                </p>
+              )}
+              <ul className="divide-y divide-parchment-edge">
+                {chosen.map((p) => (
+                  <li key={`${p.kind}:${p.id}`} className="flex items-center gap-3 px-4 py-2.5">
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-[13px] font-medium text-ink">
+                        {p.name} {p.fatherName}
+                      </div>
+                      <div className="mt-0.5 flex flex-wrap gap-x-2 font-mono text-[10.5px] text-ink-muted">
+                        <span>{p.code}</span>
+                        {p.kind === 'pre_member' && <span className="font-body text-pre">{t('Pre-member')}</span>}
+                      </div>
+                    </div>
+                    {p.reason && (
+                      <span className="shrink-0 text-[10.5px] font-medium text-status-absent">
+                        {t(SKIP_LABEL[p.reason])}
+                      </span>
+                    )}
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          {notStarted && chosen.length === 0 && (
             <p className="px-4 py-6 text-center text-[12.5px] text-ink-muted">
               {scheduled
                 ? t('Recipients are worked out when it goes out: people who join, leave or turn off SMS before then are handled.')

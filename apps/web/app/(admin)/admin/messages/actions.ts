@@ -25,18 +25,38 @@ import {
   insertBroadcast,
   insertScheduledBroadcast,
   loadSelection,
+  loadTargetCandidates,
   ownPhone,
+  replaceTargets,
+  searchPeople,
 } from '@/lib/sms/message-queries';
 import { eatMoment, sendLaterRefusal } from '@/lib/sms/schedule';
+import {
+  checkTargets,
+  confirmNames,
+  personOption,
+  searchText,
+  TARGET_ERRORS,
+  type PersonOption,
+  type TargetRef,
+} from '@/lib/sms/selected-people';
 import { estimateCredits, MAX_PARTS, splitSms } from '@/lib/sms/split';
 import { smsSignature, smsTransport } from '@/lib/sms/transport';
 
 const MAX_TEXT = 1000;
 
+const targetSchema = z.object({
+  kind: z.enum(['member', 'pre_member']),
+  id: z.number().int().positive(),
+});
+
 const audienceSchema = z
   .object({
     audience: z.enum(MESSAGE_AUDIENCES),
     eventId: z.guid('Choose an event.').nullable(),
+    // Audience 'selected': the chosen people (checked by resolveTargets;
+    // the limit of 200 counts each person once).
+    targets: z.array(targetSchema).max(1000, TARGET_ERRORS.tooMany).default([]),
   })
   .refine((v) => v.audience !== 'event' || v.eventId !== null, {
     message: 'Choose an event.',
@@ -87,6 +107,24 @@ function splitRefusal(text: string): { parts: string[] } | { error: string } {
   };
 }
 
+/**
+ * Audience 'selected': the chosen people, checked against their records now
+ * (exist, active, can get SMS, at most 200). Anyone who cannot is refused,
+ * never silently skipped. Other audiences: none.
+ */
+async function resolveTargets(input: {
+  audience: (typeof MESSAGE_AUDIENCES)[number];
+  targets: TargetRef[];
+}): Promise<{ targets: TargetRef[] } | { error: string }> {
+  if (input.audience !== 'selected') return { targets: [] };
+  if (!input.targets.length) return { error: TARGET_ERRORS.none };
+  const checked = checkTargets(
+    input.targets,
+    await loadTargetCandidates(input.targets.slice(0, 1000)),
+  );
+  return checked.ok ? { targets: checked.targets } : { error: checked.error };
+}
+
 async function requireSender(): Promise<CurrentUser | null> {
   const user = await requireUser();
   return canSendMessages(user) ? user : null;
@@ -105,12 +143,19 @@ export interface AudiencePreview {
 export async function previewAudience(input: {
   audience: (typeof MESSAGE_AUDIENCES)[number];
   eventId: string | null;
+  targets?: TargetRef[];
 }): Promise<ActionResult<AudiencePreview>> {
   const user = await requireSender();
   if (!user) return fail(NOT_ALLOWED);
   const parsed = audienceSchema.safeParse(input);
   if (!parsed.success) return fail(firstIssue(parsed.error));
-  const loaded = await loadSelection(parsed.data.audience, parsed.data.eventId);
+  const chosen = await resolveTargets(parsed.data);
+  if ('error' in chosen) return fail(chosen.error);
+  const loaded = await loadSelection(
+    parsed.data.audience,
+    parsed.data.eventId,
+    chosen.targets,
+  );
   if (!loaded) return fail('Event not found.');
   const transport = smsTransport();
   return ok({
@@ -127,6 +172,8 @@ export interface PreparedBroadcast {
   summary: SelectionSummary;
   credits: number;
   balance: number | null;
+  /** Audience 'selected': the first names and how many more. */
+  people: { names: string[]; more: number } | null;
 }
 
 /**
@@ -152,7 +199,13 @@ export async function prepareBroadcast(
   const transport = smsTransport();
   if (!transport.configured) return fail('SMS is not configured.');
 
-  const loaded = await loadSelection(parsed.data.audience, parsed.data.eventId);
+  const chosen = await resolveTargets(parsed.data);
+  if ('error' in chosen) return fail(chosen.error);
+  const loaded = await loadSelection(
+    parsed.data.audience,
+    parsed.data.eventId,
+    chosen.targets,
+  );
   if (!loaded) return fail('Event not found.');
   const summary = summarize(loaded.selection);
   // Later: people are counted again when it goes out.
@@ -175,6 +228,10 @@ export async function prepareBroadcast(
     summary,
     credits: estimateCredits(split.parts.length, summary),
     balance: transport.hasBalance ? await transport.balance() : null,
+    people:
+      parsed.data.audience === 'selected'
+        ? confirmNames(loaded.selection.recipients)
+        : null,
   });
 }
 
@@ -202,7 +259,13 @@ export async function createBroadcast(
   const transport = smsTransport();
   if (!transport.configured) return fail('SMS is not configured.');
 
-  const loaded = await loadSelection(parsed.data.audience, parsed.data.eventId);
+  const chosen = await resolveTargets(parsed.data);
+  if ('error' in chosen) return fail(chosen.error);
+  const loaded = await loadSelection(
+    parsed.data.audience,
+    parsed.data.eventId,
+    chosen.targets,
+  );
   if (!loaded) return fail('Event not found.');
 
   if (when.at) {
@@ -217,6 +280,7 @@ export async function createBroadcast(
         eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
         createdBy: user.id,
         scheduledAt,
+        targets: chosen.targets,
       }),
     );
     revalidatePath('/admin/messages');
@@ -247,6 +311,7 @@ export async function createBroadcast(
       origin: 'manual',
       createdBy: user.id,
       selection: loaded.selection,
+      targets: chosen.targets,
     }),
   );
   revalidatePath('/admin/messages');
@@ -282,10 +347,42 @@ export async function sendTestToSelf(input: {
   return ok({ sent });
 }
 
+const searchSchema = z.object({
+  q: z.string().max(200),
+  kind: z.enum(['member', 'pre_member']).nullable().default(null),
+  memberTypeId: z.number().int().positive().nullable().default(null),
+});
+
+/**
+ * Search for the "Selected people" picker: active members and pre-members
+ * by name, father's name or ID, at most 20, with a masked number and why
+ * someone cannot be chosen. A POST (server action), so the search text is
+ * never in a URL. Permission: canSendMessages; 60 per minute.
+ */
+export async function searchPeopleForSms(
+  input: z.input<typeof searchSchema>,
+): Promise<ActionResult<PersonOption[]>> {
+  const user = await requireSender();
+  if (!user) return fail(NOT_ALLOWED);
+  const parsed = searchSchema.safeParse(input);
+  if (!parsed.success) return fail('Invalid input.');
+  const text = searchText(parsed.data.q);
+  if (!text) return fail('Type at least 2 letters.');
+  if (!(await hitRateLimit(db, `sms:search:${user.id}`, 60, 60)))
+    return fail('Too many searches. Please wait a minute.');
+  const people = await searchPeople({
+    text,
+    kind: parsed.data.kind,
+    memberTypeId: parsed.data.memberTypeId,
+  });
+  return ok(people.map(personOption));
+}
+
 const idSchema = z.guid('Message not found.');
 
 /**
- * Changes a scheduled broadcast (text, audience, time) before it goes out.
+ * Changes a scheduled broadcast (text, audience, chosen people, time) before
+ * it goes out.
  * Same checks as scheduling it. Permission: canSendMessages and
  * canEditBroadcast (super admins, or the sender); status 'scheduled' only.
  */
@@ -318,24 +415,32 @@ export async function updateScheduledBroadcast(
   const when = scheduledMoment(parsed.data.sendAt);
   if ('error' in when) return fail(when.error);
   if (!when.at) return fail('Choose a date and time.');
-  if (!(await loadSelection(parsed.data.audience, parsed.data.eventId)))
+  const scheduledAt = when.at;
+  const chosen = await resolveTargets(parsed.data);
+  if ('error' in chosen) return fail(chosen.error);
+  if (parsed.data.audience === 'event' && !(await loadSelection('event', parsed.data.eventId)))
     return fail('Event not found.');
 
   // The worker locks the row when it fires: then the status is no longer
-  // 'scheduled' and nothing changes.
-  const [done] = await db
-    .update(messageBroadcasts)
-    .set({
-      text: parsed.data.text.trim(),
-      parts: split.parts,
-      audience: parsed.data.audience,
-      eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
-      scheduledAt: when.at,
-    })
-    .where(
-      and(eq(messageBroadcasts.id, b.id), eq(messageBroadcasts.status, 'scheduled')),
-    )
-    .returning({ id: messageBroadcasts.id });
+  // 'scheduled' and nothing changes. The chosen people change in the same
+  // transaction, after the row is locked by the update.
+  const done = await db.transaction(async (tx) => {
+    const [row] = await tx
+      .update(messageBroadcasts)
+      .set({
+        text: parsed.data.text.trim(),
+        parts: split.parts,
+        audience: parsed.data.audience,
+        eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
+        scheduledAt,
+      })
+      .where(
+        and(eq(messageBroadcasts.id, b.id), eq(messageBroadcasts.status, 'scheduled')),
+      )
+      .returning({ id: messageBroadcasts.id });
+    if (row) await replaceTargets(tx, b.id, chosen.targets);
+    return !!row;
+  });
   if (!done) return fail('This message has already started.');
   revalidatePath('/admin/messages');
   revalidatePath(`/admin/messages/${b.id}`);

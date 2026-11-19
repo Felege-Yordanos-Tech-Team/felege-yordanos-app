@@ -4,6 +4,8 @@
  * check-in list) with their phones and opt-out, this module picks the
  * recipients.
  *
+ * - No longer active (audience 'selected' only: the chosen people are
+ *   checked again when a scheduled message goes out): skipped ('inactive').
  * - Child members (member type in SMS_EXCLUDED_MEMBER_TYPES, the register's
  *   "ህጻናት መደበኛ"): skipped ('child_member'), checked first so a child is
  *   always counted as a child. No type = adult. Pre-members are never
@@ -22,6 +24,7 @@ export const MESSAGE_AUDIENCES = [
   'pre_members',
   'everyone',
   'event',
+  'selected',
 ] as const;
 export type MessageAudience = (typeof MESSAGE_AUDIENCES)[number];
 
@@ -29,6 +32,7 @@ export type MessageAudience = (typeof MESSAGE_AUDIENCES)[number];
 export const SMS_EXCLUDED_MEMBER_TYPES: readonly string[] = ['Regular_Youth'];
 
 export const SKIP_REASONS = [
+  'inactive',
   'child_member',
   'no_phone',
   'invalid_phone',
@@ -48,6 +52,32 @@ export interface Candidate {
   optOut: boolean;
   /** member_types.name of a member; null or missing = no type (adult). */
   memberType?: string | null;
+  /** Active record (members.status 'Active', pre_members 'active'); missing = active. */
+  active?: boolean;
+}
+
+/** Why one person cannot get SMS (every skip reason but a shared number). */
+export type NotSelectableReason = Exclude<SkipReason, 'duplicate_phone'>;
+
+/**
+ * Whether one person can get SMS, with the number to use, or why not, in
+ * this order: no longer active, child member, opted out, no or no mobile
+ * number. A shared number is decided over the whole list (selectRecipients).
+ */
+export function selectable(
+  c: Candidate,
+): { ok: true; phone: string } | { ok: false; reason: NotSelectableReason } {
+  if (c.active === false) return { ok: false, reason: 'inactive' };
+  if (
+    c.kind === 'member' &&
+    c.memberType != null &&
+    SMS_EXCLUDED_MEMBER_TYPES.includes(c.memberType)
+  )
+    return { ok: false, reason: 'child_member' };
+  if (c.optOut) return { ok: false, reason: 'opted_out' };
+  const picked = pickPhone(c.phones);
+  if ('skip' in picked) return { ok: false, reason: picked.skip };
+  return { ok: true, phone: picked.phone };
 }
 
 export interface Recipient {
@@ -98,21 +128,9 @@ export function selectRecipients(candidates: Candidate[]): Selection {
       name: c.name,
       fatherName: c.fatherName,
     };
-    if (
-      c.kind === 'member' &&
-      c.memberType != null &&
-      SMS_EXCLUDED_MEMBER_TYPES.includes(c.memberType)
-    ) {
-      skipped.push({ ...person, reason: 'child_member' });
-      continue;
-    }
-    if (c.optOut) {
-      skipped.push({ ...person, reason: 'opted_out' });
-      continue;
-    }
-    const picked = pickPhone(c.phones);
-    if ('skip' in picked) {
-      skipped.push({ ...person, reason: picked.skip });
+    const picked = selectable(c);
+    if (!picked.ok) {
+      skipped.push({ ...person, reason: picked.reason });
       continue;
     }
     if (seenPhones.has(picked.phone)) {
