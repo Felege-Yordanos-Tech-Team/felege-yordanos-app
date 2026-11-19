@@ -7,13 +7,20 @@ import { todayYmd } from '@/lib/events';
 import { getT } from '@/lib/i18n/server';
 import { canEditBroadcast, canSendMessages } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
-import { loadBroadcast, loadComposeEvents, ownPhone } from '@/lib/sms/message-queries';
+import {
+  loadBroadcast,
+  loadComposeEvents,
+  loadMemberTypes,
+  loadTargetOptions,
+  ownPhone,
+} from '@/lib/sms/message-queries';
 import { maskPhone } from '@/lib/sms/phone';
 import { smsStatus } from '@/lib/sms/transport';
 import { ComposeForm } from '../../new/compose-form';
 
 /**
- * Edit a scheduled broadcast (text, audience, time) with the compose form.
+ * Edit a scheduled broadcast (text, audience, chosen people, time) with the
+ * compose form.
  * Permission: canSendMessages and canEditBroadcast; status 'scheduled'.
  */
 export default async function EditMessagePage({
@@ -29,7 +36,12 @@ export default async function EditMessagePage({
   if (!b || !canEditBroadcast(user, b)) notFound();
   if (b.status !== 'scheduled' || !b.scheduledAt) redirect(`/admin/messages/${b.id}`);
   const t = await getT();
-  const [eventRows, phone] = await Promise.all([loadComposeEvents(), ownPhone(user)]);
+  const [eventRows, phone, memberTypes, people] = await Promise.all([
+    loadComposeEvents(),
+    ownPhone(user),
+    loadMemberTypes(),
+    b.audience === 'selected' ? loadTargetOptions(b.id) : Promise.resolve([]),
+  ]);
   // A scheduled message to an older event keeps it in the list.
   if (b.eventId && !eventRows.some((e) => e.id === b.eventId) && b.eventTitle && b.eventDate)
     eventRows.push({
@@ -58,6 +70,7 @@ export default async function EditMessagePage({
         events={eventRows}
         ownPhoneMasked={phone ? maskPhone(phone) : null}
         today={todayYmd()}
+        memberTypes={memberTypes}
         editing={{
           id: b.id,
           audience: b.audience,
@@ -65,6 +78,7 @@ export default async function EditMessagePage({
           text: b.text,
           date: eatDate(b.scheduledAt),
           time: eatTime(b.scheduledAt),
+          people,
         }}
       />
     </div>

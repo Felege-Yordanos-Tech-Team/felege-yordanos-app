@@ -98,7 +98,9 @@ export default async function MessagesPage() {
                   </p>
                   <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11.5px] text-ink-muted">
                     <span>
-                      {b.audience === 'event' && b.eventTitle
+                      {b.audience === 'selected'
+                        ? t('Selected people ({n})', { n: b.targetCount })
+                        : b.audience === 'event' && b.eventTitle
                         ? `${t('Event')}: ${b.eventTitle}`
                         : t(MESSAGE_AUDIENCE_LABEL[b.audience])}
                     </span>
@@ -112,7 +114,9 @@ export default async function MessagesPage() {
                       {b.status === 'missed'
                         ? t('Not sent: the server was down at the time.')
                         : b.status === 'scheduled'
-                          ? t('Recipients are worked out when it goes out.')
+                          ? b.audience === 'selected'
+                            ? t('Each person is checked again when it goes out.')
+                            : t('Recipients are worked out when it goes out.')
                           : t('Nobody received this message.')}
                     </p>
                   ) : (

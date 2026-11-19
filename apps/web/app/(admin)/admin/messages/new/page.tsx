@@ -6,7 +6,7 @@ import { todayYmd } from '@/lib/events';
 import { getT } from '@/lib/i18n/server';
 import { canSendMessages } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
-import { loadComposeEvents, ownPhone } from '@/lib/sms/message-queries';
+import { loadComposeEvents, loadMemberTypes, ownPhone } from '@/lib/sms/message-queries';
 import { maskPhone } from '@/lib/sms/phone';
 import { smsStatus } from '@/lib/sms/transport';
 import { ComposeForm } from './compose-form';
@@ -18,7 +18,11 @@ export default async function NewMessagePage() {
   const t = await getT();
 
   // Events from a month ago on, for "people expected at an event".
-  const [eventRows, phone] = await Promise.all([loadComposeEvents(), ownPhone(user)]);
+  const [eventRows, phone, memberTypes] = await Promise.all([
+    loadComposeEvents(),
+    ownPhone(user),
+    loadMemberTypes(),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:max-w-[1040px] md:px-7 md:py-7">
@@ -39,6 +43,7 @@ export default async function NewMessagePage() {
         events={eventRows}
         ownPhoneMasked={phone ? maskPhone(phone) : null}
         today={todayYmd()}
+        memberTypes={memberTypes}
       />
     </div>
   );

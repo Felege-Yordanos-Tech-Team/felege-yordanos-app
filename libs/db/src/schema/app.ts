@@ -899,6 +899,7 @@ export const BROADCAST_AUDIENCES = [
   'pre_members',
   'everyone',
   'event',
+  'selected',
 ] as const;
 export type BroadcastAudience = (typeof BROADCAST_AUDIENCES)[number];
 
@@ -930,7 +931,8 @@ export const messageBroadcasts = pgTable(
     parts: jsonb('parts').$type<string[]>().notNull(),
     audience: text('audience').$type<BroadcastAudience>().notNull(),
     // Audience 'event' (and reminders): the event whose expected people
-    // were the recipients.
+    // were the recipients. Audience 'selected': the chosen people are in
+    // message_broadcast_targets.
     eventId: uuid('event_id'),
     origin: text('origin')
       .$type<BroadcastOrigin>()
@@ -959,7 +961,7 @@ export const messageBroadcasts = pgTable(
     ),
     check(
       'message_broadcasts_audience_check',
-      sql`${t.audience} = ANY (ARRAY['members'::text, 'pre_members'::text, 'everyone'::text, 'event'::text])`,
+      sql`${t.audience} = ANY (ARRAY['members'::text, 'pre_members'::text, 'everyone'::text, 'event'::text, 'selected'::text])`,
     ),
     check(
       'message_broadcasts_origin_check',
@@ -995,6 +997,52 @@ export const messageBroadcasts = pgTable(
   ],
 );
 
+/**
+ * The people chosen for a broadcast with audience 'selected' (exactly one of
+ * member_id / pre_member_id, as in attendance). A scheduled one has only
+ * these until it goes out; then each is checked again (lib/sms).
+ */
+export const messageBroadcastTargets = pgTable(
+  'message_broadcast_targets',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedByDefaultAsIdentity(),
+    broadcastId: uuid('broadcast_id').notNull(),
+    memberId: bigintId('member_id'),
+    preMemberId: bigintId('pre_member_id'),
+  },
+  (t) => [
+    unique('message_broadcast_targets_broadcast_member_key').on(
+      t.broadcastId,
+      t.memberId,
+    ),
+    unique('message_broadcast_targets_broadcast_pre_member_key').on(
+      t.broadcastId,
+      t.preMemberId,
+    ),
+    check(
+      'message_broadcast_targets_one_person_check',
+      sql`(${t.memberId} IS NULL) <> (${t.preMemberId} IS NULL)`,
+    ),
+    foreignKey({
+      name: 'message_broadcast_targets_broadcast_id_fkey',
+      columns: [t.broadcastId],
+      foreignColumns: [messageBroadcasts.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'message_broadcast_targets_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }),
+    foreignKey({
+      name: 'message_broadcast_targets_pre_member_id_fkey',
+      columns: [t.preMemberId],
+      foreignColumns: [preMembers.id],
+    }),
+  ],
+);
+
 export const RECIPIENT_STATUSES = [
   'queued',
   'sending',
@@ -1005,6 +1053,7 @@ export const RECIPIENT_STATUSES = [
 export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number];
 
 export const RECIPIENT_SKIP_REASONS = [
+  'inactive',
   'child_member',
   'no_phone',
   'invalid_phone',
@@ -1064,7 +1113,7 @@ export const messageRecipients = pgTable(
     ),
     check(
       'message_recipients_skip_reason_check',
-      sql`(${t.status} = 'skipped') = (${t.skipReason} IS NOT NULL) AND (${t.skipReason} IS NULL OR ${t.skipReason} = ANY (ARRAY['child_member'::text, 'no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))`,
+      sql`(${t.status} = 'skipped') = (${t.skipReason} IS NOT NULL) AND (${t.skipReason} IS NULL OR ${t.skipReason} = ANY (ARRAY['inactive'::text, 'child_member'::text, 'no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))`,
     ),
     check(
       'message_recipients_network_check',

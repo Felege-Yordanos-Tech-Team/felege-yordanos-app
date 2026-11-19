@@ -34,7 +34,12 @@ import {
 import { smsReminderPausedEmail, smsScheduledPausedEmail } from '../email-templates';
 import { sendEmail } from '../email';
 import { hitRateLimit } from '../rate-limit';
-import { insertBroadcast, insertRecipients, loadSelection } from './message-queries';
+import {
+  insertBroadcast,
+  insertRecipients,
+  loadBroadcastTargets,
+  loadSelection,
+} from './message-queries';
 import { REMINDER_GRACE_MS } from './reminder-time';
 import { reminderText } from './reminders';
 import { estimateCredits, splitSms } from './split';
@@ -164,7 +169,8 @@ export async function fireDueReminders(now: Date = new Date()): Promise<number> 
 
 /**
  * Scheduled broadcasts whose time has come: recipients worked out now (who
- * joined, left or opted out in between is handled), then 'queued' and the
+ * joined, left or opted out in between is handled; for audience 'selected'
+ * each chosen person is checked again), then 'queued' and the
  * usual flow takes over. More than 12 hours late: 'missed', never sent.
  * Returns how many it queued.
  */
@@ -202,7 +208,10 @@ export async function fireScheduledBroadcasts(now: Date = new Date()): Promise<n
         return false;
       }
       if (decision !== 'fire') return true;
-      const loaded = await loadSelection(b.audience, b.eventId);
+      // Audience 'selected': the chosen people, each checked again now.
+      const targets =
+        b.audience === 'selected' ? await loadBroadcastTargets(tx, b.id) : [];
+      const loaded = await loadSelection(b.audience, b.eventId, targets);
       if (!loaded) {
         // Audience 'event' and the event was deleted.
         await tx

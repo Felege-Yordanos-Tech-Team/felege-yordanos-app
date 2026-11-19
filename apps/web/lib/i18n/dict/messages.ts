@@ -201,4 +201,42 @@ export const messages: Record<string, string> = {
   'The event was deleted.': 'መርሃ ግብሩ ተሰርዟል።',
   '{name} can now send messages.': '{name} አሁን መልዕክት መላክ ይችላል።',
   '{name} can no longer send messages.': '{name} ከእንግዲህ መልዕክት መላክ አይችልም።',
+
+  // Selected people (#147)
+  'Selected people': 'የተመረጡ ሰዎች',
+  'Selected people ({n})': 'የተመረጡ ሰዎች ({n})',
+  'No longer active': 'አሁን ንቁ አይደሉም',
+  Regular: 'መደበኛ',
+  'Children (regular)': 'ህጻናት መደበኛ',
+  'Special regular': 'ልዩ መደበኛ',
+  Honorary: 'የክብር',
+  'Type at least 2 letters of a name, a father’s name or an ID.':
+    'የስም፣ የአባት ስም ወይም የመለያ ቁጥር ቢያንስ 2 ፊደላት ይጻፉ።',
+  'Searching…': 'በመፈለግ ላይ…',
+  'Nobody found.': 'ማንም አልተገኘም።',
+  'The first 20. Type more to narrow it down.': 'የመጀመሪያዎቹ 20። ለማጥበብ ተጨማሪ ይጻፉ።',
+  '{n} found': '{n} ተገኝተዋል',
+  'Name, father’s name or ID…': 'ስም፣ የአባት ስም ወይም መለያ ቁጥር…',
+  'Search people': 'ሰዎችን ይፈልጉ',
+  Kind: 'ዓይነት',
+  'Member type': 'የአባልነት ዓይነት',
+  'All member types': 'ሁሉም የአባልነት ዓይነቶች',
+  'Chosen people': 'የተመረጡ ሰዎች',
+  Chosen: 'የተመረጡ',
+  'Clear all': 'ሁሉንም አጽዳ',
+  'Nobody chosen yet.': 'እስካሁን ማንም አልተመረጠም።',
+  'Remove {name}': '{name}ን አስወግድ',
+  'At most 200 people per message.': 'በአንድ መልዕክት ቢበዛ 200 ሰዎች።',
+  'Choose at least one person.': 'ቢያንስ አንድ ሰው ይምረጡ።',
+  'Some of the chosen people were not found.': 'ከተመረጡት ሰዎች አንዳንዶቹ አልተገኙም።',
+  'Some of the chosen people cannot get SMS. Remove them and try again.':
+    'ከተመረጡት ሰዎች አንዳንዶቹ SMS ሊላክላቸው አይችልም። ያስወግዷቸውና እንደገና ይሞክሩ።',
+  'Type at least 2 letters.': 'ቢያንስ 2 ፊደላት ይጻፉ።',
+  'Too many searches. Please wait a minute.': 'በጣም ብዙ ፍለጋ። እባክዎ አንድ ደቂቃ ይጠብቁ።',
+  'Each person is checked again when it goes out.': 'ሲላክ እያንዳንዱ ሰው እንደገና ይረጋገጣል።',
+  'Ethiopian time. Each person is checked again when it goes out.':
+    'የኢትዮጵያ ሰዓት። ሲላክ እያንዳንዱ ሰው እንደገና ይረጋገጣል።',
+  'Each person is checked again when it goes out: anyone who has left, turned off SMS, lost their number or is a child member by then is skipped.':
+    'ሲላክ እያንዳንዱ ሰው እንደገና ይረጋገጣል፤ እስከዚያ የለቀቀ፣ SMS ያጠፋ፣ ስልክ ቁጥሩ የሌለ ወይም ህጻናት መደበኛ አባል የሆነ ይዘለላል።',
+  'and {n} more': 'እና ሌሎች {n}',
 };

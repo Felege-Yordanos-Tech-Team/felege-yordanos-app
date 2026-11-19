@@ -24,6 +24,7 @@ import { useLocale, useT } from '@/lib/i18n/client';
 import type { MessageAudience, SelectionSummary, SkipReason } from '@/lib/sms/message-audience';
 import { ethiopianClock } from '@/lib/sms/reminder-time';
 import { eatMoment, isClockTime, sendLaterRefusal } from '@/lib/sms/schedule';
+import { targetKey, type PersonOption } from '@/lib/sms/selected-people';
 import { estimateCredits, signatureSuffix } from '@/lib/sms/split';
 import type { SmsStatus } from '@/lib/sms/transport';
 import { cn } from '@/lib/utils';
@@ -35,6 +36,7 @@ import {
   updateScheduledBroadcast,
   type PreparedBroadcast,
 } from '../actions';
+import { PeoplePicker } from './people-picker';
 
 interface EventOption {
   id: string;
@@ -52,6 +54,8 @@ export interface EditingBroadcast {
   /** EAT date and time it goes out. */
   date: string;
   time: string;
+  /** Audience 'selected': the chosen people as they are now. */
+  people: PersonOption[];
 }
 
 /** Default "later": the next full hour, Ethiopian time. */
@@ -70,7 +74,13 @@ function whenLabel(at: Date, locale: 'am' | 'en') {
   };
 }
 
-const AUDIENCE_OPTIONS: MessageAudience[] = ['members', 'pre_members', 'everyone', 'event'];
+const AUDIENCE_OPTIONS: MessageAudience[] = [
+  'members',
+  'pre_members',
+  'everyone',
+  'event',
+  'selected',
+];
 
 const labelCls =
   'mb-1.5 block text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep';
@@ -82,12 +92,15 @@ export function ComposeForm({
   events,
   ownPhoneMasked,
   today,
+  memberTypes,
   editing = null,
 }: {
   status: SmsStatus;
   events: EventOption[];
   ownPhoneMasked: string | null;
   today: string;
+  /** For the "Selected people" filter. */
+  memberTypes: { id: number; name: string }[];
   /** Edit a scheduled broadcast (always "later"). */
   editing?: EditingBroadcast | null;
 }) {
@@ -99,6 +112,7 @@ export function ComposeForm({
   const [audience, setAudience] = useState<MessageAudience>(editing?.audience ?? 'members');
   const [eventId, setEventId] = useState<string | null>(editing?.eventId ?? null);
   const [eventQuery, setEventQuery] = useState('');
+  const [chosen, setChosen] = useState<PersonOption[]>(editing?.people ?? []);
   const [text, setText] = useState(editing?.text ?? '');
   const [later, setLater] = useState(!!editing);
   const [sendDate, setSendDate] = useState(editing?.date ?? '');
@@ -111,8 +125,18 @@ export function ComposeForm({
 
   const parts = partsFor(text, status.signature);
   const sendAt = later ? { date: sendDate, time: sendTime } : null;
-  const target = { audience, eventId: audience === 'event' ? eventId : null, sendAt };
-  const ready = audience !== 'event' || !!eventId;
+  const selected = audience === 'selected';
+  const targets = selected ? chosen.map(({ kind, id }) => ({ kind, id })) : [];
+  const targetsKey = targets.map(targetKey).join(',');
+  const target = { audience, eventId: audience === 'event' ? eventId : null, targets, sendAt };
+  // Selected: someone who can no longer get SMS (edit of a scheduled
+  // message) must be removed first; the server refuses them too.
+  const ready =
+    audience === 'event'
+      ? !!eventId
+      : selected
+        ? chosen.length > 0 && chosen.every((p) => !p.reason)
+        : true;
   // Same rule as the server (2 minutes to 60 days ahead), shown live.
   const laterRefusal = !later
     ? null
@@ -138,20 +162,26 @@ export function ComposeForm({
     }
     let live = true;
     setLoadingPreview(true);
-    previewAudience({ audience, eventId: audience === 'event' ? eventId : null }).then(
-      (res) => {
+    // Short pause so ticking several people asks once.
+    const timer = setTimeout(() => {
+      previewAudience({
+        audience,
+        eventId: audience === 'event' ? eventId : null,
+        targets,
+      }).then((res) => {
         if (!live) return;
         setLoadingPreview(false);
         if (res.ok) {
           setSummary(res.data.summary);
           setBalance(res.data.balance);
         } else toast({ title: t('Error'), description: t(res.error), variant: 'destructive' });
-      },
-    );
+      });
+    }, selected ? 300 : 0);
     return () => {
       live = false;
+      clearTimeout(timer);
     };
-  }, [audience, eventId, ready]);
+  }, [audience, eventId, ready, targetsKey]);
 
   const filteredEvents = useMemo(() => {
     const q = eventQuery.trim().toLowerCase();
@@ -203,7 +233,9 @@ export function ComposeForm({
     if (later)
       toast({
         title: editing ? t('Changes saved') : t('Scheduled'),
-        description: t('Recipients are worked out when it goes out.'),
+        description: selected
+          ? t('Each person is checked again when it goes out.')
+          : t('Recipients are worked out when it goes out.'),
       });
     else
       toast({ title: t('Sending started'), description: t('The messages go out in the background.') });
@@ -330,6 +362,9 @@ export function ComposeForm({
                 )}
               </div>
             )}
+            {selected && (
+              <PeoplePicker chosen={chosen} onChange={setChosen} memberTypes={memberTypes} />
+            )}
           </div>
 
           {/* Message */}
@@ -418,7 +453,9 @@ export function ComposeForm({
                     : laterAt && t('Goes out {date} at {time} ({eth}).', whenLabel(laterAt, locale))}
                 </p>
                 <p className="text-[11px] text-ink-muted">
-                  {t('Ethiopian time. Recipients are worked out when it goes out.')}
+                  {selected
+                    ? t('Ethiopian time. Each person is checked again when it goes out.')
+                    : t('Ethiopian time. Recipients are worked out when it goes out.')}
                 </p>
               </div>
             )}
@@ -485,6 +522,18 @@ export function ComposeForm({
                     {t('Counted as of today; people are counted again when it goes out.')}
                   </span>
                 </p>
+              )}
+              {prepared.people && (
+                <div className="text-[12px] text-ink">
+                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold-deep">
+                    {t('Selected people')}
+                  </div>
+                  <p>
+                    {prepared.people.names.join(', ')}
+                    {prepared.people.more > 0 &&
+                      ` ${t('and {n} more', { n: prepared.people.more })}`}
+                  </p>
+                </div>
               )}
               <dl className="grid grid-cols-3 gap-2 rounded-[12px] border border-parchment-edge bg-parchment-soft p-3 text-center dark:bg-parchment-deep">
                 <div>
