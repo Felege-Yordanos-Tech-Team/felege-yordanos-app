@@ -3,8 +3,14 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import type { departments, Role } from '@felege-yordanos/db/schema';
-import { ChevronRight, MoreHorizontal, Search } from 'lucide-react';
+import {
+  ChevronRight,
+  MessageSquareText,
+  MoreHorizontal,
+  Search,
+} from 'lucide-react';
 import { Card, Chip } from '@/components/ds';
+import { ToggleRow } from '@/components/forms/toggle-row';
 import { roleLabel } from '@/components/role-badge';
 import { Input } from '@/components/ui/input';
 import {
@@ -40,6 +46,8 @@ interface ProfileRow {
   email: string | null;
   role: UserRole;
   departmentId: number | null;
+  /** May send SMS (department heads granted by a super admin). */
+  canSendMessages: boolean;
   /** Linked member record code (e.g. FY-0247), if the account is linked. */
   memberCode: string | null;
 }
@@ -74,6 +82,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
   const [selected, setSelected] = useState<ProfileRow | null>(null);
   const [editRole, setEditRole] = useState<UserRole>('member');
   const [editDeptId, setEditDeptId] = useState<string>('');
+  const [editCanSend, setEditCanSend] = useState(false);
   const [saving, setSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
@@ -112,6 +121,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
     setSelected(profile);
     setEditRole(profile.role);
     setEditDeptId(profile.departmentId ? String(profile.departmentId) : '');
+    setEditCanSend(profile.canSendMessages);
   }
 
   async function handleSave() {
@@ -128,6 +138,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
       role: editRole,
       departmentId:
         editRole === 'dept_head' && editDeptId ? Number(editDeptId) : null,
+      canSendMessages: editRole === 'dept_head' && editCanSend,
     });
     setSaving(false);
     if (!res.ok) {
@@ -137,13 +148,21 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
         variant: 'destructive',
       });
     } else {
-      toast({
-        title: t('Updated'),
-        description: t('{name} is now {role}.', {
-          name: selected.displayName || selected.email || t('User'),
-          role: roleLabel(editRole, t),
-        }),
-      });
+      // Say what changed: the role, the right to send messages, or both.
+      const name = selected.displayName || selected.email || t('User');
+      const canSendNow = editRole === 'dept_head' && editCanSend;
+      const roleChanged = editRole !== selected.role;
+      const sendChanged = canSendNow !== selected.canSendMessages;
+      const lines: string[] = [];
+      if (roleChanged || !sendChanged)
+        lines.push(t('{name} is now {role}.', { name, role: roleLabel(editRole, t) }));
+      if (sendChanged)
+        lines.push(
+          canSendNow
+            ? t('{name} can now send messages.', { name })
+            : t('{name} can no longer send messages.', { name }),
+        );
+      toast({ title: t('Updated'), description: lines.join(' ') });
       setSelected(null);
       router.refresh();
     }
@@ -203,8 +222,9 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                         </div>
                       )}
                       {dept && (
-                        <div className="mt-px font-ethiopic text-[11px] text-ink-muted">
+                        <div className="mt-px flex items-center gap-1.5 font-ethiopic text-[11px] text-ink-muted">
                           {dept}
+                          {p.canSendMessages && <SmsBadge label={t('Can send messages')} />}
                         </div>
                       )}
                     </div>
@@ -299,8 +319,11 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                     </div>
                     <RolePill role={p.role} t={t} />
                     {dept ? (
-                      <span className="truncate font-ethiopic text-[11.5px] text-ink">
-                        {dept}
+                      <span className="flex min-w-0 items-center gap-1.5">
+                        <span className="truncate font-ethiopic text-[11.5px] text-ink">
+                          {dept}
+                        </span>
+                        {p.canSendMessages && <SmsBadge label={t('Can send messages')} />}
                       </span>
                     ) : (
                       <span className="text-xs text-ink-faint">—</span>
@@ -405,6 +428,17 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
               </div>
             )}
 
+            {editRole === 'dept_head' && (
+              <ToggleRow
+                checked={editCanSend}
+                onChange={setEditCanSend}
+                title={t('Can send messages')}
+                hint={t(
+                  'SMS notices and event reminders to members and pre-members. Ends when the person is no longer a department head.',
+                )}
+              />
+            )}
+
             <button
               type="button"
               onClick={handleSave}
@@ -417,5 +451,18 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
         </SheetContent>
       </Sheet>
     </>
+  );
+}
+
+/** Small marker for department heads who may send SMS. */
+function SmsBadge({ label }: { label: string }) {
+  return (
+    <span
+      title={label}
+      aria-label={label}
+      className="inline-flex shrink-0 items-center rounded-full bg-brand/10 p-[3px] text-brand dark:bg-gold/15 dark:text-gold"
+    >
+      <MessageSquareText className="h-3 w-3" />
+    </span>
   );
 }

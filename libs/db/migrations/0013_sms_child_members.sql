@@ -1,0 +1,2 @@
+ALTER TABLE "message_recipients" DROP CONSTRAINT "message_recipients_skip_reason_check";--> statement-breakpoint
+ALTER TABLE "message_recipients" ADD CONSTRAINT "message_recipients_skip_reason_check" CHECK (("message_recipients"."status" = 'skipped') = ("message_recipients"."skip_reason" IS NOT NULL) AND ("message_recipients"."skip_reason" IS NULL OR "message_recipients"."skip_reason" = ANY (ARRAY['child_member'::text, 'no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text])));

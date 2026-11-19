@@ -13,11 +13,7 @@ export interface SongbookPreviewSong {
   audioKey: string | null;
 }
 
-/**
- * Right-column songbook card. Play history is
- * not tracked, so this honestly shows the first songs of the songbook by
- * number instead of a "continue" list.
- */
+/** Shows the signed-in user's recently opened songs. */
 export async function SongbookPreviewCard({
   songs,
 }: {
@@ -27,7 +23,7 @@ export async function SongbookPreviewCard({
   return (
     <Card>
       <div className="mb-2.5 flex items-center justify-between gap-3">
-        <SectionHeader en="From the songbook" am="ከመዝሙር መጽሐፍ" />
+        <SectionHeader en="Recently opened" am="በቅርብ የከፈቷቸው" />
         <Link
           href="/songbook"
           className="inline-flex shrink-0 items-center gap-1 text-[11px] font-semibold text-gold-deep hover:underline"
@@ -38,9 +34,13 @@ export async function SongbookPreviewCard({
       </div>
 
       {songs.length === 0 ? (
-        <p className="py-6 text-center text-[12.5px] text-ink-muted">
-          {t('No songs yet')}
-        </p>
+        <Link
+          href="/songbook"
+          className="group flex items-center justify-between gap-3 rounded-xl border border-dashed border-parchment-edge px-3.5 py-4 text-[12.5px] text-ink-muted transition-colors hover:border-gold/50 hover:bg-gold/[0.05] hover:text-brand-ink"
+        >
+          <span>{t('Open a song to see it here.')}</span>
+          <ArrowRight className="h-3.5 w-3.5 shrink-0 text-gold-deep transition-transform group-hover:translate-x-0.5" />
+        </Link>
       ) : (
         <ul>
           {songs.map((song, i) => (

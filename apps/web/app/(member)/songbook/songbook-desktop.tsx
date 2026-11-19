@@ -18,6 +18,7 @@ import {
   songNumber,
 } from '@/lib/category-color';
 import { LyricsCard } from './lyrics';
+import { recordOpenedSong } from '@/components/song-history-refresh';
 
 type Song = typeof songsTable.$inferSelect;
 type Category = typeof categoriesTable.$inferSelect;
@@ -127,7 +128,10 @@ export function SongbookDesktop({
                 <button
                   key={song.id}
                   type="button"
-                  onClick={() => setSelectedId(song.id)}
+                  onClick={() => {
+                    setSelectedId(song.id);
+                    recordOpenedSong(song.id);
+                  }}
                   aria-current={active ? 'true' : undefined}
                   className={cn(
                     'mb-0.5 flex w-full items-center gap-2.5 rounded-[10px] px-2.5 py-2.5 text-left transition-colors',

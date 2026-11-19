@@ -32,6 +32,8 @@ export const legal: Record<string, string> = {
     'የአባል መዝገብ፦ የሰንበት ትምህርት ቤቱ መዝገብ አስቀድሞ የያዘውና ከመለያዎ ጋር የሚያገናኘው የአባልነት መረጃ፦ ስሞች (የአባት፣ የአያት፣ የእናት ስም እና የክርስትና ስም ጨምሮ)፣ ጾታ፣ የትውልድ ቀን፣ የጋብቻ ሁኔታ፣ የተጠመቁበት ቤተ ክርስቲያን፣ አድራሻ እና ስልክ ቁጥሮች፣ የትምህርት፣ የሥራ፣ የአገልግሎት እና የሽልማት ታሪክ።',
   'Attendance: whether you were present, late or absent at services and events.':
     'መገኘት፦ በአገልግሎቶችና በዝግጅቶች ላይ መገኘትዎ፣ መዘግየትዎ ወይም መቅረትዎ።',
+  'Songbook: the songs you open and when you last opened each one, so we can show your recent songs.':
+    'መዝሙር መጽሐፍ፦ በቅርብ የከፈቷቸውን መዝሙሮች ለማሳየት፣ የሚከፍቷቸውን መዝሙሮች እና እያንዳንዳቸውን መጨረሻ የከፈቱበትን ጊዜ እናስቀምጣለን።',
   'Donations: the amount, payment method, notes, the receipt image you upload, and whether the donation was verified or rejected.':
     'መዋጮ፦ መጠኑ፣ የክፍያ ዘዴው፣ ማስታወሻ፣ የሚጭኑት የደረሰኝ ምስል እና መዋጮው መረጋገጡ ወይም ውድቅ መደረጉ።',
   'Google sign-in (coming soon): if you choose to sign in with Google, we receive your name, email address and profile picture from your Google account (the openid, email and profile scopes only). We never receive your Google password.':
@@ -126,4 +128,17 @@ export const legal: Record<string, string> = {
   Contact: 'ያግኙን',
   'Questions about these terms: privacy@felegeyordanos.org.':
     'ስለ እነዚህ ደንቦች ጥያቄ ካለዎት፦ privacy@felegeyordanos.org',
+
+  // SMS notices (#141). Needs a native speaker's review.
+  'SMS: the notices and event reminders we send to your phone number, and whether each message was sent.':
+    'SMS፦ ወደ ስልክ ቁጥርዎ የምንልካቸው ማሳወቂያዎችና የመርሃ ግብር ማስታወሻዎች፣ እና እያንዳንዱ መልዕክት መላኩን።',
+  'To send SMS notices and event reminders to the phone number on your member or pre-member record. You can turn them off on your profile (Receive SMS notices).':
+    'በአባል ወይም በቅድመ አባል መዝገብዎ ላይ ወዳለው ስልክ ቁጥር የSMS ማሳወቂያዎችንና የመርሃ ግብር ማስታወሻዎችን ለመላክ። በመገለጫዎ ላይ («የSMS ማሳወቂያዎችን ተቀበል») ማጥፋት ይችላሉ።',
+  'Super admins, and the department heads they allow to send messages, see who received the SMS they sent, with phone numbers partly hidden.':
+    'ዋና አስተዳዳሪዎችና መልዕክት እንዲልኩ የፈቀዱላቸው የክፍል ኃላፊዎች የላኩትን SMS ማን እንደተቀበለ ያያሉ፤ ስልክ ቁጥሮቹ በከፊል ተደብቀው ይታያሉ።',
+  'SMSHub (smshub.et, Ethiopia), which delivers our SMS. It receives your phone number and the text of each message.':
+    'SMSHub (smshub.et፣ ኢትዮጵያ)፣ የእኛን SMS የሚያደርስ። ስልክ ቁጥርዎንና የእያንዳንዱን መልዕክት ጽሑፍ ይቀበላል።',
+  'SMS notices': 'የSMS ማሳወቂያዎች',
+  'If your member or pre-member record has a mobile number, the Sunday School may send you SMS notices and reminders before its events. They come from SMSHub\'s shared sender name and start with "ፈለገ ዮርዳኖስ". We never ask you to reply with a code. You can turn them off at any time on your profile (Receive SMS notices).':
+    'የአባል ወይም የቅድመ አባል መዝገብዎ የሞባይል ቁጥር ካለው፣ ሰንበት ትምህርት ቤቱ የSMS ማሳወቂያዎችንና ከመርሃ ግብሮቹ በፊት ማስታወሻዎችን ሊልክልዎ ይችላል። የሚመጡት በSMSHub የጋራ የላኪ ስም ሲሆን የሚጀምሩት በ«ፈለገ ዮርዳኖስ» ነው። በኮድ እንዲመልሱ በፍጹም አንጠይቅዎትም። በማንኛውም ጊዜ በመገለጫዎ ላይ («የSMS ማሳወቂያዎችን ተቀበል») ማጥፋት ይችላሉ።',
 };

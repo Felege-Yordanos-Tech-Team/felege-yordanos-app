@@ -72,6 +72,10 @@ export const profiles = pgTable(
     displayName: text('display_name'),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
+    // Granted by a super admin to a department head: may send SMS
+    // broadcasts (lib/permissions.ts canSendMessages). Cleared when the
+    // role changes away from dept_head.
+    canSendMessages: boolean('can_send_messages').notNull().default(false),
   },
   (t) => [
     check(
@@ -135,6 +139,8 @@ export const members = pgTable(
     updatedAt: updatedAt(),
     // Login account linked through the /claim flow.
     authUserId: uuid('auth_user_id').unique('members_auth_user_id_key'),
+    // The person turned off SMS notices on their profile.
+    smsOptOut: boolean('sms_opt_out').notNull().default(false),
   },
   (t) => [
     check(
@@ -339,6 +345,8 @@ export const preMembers = pgTable(
     promotionLinkedAccount: boolean('promotion_linked_account')
       .notNull()
       .default(false),
+    // The person turned off SMS notices on their profile.
+    smsOptOut: boolean('sms_opt_out').notNull().default(false),
     createdBy: uuid('created_by'),
     createdAt: timestamp('created_at', { withTimezone: true })
       .notNull()
@@ -491,6 +499,32 @@ export const songs = pgTable('songs', {
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/** The latest time each signed-in user opened each song. */
+export const songViews = pgTable(
+  'song_views',
+  {
+    userId: uuid('user_id').notNull(),
+    songId: uuid('song_id').notNull(),
+    viewedAt: timestamp('viewed_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    primaryKey({ name: 'song_views_pkey', columns: [t.userId, t.songId] }),
+    index('idx_song_views_user_viewed_at').on(t.userId, t.viewedAt.desc()),
+    foreignKey({
+      name: 'song_views_user_id_fkey',
+      columns: [t.userId],
+      foreignColumns: [authUsers.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'song_views_song_id_fkey',
+      columns: [t.songId],
+      foreignColumns: [songs.id],
+    }).onDelete('cascade'),
+  ],
+);
 
 /* ─── Events & attendance ────────────────────────────────── */
 
@@ -852,5 +886,383 @@ export const noticeReads = pgTable(
       columns: [t.userId],
       foreignColumns: [authUsers.id],
     }).onDelete('cascade'),
+  ],
+);
+
+/* ─── Messages (SMS broadcasts and event reminders) ──────── */
+
+export const MESSAGE_CHANNELS = ['sms', 'telegram'] as const;
+export type MessageChannel = (typeof MESSAGE_CHANNELS)[number];
+
+export const BROADCAST_AUDIENCES = [
+  'members',
+  'pre_members',
+  'everyone',
+  'event',
+  'selected',
+] as const;
+export type BroadcastAudience = (typeof BROADCAST_AUDIENCES)[number];
+
+export const BROADCAST_ORIGINS = ['manual', 'event_reminder'] as const;
+export type BroadcastOrigin = (typeof BROADCAST_ORIGINS)[number];
+
+export const BROADCAST_STATUSES = [
+  'scheduled',
+  'queued',
+  'sending',
+  'paused',
+  'done',
+  'cancelled',
+  'missed',
+] as const;
+export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
+
+/**
+ * One message to many people (lib/sms). `parts` are the messages exactly as
+ * sent to the provider, frozen when the broadcast was confirmed (or the
+ * reminder fired). Sent in the background by lib/sms/worker.ts.
+ */
+export const messageBroadcasts = pgTable(
+  'message_broadcasts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    channel: text('channel').$type<MessageChannel>().notNull().default('sms'),
+    text: text('text').notNull(),
+    parts: jsonb('parts').$type<string[]>().notNull(),
+    audience: text('audience').$type<BroadcastAudience>().notNull(),
+    // Audience 'event' (and reminders): the event whose expected people
+    // were the recipients. Audience 'selected': the chosen people are in
+    // message_broadcast_targets.
+    eventId: uuid('event_id'),
+    origin: text('origin')
+      .$type<BroadcastOrigin>()
+      .notNull()
+      .default('manual'),
+    createdBy: uuid('created_by'),
+    createdAt: timestamp('created_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    status: text('status')
+      .$type<BroadcastStatus>()
+      .notNull()
+      .default('queued'),
+    // Why it paused (provider message, no phone numbers).
+    pauseReason: text('pause_reason'),
+    startedAt: timestamp('started_at', { withTimezone: true }),
+    finishedAt: timestamp('finished_at', { withTimezone: true }),
+    // Status 'scheduled': when it goes out. It has no recipients until then
+    // (worked out by the worker at that time).
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
+  },
+  (t) => [
+    check(
+      'message_broadcasts_channel_check',
+      sql`${t.channel} = ANY (ARRAY['sms'::text, 'telegram'::text])`,
+    ),
+    check(
+      'message_broadcasts_audience_check',
+      sql`${t.audience} = ANY (ARRAY['members'::text, 'pre_members'::text, 'everyone'::text, 'event'::text, 'selected'::text])`,
+    ),
+    check(
+      'message_broadcasts_origin_check',
+      sql`${t.origin} = ANY (ARRAY['manual'::text, 'event_reminder'::text])`,
+    ),
+    check(
+      'message_broadcasts_status_check',
+      sql`${t.status} = ANY (ARRAY['scheduled'::text, 'queued'::text, 'sending'::text, 'paused'::text, 'done'::text, 'cancelled'::text, 'missed'::text])`,
+    ),
+    check(
+      'message_broadcasts_scheduled_at_check',
+      sql`${t.status} <> 'scheduled' OR ${t.scheduledAt} IS NOT NULL`,
+    ),
+    check(
+      'message_broadcasts_parts_check',
+      sql`jsonb_typeof(${t.parts}) = 'array' AND jsonb_array_length(${t.parts}) BETWEEN 1 AND 5`,
+    ),
+    index('idx_message_broadcasts_created_at').on(t.createdAt.desc()),
+    index('idx_message_broadcasts_status').on(t.status),
+    index('idx_message_broadcasts_scheduled')
+      .on(t.scheduledAt)
+      .where(sql`${t.status} = 'scheduled'`),
+    foreignKey({
+      name: 'message_broadcasts_event_id_fkey',
+      columns: [t.eventId],
+      foreignColumns: [events.id],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'message_broadcasts_created_by_fkey',
+      columns: [t.createdBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
+  ],
+);
+
+/**
+ * The people chosen for a broadcast with audience 'selected' (exactly one of
+ * member_id / pre_member_id, as in attendance). A scheduled one has only
+ * these until it goes out; then each is checked again (lib/sms).
+ */
+export const messageBroadcastTargets = pgTable(
+  'message_broadcast_targets',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedByDefaultAsIdentity(),
+    broadcastId: uuid('broadcast_id').notNull(),
+    memberId: bigintId('member_id'),
+    preMemberId: bigintId('pre_member_id'),
+  },
+  (t) => [
+    unique('message_broadcast_targets_broadcast_member_key').on(
+      t.broadcastId,
+      t.memberId,
+    ),
+    unique('message_broadcast_targets_broadcast_pre_member_key').on(
+      t.broadcastId,
+      t.preMemberId,
+    ),
+    check(
+      'message_broadcast_targets_one_person_check',
+      sql`(${t.memberId} IS NULL) <> (${t.preMemberId} IS NULL)`,
+    ),
+    foreignKey({
+      name: 'message_broadcast_targets_broadcast_id_fkey',
+      columns: [t.broadcastId],
+      foreignColumns: [messageBroadcasts.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'message_broadcast_targets_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }),
+    foreignKey({
+      name: 'message_broadcast_targets_pre_member_id_fkey',
+      columns: [t.preMemberId],
+      foreignColumns: [preMembers.id],
+    }),
+  ],
+);
+
+export const RECIPIENT_STATUSES = [
+  'queued',
+  'sending',
+  'sent',
+  'failed',
+  'skipped',
+] as const;
+export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number];
+
+export const RECIPIENT_SKIP_REASONS = [
+  'inactive',
+  'child_member',
+  'no_phone',
+  'invalid_phone',
+  'opted_out',
+  'duplicate_phone',
+] as const;
+export type RecipientSkipReason = (typeof RECIPIENT_SKIP_REASONS)[number];
+
+/**
+ * One person of a broadcast, frozen when it was confirmed: exactly one of
+ * member_id / pre_member_id (same as attendance), the number used, or why
+ * they were skipped. One row per person and per phone number.
+ */
+export const messageRecipients = pgTable(
+  'message_recipients',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedByDefaultAsIdentity(),
+    broadcastId: uuid('broadcast_id').notNull(),
+    memberId: bigintId('member_id'),
+    preMemberId: bigintId('pre_member_id'),
+    // Normalised "09…" / "07…"; null when skipped for no usable number.
+    phone: text('phone'),
+    network: text('network').$type<'ethio' | 'safaricom'>(),
+    status: text('status')
+      .$type<RecipientStatus>()
+      .notNull()
+      .default('queued'),
+    skipReason: text('skip_reason').$type<RecipientSkipReason>(),
+    // The next message (part) to send to this person.
+    nextPart: integer('next_part').notNull().default(1),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique('message_recipients_broadcast_member_key').on(
+      t.broadcastId,
+      t.memberId,
+    ),
+    unique('message_recipients_broadcast_pre_member_key').on(
+      t.broadcastId,
+      t.preMemberId,
+    ),
+    unique('message_recipients_broadcast_phone_key').on(
+      t.broadcastId,
+      t.phone,
+    ),
+    check(
+      'message_recipients_one_person_check',
+      sql`(${t.memberId} IS NULL) <> (${t.preMemberId} IS NULL)`,
+    ),
+    check(
+      'message_recipients_status_check',
+      sql`${t.status} = ANY (ARRAY['queued'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])`,
+    ),
+    check(
+      'message_recipients_skip_reason_check',
+      sql`(${t.status} = 'skipped') = (${t.skipReason} IS NOT NULL) AND (${t.skipReason} IS NULL OR ${t.skipReason} = ANY (ARRAY['inactive'::text, 'child_member'::text, 'no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))`,
+    ),
+    check(
+      'message_recipients_network_check',
+      sql`${t.network} IS NULL OR ${t.network} = ANY (ARRAY['ethio'::text, 'safaricom'::text])`,
+    ),
+    check(
+      'message_recipients_phone_check',
+      sql`${t.status} = 'skipped' OR ${t.phone} IS NOT NULL`,
+    ),
+    index('idx_message_recipients_broadcast_status').on(
+      t.broadcastId,
+      t.status,
+    ),
+    foreignKey({
+      name: 'message_recipients_broadcast_id_fkey',
+      columns: [t.broadcastId],
+      foreignColumns: [messageBroadcasts.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'message_recipients_member_id_fkey',
+      columns: [t.memberId],
+      foreignColumns: [members.id],
+    }),
+    foreignKey({
+      name: 'message_recipients_pre_member_id_fkey',
+      columns: [t.preMemberId],
+      foreignColumns: [preMembers.id],
+    }),
+  ],
+);
+
+export const DELIVERY_STATUSES = [
+  'queued',
+  'sending',
+  'sent',
+  'failed',
+  'unknown',
+] as const;
+export type DeliveryStatus = (typeof DELIVERY_STATUSES)[number];
+
+/**
+ * One message (part) to one recipient. Set to 'sending' (and committed)
+ * before the provider is called; 'unknown' when the app stopped mid-request
+ * (never resent: the provider has no idempotency key).
+ */
+export const messageDeliveries = pgTable(
+  'message_deliveries',
+  {
+    id: bigint('id', { mode: 'number' })
+      .primaryKey()
+      .generatedByDefaultAsIdentity(),
+    recipientId: bigintId('recipient_id').notNull(),
+    partNo: integer('part_no').notNull(),
+    status: text('status')
+      .$type<DeliveryStatus>()
+      .notNull()
+      .default('queued'),
+    attempts: integer('attempts').notNull().default(0),
+    providerMessageId: text('provider_message_id'),
+    errorType: text('error_type'),
+    creditsUsed: integer('credits_used'),
+    sentAt: timestamp('sent_at', { withTimezone: true }),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    unique('message_deliveries_recipient_part_key').on(
+      t.recipientId,
+      t.partNo,
+    ),
+    check(
+      'message_deliveries_status_check',
+      sql`${t.status} = ANY (ARRAY['queued'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'unknown'::text])`,
+    ),
+    check(
+      'message_deliveries_part_no_check',
+      sql`${t.partNo} BETWEEN 1 AND 5`,
+    ),
+    index('idx_message_deliveries_open')
+      .on(t.status)
+      .where(sql`${t.status} IN ('queued', 'sending')`),
+    foreignKey({
+      name: 'message_deliveries_recipient_id_fkey',
+      columns: [t.recipientId],
+      foreignColumns: [messageRecipients.id],
+    }).onDelete('cascade'),
+  ],
+);
+
+export const REMINDER_STATUSES = [
+  'scheduled',
+  'sent',
+  'missed',
+  'cancelled',
+  'paused',
+] as const;
+export type ReminderStatus = (typeof REMINDER_STATUSES)[number];
+
+/**
+ * The SMS reminder of an event: sent once at `send_time` EAT (default
+ * 09:00), `days_before` days before the event, to the people expected then. `text` null = the default
+ * text built from the event when it is sent (follows date changes).
+ * Deleting the event deletes the reminder; closing it cancels it.
+ */
+export const eventReminders = pgTable(
+  'event_reminders',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    eventId: uuid('event_id').notNull().unique('event_reminders_event_id_key'),
+    daysBefore: integer('days_before').notNull().default(2),
+    // Clock time (EAT) on that day, "HH:MM:SS".
+    sendTime: time('send_time').notNull().default('09:00'),
+    text: text('text'),
+    setBy: uuid('set_by'),
+    setAt: timestamp('set_at', { withTimezone: true }).notNull().defaultNow(),
+    status: text('status')
+      .$type<ReminderStatus>()
+      .notNull()
+      .default('scheduled'),
+    broadcastId: uuid('broadcast_id'),
+    dueAt: timestamp('due_at', { withTimezone: true }).notNull(),
+  },
+  (t) => [
+    check(
+      'event_reminders_days_before_check',
+      sql`${t.daysBefore} BETWEEN 0 AND 14`,
+    ),
+    check(
+      'event_reminders_status_check',
+      sql`${t.status} = ANY (ARRAY['scheduled'::text, 'sent'::text, 'missed'::text, 'cancelled'::text, 'paused'::text])`,
+    ),
+    index('idx_event_reminders_due')
+      .on(t.dueAt)
+      .where(sql`${t.status} = 'scheduled'`),
+    foreignKey({
+      name: 'event_reminders_event_id_fkey',
+      columns: [t.eventId],
+      foreignColumns: [events.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'event_reminders_set_by_fkey',
+      columns: [t.setBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
+    foreignKey({
+      name: 'event_reminders_broadcast_id_fkey',
+      columns: [t.broadcastId],
+      foreignColumns: [messageBroadcasts.id],
+    }).onDelete('set null'),
   ],
 );

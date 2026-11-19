@@ -10,6 +10,7 @@ import { dashboard } from './dict/dashboard';
 import { donations } from './dict/donations';
 import { events } from './dict/events';
 import { legal } from './dict/legal';
+import { messages } from './dict/messages';
 import { notices } from './dict/notices';
 import { people } from './dict/people';
 import { personAttendance } from './dict/person-attendance';
@@ -370,4 +371,5 @@ export const AM: Record<string, string> = {
   ...legal,
   ...notices,
   ...preMembers,
+  ...messages,
 };

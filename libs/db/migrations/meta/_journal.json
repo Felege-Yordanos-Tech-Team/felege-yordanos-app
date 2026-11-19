@@ -71,6 +71,41 @@
       "when": 1793454709557,
       "tag": "0009_registration_sessions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1793639204115,
+      "tag": "0010_song_views",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795077819375,
+      "tag": "0011_sms_messages",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795094303748,
+      "tag": "0012_sms_scheduling",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1795098587266,
+      "tag": "0013_sms_child_members",
+      "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1795113967752,
+      "tag": "0014_sms_selected_people",
+      "breakpoints": true
     }
   ]
 }

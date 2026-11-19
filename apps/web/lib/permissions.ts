@@ -339,3 +339,65 @@ export const canManageRegistrationSessions = (u: User) => isAdmin(u);
 
 /** Promote a pre-member to member, and undo a promotion. */
 export const canPromotePreMembers = (u: User) => isAdmin(u);
+
+/* ─── Messages (SMS) ───────────────────────────────────────── */
+
+type MessagingUser = User & Pick<CurrentUser, 'canSendMessages'>;
+
+/**
+ * Send SMS broadcasts and see the message history: super admins always,
+ * and department heads (with a department) whom a super admin granted the
+ * right (profiles.can_send_messages). Admins who are not super admins do
+ * not. CurrentUser.canSendMessages is false until the email is verified.
+ */
+export const canSendMessages = (u: MessagingUser) =>
+  isSuperAdmin(u) ||
+  (u.role === 'dept_head' && u.departmentId != null && u.canSendMessages);
+
+/** Grant or revoke the right to send messages: super admins. */
+export const canGrantMessaging = (u: User) => canManageUsers(u);
+
+/** Only department heads can be given the right to send messages. */
+export const canReceiveMessagingGrant = (target: { role: string }) =>
+  target.role === 'dept_head';
+
+/**
+ * See one broadcast (and its recipients): super admins all, other senders
+ * their own.
+ */
+export const canViewBroadcast = (
+  u: MessagingUser,
+  broadcast: { createdBy: string | null },
+) =>
+  canSendMessages(u) &&
+  (isSuperAdmin(u) || (!!u.id && broadcast.createdBy === u.id));
+
+/** Cancel or resume a broadcast: whoever may see it. */
+export const canCancelBroadcast = (
+  u: MessagingUser,
+  broadcast: { createdBy: string | null },
+) => canViewBroadcast(u, broadcast);
+
+/**
+ * Change a scheduled broadcast (text, audience, time) before it goes out:
+ * same people as cancel. The action also checks the status is 'scheduled'.
+ */
+export const canEditBroadcast = (
+  u: MessagingUser,
+  broadcast: { createdBy: string | null },
+) => canCancelBroadcast(u, broadcast);
+
+/**
+ * Set, change or remove the SMS reminder of an event: whoever may edit the
+ * event and may send messages. Other editors see it read-only.
+ */
+export const canSetEventReminder = (
+  u: MessagingUser,
+  event: { departmentId: number | null },
+) => canEditEvent(u, event) && canSendMessages(u);
+
+/** Opt in or out of SMS notices: a person with a linked record. */
+export const canChangeSmsOptOut = (
+  u: Pick<CurrentUser, 'emailVerified' | 'memberRecordId' | 'preMemberRecordId'>,
+) =>
+  u.emailVerified && (u.memberRecordId !== null || u.preMemberRecordId !== null);

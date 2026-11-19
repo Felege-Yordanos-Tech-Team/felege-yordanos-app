@@ -45,6 +45,15 @@ import { primaryBtn } from '@/components/events/event-ui';
 import { AudienceField } from '@/components/forms/audience-field';
 import type { Audience } from '@/lib/audience';
 import { CHECK_IN_DEFAULT_MIN, CHECK_IN_MAX_MIN } from '@/lib/check-in-window';
+import {
+  emptyReminderDraft,
+  reminderDraftRefusal,
+  reminderPayload,
+  ReminderSection,
+  type ReminderDraft,
+} from '@/components/messages/reminder-section';
+import { defaultReminderText, type ReminderView } from '@/lib/sms/reminder-time';
+import type { SmsStatus } from '@/lib/sms/transport';
 
 type EventRow = typeof events.$inferSelect;
 type Department = typeof departments.$inferSelect;
@@ -80,6 +89,18 @@ interface EventFormDialogProps {
   seriesEvents: EventRow[];
   /** Event ids that already have attendance — never delete/regenerate these. */
   attendedIds: Set<string>;
+  sms: EventSmsProps;
+}
+
+/** SMS reminders on the event form (computed on the server). */
+export interface EventSmsProps {
+  status: SmsStatus;
+  /** Reminders of the events this user may edit, by event id. */
+  reminders: Record<string, ReminderView>;
+  /** Events whose reminder this user may change (canSetEventReminder). */
+  reminderEditableIds: string[];
+  /** May set a reminder on a new event (canSendMessages). */
+  canCreateReminders: boolean;
 }
 
 const labelCls =
@@ -115,6 +136,7 @@ export function EventFormDialog({
   lockDepartment,
   seriesEvents,
   attendedIds,
+  sms,
 }: EventFormDialogProps) {
   const { toast } = useToast();
   const router = useRouter();
@@ -136,6 +158,16 @@ export function EventFormDialog({
   const [until, setUntil] = useState('');
   const [seriesUntil, setSeriesUntil] = useState('');
   const [busy, setBusy] = useState(false);
+  const [reminderDraft, setReminderDraft] = useState<ReminderDraft>(
+    emptyReminderDraft(null),
+  );
+
+  const existingReminder =
+    mode === 'edit' && event ? (sms.reminders[event.id] ?? null) : null;
+  const reminderEditable =
+    mode === 'create'
+      ? sms.canCreateReminders
+      : !!event && sms.reminderEditableIds.includes(event.id);
 
   const inSeries = mode === 'edit' && !!event?.recurrenceGroup;
 
@@ -155,6 +187,7 @@ export function EventFormDialog({
       setRepeat('none');
       setUntil('');
       setSeriesUntil(event.recurrenceUntil ?? '');
+      setReminderDraft(emptyReminderDraft(sms.reminders[event.id] ?? null));
     } else {
       setTitle('');
       setDescription('');
@@ -168,8 +201,29 @@ export function EventFormDialog({
       setRepeat('none');
       setUntil('');
       setSeriesUntil('');
+      setReminderDraft(emptyReminderDraft(null));
     }
+    // sms.reminders only matters when the dialog opens (not a dependency).
   }, [open, mode, event, defaultDate, userDeptId]);
+
+  // The reminder cannot be saved as it is (shown in its section).
+  const reminderBlock = reminderDraftRefusal(
+    reminderDraft,
+    existingReminder,
+    reminderEditable,
+    { eventDate, startTime },
+    new Date(),
+  );
+
+  // Reminder payload: undefined leaves the stored reminder alone.
+  const reminder = () =>
+    reminderPayload(
+      reminderDraft,
+      reminderEditable,
+      title.trim() && eventDate
+        ? defaultReminderText({ title, eventDate, startTime: startTime || null })
+        : '',
+    );
 
   function getDeptName(id: number | null): string {
     if (!id) return t('General');
@@ -225,6 +279,7 @@ export function EventFormDialog({
       ...checkInMinutes(),
       recurrence: recurring ? (repeat as Recurrence) : null,
       until: recurring ? cappedUntil || null : null,
+      reminder: reminder(),
     });
 
     setBusy(false);
@@ -259,6 +314,7 @@ export function EventFormDialog({
       departmentId: deptId ? Number(deptId) : null,
       audience,
       ...checkInMinutes(),
+      reminder: reminder(),
     });
     setBusy(false);
     if (!res.ok) {
@@ -583,6 +639,15 @@ export function EventFormDialog({
               />
             </div>
 
+            <ReminderSection
+              editable={reminderEditable}
+              reminder={existingReminder}
+              draft={reminderDraft}
+              onChange={setReminderDraft}
+              event={{ title, eventDate, startTime, audience }}
+              status={sms.status}
+            />
+
             {/* Repeat (create only) */}
             {mode === 'create' && (
               <div className="mt-4 rounded-[14px] border border-dashed border-gold bg-gold/10 px-4 py-3.5 dark:bg-gold/[0.06]">
@@ -749,7 +814,7 @@ export function EventFormDialog({
               </DialogClose>
               <button
                 type="submit"
-                disabled={busy}
+                disabled={busy || !!reminderBlock}
                 className={cn(primaryBtn, 'flex-[2] px-5 py-3 text-[13px]')}
               >
                 {mode === 'create'
@@ -763,6 +828,13 @@ export function EventFormDialog({
                     : t('Save changes')}
               </button>
             </div>
+
+            {reminderBlock && (
+              <p role="alert" className="mt-3 flex items-center gap-1.5 text-[11.5px] font-medium text-status-absent">
+                <TriangleAlert className="h-3 w-3 shrink-0" />
+                {t('SMS reminder')}: {t(reminderBlock)}
+              </p>
+            )}
 
             {mode === 'edit' && hasAttendance && (
               <p className="mt-3 flex items-center gap-1.5 text-[11px] text-ink-muted">

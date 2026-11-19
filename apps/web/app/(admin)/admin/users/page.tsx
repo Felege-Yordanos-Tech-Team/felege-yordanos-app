@@ -43,6 +43,7 @@ export default async function ManageUsersPage() {
         email: authUsers.email,
         role: profiles.role,
         departmentId: profiles.departmentId,
+        canSendMessages: profiles.canSendMessages,
         memberCode: members.memberId,
       })
       .from(profiles)

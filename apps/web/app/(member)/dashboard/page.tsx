@@ -6,6 +6,7 @@ import {
   events,
   memberLinkRequests,
   members,
+  songViews,
   preMembers,
   songs as songsTable,
 } from '@felege-yordanos/db/server';
@@ -13,6 +14,7 @@ import { Card } from '@/components/ds';
 import { todayYmd } from '@/lib/events';
 import { getLocale } from '@/lib/i18n/server';
 import { listNotices } from '@/lib/notice-queries';
+import { suggestedPreMemberCodeFor } from '@/lib/pre-member-match-queries';
 import { canViewNotices, visibleAudiences } from '@/lib/permissions';
 import {
   hasMemberAccess,
@@ -140,7 +142,7 @@ export default async function MemberDashboard() {
       .where(ownDonation)
       .orderBy(desc(donations.createdAt))
       .limit(1),
-    // Songbook preview: play history isn't tracked, so show the first songs by number.
+    // Per-user history only: the user id comes from requireUser(), never the client.
     db
       .select({
         id: songsTable.id,
@@ -150,8 +152,10 @@ export default async function MemberDashboard() {
         audioUrl: songsTable.audioUrl,
         audioKey: songsTable.audioKey,
       })
-      .from(songsTable)
-      .orderBy(asc(songsTable.number))
+      .from(songViews)
+      .innerJoin(songsTable, eq(songViews.songId, songsTable.id))
+      .where(eq(songViews.userId, user.id))
+      .orderBy(desc(songViews.viewedAt))
       .limit(3),
     db.$count(songsTable),
     // Latest active notices (members never see expired ones here).
@@ -188,6 +192,12 @@ export default async function MemberDashboard() {
       ),
     )) > 0;
 
+  // Same email as one active pre-member record: suggest its FYP ID (#139).
+  const suggestedCode =
+    user.emailVerified && !member && !preMember && !linkPending
+      ? await suggestedPreMemberCodeFor(user)
+      : null;
+
   const verifiedThisYear = Number(verifiedTotal?.total ?? 0);
   const givingCurrency = latestDonation?.currency ?? 'ETB';
   const nextEvent = upcoming[0] ?? null;
@@ -221,7 +231,11 @@ export default async function MemberDashboard() {
         ) : (
           !member &&
           !preMember && (
-            <LinkProfilePrompt className="mt-3.5" pending={linkPending} />
+            <LinkProfilePrompt
+              className="mt-3.5"
+              pending={linkPending}
+              suggestedCode={suggestedCode}
+            />
           )
         )}
         {preCode && (
@@ -230,6 +244,9 @@ export default async function MemberDashboard() {
           </div>
         )}
         <QuickActions songCount={songCount} preMember={preMember} />
+        <div className="mt-4">
+          <SongbookPreviewCard songs={previewSongs} />
+        </div>
         {canViewNotices(user) && (
           <NoticesCard notices={latestNotices} className="mt-4" />
         )}
@@ -251,7 +268,11 @@ export default async function MemberDashboard() {
         ) : (
           !member &&
           !preMember && (
-            <LinkProfilePrompt className="mt-4" pending={linkPending} />
+            <LinkProfilePrompt
+              className="mt-4"
+              pending={linkPending}
+              suggestedCode={suggestedCode}
+            />
           )
         )}
 

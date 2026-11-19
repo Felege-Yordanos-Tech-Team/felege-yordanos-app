@@ -3,9 +3,9 @@
 import { revalidatePath } from 'next/cache';
 import { and, eq } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, preMembers, profiles } from '@felege-yordanos/db/server';
+import { db, members, preMembers, profiles } from '@felege-yordanos/db/server';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
-import { hasPreMemberAccess } from '@/lib/permissions';
+import { canChangeSmsOptOut, hasPreMemberAccess } from '@/lib/permissions';
 import { logPreMember } from '@/lib/pre-member-queries';
 import {
   diffDetails,
@@ -99,5 +99,38 @@ export async function updateMyPreMemberDetails(
   revalidatePath('/profile');
   revalidatePath(`/admin/pre-members/${id}`);
   revalidatePath('/', 'layout');
+  return ok();
+}
+
+/**
+ * Turns SMS notices (broadcasts and event reminders) on or off for the
+ * signed-in person: their linked member row, or their active pre-member
+ * record. Permission: canChangeSmsOptOut.
+ */
+export async function setReceiveSms(receive: boolean): Promise<ActionResult> {
+  const user = await requireUser();
+  if (!canChangeSmsOptOut(user)) return fail(NOT_ALLOWED);
+  const parsed = z.boolean().safeParse(receive);
+  if (!parsed.success) return fail('Invalid input.');
+  const smsOptOut = !parsed.data;
+  if (user.memberRecordId !== null) {
+    await db
+      .update(members)
+      .set({ smsOptOut })
+      .where(
+        and(eq(members.id, user.memberRecordId), eq(members.authUserId, user.id)),
+      );
+  } else if (user.preMemberRecordId !== null) {
+    await db
+      .update(preMembers)
+      .set({ smsOptOut, updatedAt: new Date() })
+      .where(
+        and(
+          eq(preMembers.id, user.preMemberRecordId),
+          eq(preMembers.authUserId, user.id),
+        ),
+      );
+  }
+  revalidatePath('/profile');
   return ok();
 }
