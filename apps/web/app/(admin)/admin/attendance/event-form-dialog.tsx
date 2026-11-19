@@ -47,6 +47,7 @@ import type { Audience } from '@/lib/audience';
 import { CHECK_IN_DEFAULT_MIN, CHECK_IN_MAX_MIN } from '@/lib/check-in-window';
 import {
   emptyReminderDraft,
+  reminderDraftRefusal,
   reminderPayload,
   ReminderSection,
   type ReminderDraft,
@@ -204,6 +205,15 @@ export function EventFormDialog({
     }
     // sms.reminders only matters when the dialog opens (not a dependency).
   }, [open, mode, event, defaultDate, userDeptId]);
+
+  // The reminder cannot be saved as it is (shown in its section).
+  const reminderBlock = reminderDraftRefusal(
+    reminderDraft,
+    existingReminder,
+    reminderEditable,
+    { eventDate, startTime },
+    new Date(),
+  );
 
   // Reminder payload: undefined leaves the stored reminder alone.
   const reminder = () =>
@@ -804,7 +814,7 @@ export function EventFormDialog({
               </DialogClose>
               <button
                 type="submit"
-                disabled={busy}
+                disabled={busy || !!reminderBlock}
                 className={cn(primaryBtn, 'flex-[2] px-5 py-3 text-[13px]')}
               >
                 {mode === 'create'
@@ -818,6 +828,13 @@ export function EventFormDialog({
                     : t('Save changes')}
               </button>
             </div>
+
+            {reminderBlock && (
+              <p role="alert" className="mt-3 flex items-center gap-1.5 text-[11.5px] font-medium text-status-absent">
+                <TriangleAlert className="h-3 w-3 shrink-0" />
+                {t('SMS reminder')}: {t(reminderBlock)}
+              </p>
+            )}
 
             {mode === 'edit' && hasAttendance && (
               <p className="mt-3 flex items-center gap-1.5 text-[11px] text-ink-muted">

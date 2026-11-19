@@ -1,6 +1,8 @@
 import type { BroadcastAudience } from '@felege-yordanos/db/schema';
 import type { SkipReason } from '@/lib/sms/message-audience';
+import { eatTime } from '@/lib/check-in-window';
 import { intlLocale, type Locale } from '@/lib/i18n/config';
+import { ethiopianClock } from '@/lib/sms/reminder-time';
 
 /** English labels (translated in the UI). */
 export const MESSAGE_AUDIENCE_LABEL: Record<BroadcastAudience, string> = {
@@ -20,6 +22,12 @@ export function formatSentAt(d: Date | string, locale: Locale): string {
     minute: '2-digit',
     hour12: false,
   }).format(typeof d === 'string' ? new Date(d) : d);
+}
+
+/** "Nov 20, 16:30 (ከቀኑ 10:30 ሰዓት)": Addis Ababa time and the Ethiopian clock. */
+export function formatScheduled(d: Date | string, locale: Locale): string {
+  const at = typeof d === 'string' ? new Date(d) : d;
+  return `${formatSentAt(at, locale)} (${ethiopianClock(eatTime(at))})`;
 }
 
 /** Why a person was skipped (English, translated in the UI). */

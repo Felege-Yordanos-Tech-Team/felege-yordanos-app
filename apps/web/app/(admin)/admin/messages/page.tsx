@@ -1,10 +1,10 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { ArrowLeft, Bot, MessageSquareText, Plus } from 'lucide-react';
+import { ArrowLeft, Bot, CalendarClock, MessageSquareText, Plus } from 'lucide-react';
 import { Card, PageHead } from '@/components/ds';
 import { primaryBtn } from '@/components/events/button-classes';
 import { BroadcastStatusPill } from '@/components/messages/broadcast-status';
-import { formatSentAt, MESSAGE_AUDIENCE_LABEL } from '@/components/messages/format';
+import { formatScheduled, formatSentAt, MESSAGE_AUDIENCE_LABEL } from '@/components/messages/format';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { canSendMessages, isSuperAdmin } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
@@ -83,7 +83,14 @@ export default async function MessagesPage() {
                       SMS
                     </span>
                     <span className="ml-auto font-mono text-[11px] text-ink-muted">
-                      {formatSentAt(b.createdAt, locale)}
+                      {b.status === 'scheduled' && b.scheduledAt ? (
+                        <>
+                          <CalendarClock className="mr-1 inline h-3 w-3 align-[-2px]" />
+                          {formatScheduled(b.scheduledAt, locale)}
+                        </>
+                      ) : (
+                        formatSentAt(b.createdAt, locale)
+                      )}
                     </span>
                   </div>
                   <p className="mt-2 line-clamp-2 font-ethiopic text-[13.5px] leading-[1.5] text-ink">
@@ -98,6 +105,17 @@ export default async function MessagesPage() {
                     {b.senderName && <span>· {b.senderName}</span>}
                     <span>· {t('{n} SMS per person', { n: b.partsCount })}</span>
                   </div>
+                  {b.status === 'scheduled' ||
+                  b.status === 'missed' ||
+                  (b.scheduledAt && total + b.totals.skipped === 0) ? (
+                    <p className="mt-2 text-[11.5px] text-ink-muted">
+                      {b.status === 'missed'
+                        ? t('Not sent: the server was down at the time.')
+                        : b.status === 'scheduled'
+                          ? t('Recipients are worked out when it goes out.')
+                          : t('Nobody received this message.')}
+                    </p>
+                  ) : (
                   <div className="mt-3 flex items-center gap-3">
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-parchment-deep">
                       <div
@@ -113,6 +131,7 @@ export default async function MessagesPage() {
                       })}
                     </span>
                   </div>
+                  )}
                   {b.status === 'paused' && b.pauseReason && (
                     <p className="mt-2 text-[11.5px] text-status-late">{b.pauseReason}</p>
                   )}

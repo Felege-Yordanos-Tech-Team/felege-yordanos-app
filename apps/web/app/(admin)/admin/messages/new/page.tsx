@@ -1,14 +1,12 @@
 import Link from 'next/link';
 import { redirect } from 'next/navigation';
-import { desc, gte } from 'drizzle-orm';
 import { ArrowLeft } from 'lucide-react';
-import { db, events } from '@felege-yordanos/db/server';
 import { PageHead } from '@/components/ds';
 import { todayYmd } from '@/lib/events';
 import { getT } from '@/lib/i18n/server';
 import { canSendMessages } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
-import { ownPhone } from '@/lib/sms/message-queries';
+import { loadComposeEvents, ownPhone } from '@/lib/sms/message-queries';
 import { maskPhone } from '@/lib/sms/phone';
 import { smsStatus } from '@/lib/sms/transport';
 import { ComposeForm } from './compose-form';
@@ -20,21 +18,7 @@ export default async function NewMessagePage() {
   const t = await getT();
 
   // Events from a month ago on, for "people expected at an event".
-  const from = new Date(Date.now() - 31 * 24 * 3600 * 1000);
-  const [eventRows, phone] = await Promise.all([
-    db
-      .select({
-        id: events.id,
-        title: events.title,
-        eventDate: events.eventDate,
-        audience: events.audience,
-      })
-      .from(events)
-      .where(gte(events.eventDate, todayYmd(from)))
-      .orderBy(desc(events.eventDate))
-      .limit(300),
-    ownPhone(user),
-  ]);
+  const [eventRows, phone] = await Promise.all([loadComposeEvents(), ownPhone(user)]);
 
   return (
     <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:max-w-[1040px] md:px-7 md:py-7">

@@ -906,11 +906,13 @@ export const BROADCAST_ORIGINS = ['manual', 'event_reminder'] as const;
 export type BroadcastOrigin = (typeof BROADCAST_ORIGINS)[number];
 
 export const BROADCAST_STATUSES = [
+  'scheduled',
   'queued',
   'sending',
   'paused',
   'done',
   'cancelled',
+  'missed',
 ] as const;
 export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
 
@@ -946,6 +948,9 @@ export const messageBroadcasts = pgTable(
     pauseReason: text('pause_reason'),
     startedAt: timestamp('started_at', { withTimezone: true }),
     finishedAt: timestamp('finished_at', { withTimezone: true }),
+    // Status 'scheduled': when it goes out. It has no recipients until then
+    // (worked out by the worker at that time).
+    scheduledAt: timestamp('scheduled_at', { withTimezone: true }),
   },
   (t) => [
     check(
@@ -962,7 +967,11 @@ export const messageBroadcasts = pgTable(
     ),
     check(
       'message_broadcasts_status_check',
-      sql`${t.status} = ANY (ARRAY['queued'::text, 'sending'::text, 'paused'::text, 'done'::text, 'cancelled'::text])`,
+      sql`${t.status} = ANY (ARRAY['scheduled'::text, 'queued'::text, 'sending'::text, 'paused'::text, 'done'::text, 'cancelled'::text, 'missed'::text])`,
+    ),
+    check(
+      'message_broadcasts_scheduled_at_check',
+      sql`${t.status} <> 'scheduled' OR ${t.scheduledAt} IS NOT NULL`,
     ),
     check(
       'message_broadcasts_parts_check',
@@ -970,6 +979,9 @@ export const messageBroadcasts = pgTable(
     ),
     index('idx_message_broadcasts_created_at').on(t.createdAt.desc()),
     index('idx_message_broadcasts_status').on(t.status),
+    index('idx_message_broadcasts_scheduled')
+      .on(t.scheduledAt)
+      .where(sql`${t.status} = 'scheduled'`),
     foreignKey({
       name: 'message_broadcasts_event_id_fkey',
       columns: [t.eventId],
@@ -1152,8 +1164,8 @@ export const REMINDER_STATUSES = [
 export type ReminderStatus = (typeof REMINDER_STATUSES)[number];
 
 /**
- * The SMS reminder of an event: sent once at 09:00 EAT, `days_before` days
- * before the event, to the people expected then. `text` null = the default
+ * The SMS reminder of an event: sent once at `send_time` EAT (default
+ * 09:00), `days_before` days before the event, to the people expected then. `text` null = the default
  * text built from the event when it is sent (follows date changes).
  * Deleting the event deletes the reminder; closing it cancels it.
  */
@@ -1163,6 +1175,8 @@ export const eventReminders = pgTable(
     id: uuid('id').primaryKey().defaultRandom(),
     eventId: uuid('event_id').notNull().unique('event_reminders_event_id_key'),
     daysBefore: integer('days_before').notNull().default(2),
+    // Clock time (EAT) on that day, "HH:MM:SS".
+    sendTime: time('send_time').notNull().default('09:00'),
     text: text('text'),
     setBy: uuid('set_by'),
     setAt: timestamp('set_at', { withTimezone: true }).notNull().defaultNow(),

@@ -3,8 +3,9 @@
  * instrumentation.ts. No extra infrastructure: it polls Postgres.
  *
  * Each tick:
- * 1. fires due event reminders (row lock, so two processes never fire the
- *    same one): creates the broadcast with the people expected right now;
+ * 1. fires due event reminders and scheduled broadcasts (row lock, so two
+ *    processes never fire the same one): works out the recipients right now
+ *    and queues the broadcast; more than 12 hours late = missed;
  * 2. starts queued broadcasts: checks every message with the provider (and
  *    the balance for real sends), then 'sending', or 'paused' with the reason;
  * 3. sends one message: claims the next part of a recipient
@@ -13,8 +14,9 @@
  *
  * About one request every 1.1 s, and at most SEND_MAX per SEND_WINDOW_S
  * seconds across all processes (rate_limits), under SMSHub's 60 per minute.
- * At startup, messages left in 'sending' become 'unknown' and are never
- * resent (no idempotency key at SMSHub).
+ * At startup and every few minutes, messages 'sending' for more than 2
+ * minutes become 'unknown' and are never resent (no idempotency key at
+ * SMSHub).
  *
  * Logs never contain phone numbers or message text.
  */
@@ -29,22 +31,25 @@ import {
   messageDeliveries,
   messageRecipients,
 } from '@felege-yordanos/db/server';
-import { smsReminderPausedEmail } from '../email-templates';
+import { smsReminderPausedEmail, smsScheduledPausedEmail } from '../email-templates';
 import { sendEmail } from '../email';
 import { hitRateLimit } from '../rate-limit';
-import { insertBroadcast, loadSelection } from './message-queries';
+import { insertBroadcast, insertRecipients, loadSelection } from './message-queries';
 import { REMINDER_GRACE_MS } from './reminder-time';
 import { reminderText } from './reminders';
 import { estimateCredits, splitSms } from './split';
 import { smsSignature, smsTransport, type SmsTransport } from './transport';
 import {
   applyOutcome,
+  INTERRUPTED_AFTER_MS,
   nextDelayMs,
   reminderDecision,
+  scheduledBroadcastDecision,
 } from './worker-rules';
 
 const IDLE_MS = 5000;
 const REMINDER_EVERY_MS = 30_000;
+const RECOVER_EVERY_MS = 3 * 60_000;
 const SEND_WINDOW_S = 10;
 const SEND_MAX = 9;
 
@@ -54,18 +59,25 @@ const errMsg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/* ─── Startup ─────────────────────────────────────────────── */
+/* ─── Recovery ────────────────────────────────────────────── */
 
 /**
- * Messages left in 'sending' by a stopped process: 'unknown', and their
- * recipient 'failed'. Returns how many.
+ * Messages 'sending' for more than 2 minutes (left by a stopped or crashed
+ * process): 'unknown', and their recipient 'failed'. Younger ones may still
+ * be in flight in another process (deploys briefly run two). Returns how
+ * many. Never resent.
  */
 export async function recoverInterruptedDeliveries(): Promise<number> {
   return db.transaction(async (tx) => {
     const stale = await tx
       .update(messageDeliveries)
       .set({ status: 'unknown', errorType: 'interrupted', updatedAt: sql`now()` })
-      .where(eq(messageDeliveries.status, 'sending'))
+      .where(
+        and(
+          eq(messageDeliveries.status, 'sending'),
+          sql`${messageDeliveries.updatedAt} < now() - make_interval(secs => ${INTERRUPTED_AFTER_MS / 1000})`,
+        ),
+      )
       .returning({ recipientId: messageDeliveries.recipientId });
     if (stale.length)
       await tx
@@ -148,6 +160,77 @@ export async function fireDueReminders(now: Date = new Date()): Promise<number> 
   }
 }
 
+/* ─── Scheduled broadcasts ────────────────────────────────── */
+
+/**
+ * Scheduled broadcasts whose time has come: recipients worked out now (who
+ * joined, left or opted out in between is handled), then 'queued' and the
+ * usual flow takes over. More than 12 hours late: 'missed', never sent.
+ * Returns how many it queued.
+ */
+export async function fireScheduledBroadcasts(now: Date = new Date()): Promise<number> {
+  let fired = 0;
+  for (;;) {
+    const done = await db.transaction(async (tx) => {
+      const [b] = await tx
+        .select({
+          id: messageBroadcasts.id,
+          status: messageBroadcasts.status,
+          scheduledAt: messageBroadcasts.scheduledAt,
+          parts: messageBroadcasts.parts,
+          audience: messageBroadcasts.audience,
+          eventId: messageBroadcasts.eventId,
+        })
+        .from(messageBroadcasts)
+        .where(
+          and(
+            eq(messageBroadcasts.status, 'scheduled'),
+            sql`${messageBroadcasts.scheduledAt} <= ${now.toISOString()}::timestamptz`,
+          ),
+        )
+        .orderBy(messageBroadcasts.scheduledAt)
+        .limit(1)
+        .for('update', { skipLocked: true });
+      if (!b) return true;
+      const decision = scheduledBroadcastDecision(b, now, REMINDER_GRACE_MS);
+      if (decision === 'missed') {
+        await tx
+          .update(messageBroadcasts)
+          .set({ status: 'missed', finishedAt: sql`now()` })
+          .where(eq(messageBroadcasts.id, b.id));
+        console.log(`[sms] scheduled broadcast ${short(b.id)} missed`);
+        return false;
+      }
+      if (decision !== 'fire') return true;
+      const loaded = await loadSelection(b.audience, b.eventId);
+      if (!loaded) {
+        // Audience 'event' and the event was deleted.
+        await tx
+          .update(messageBroadcasts)
+          .set({
+            status: 'cancelled',
+            pauseReason: 'The event was deleted.',
+            finishedAt: sql`now()`,
+          })
+          .where(eq(messageBroadcasts.id, b.id));
+        console.log(`[sms] scheduled broadcast ${short(b.id)} cancelled: event gone`);
+        return false;
+      }
+      await insertRecipients(tx, b.id, b.parts, loaded.selection);
+      await tx
+        .update(messageBroadcasts)
+        .set({ status: 'queued' })
+        .where(eq(messageBroadcasts.id, b.id));
+      fired += 1;
+      console.log(
+        `[sms] scheduled broadcast ${short(b.id)} queued: ${loaded.selection.recipients.length} recipients`,
+      );
+      return false;
+    });
+    if (done) return fired;
+  }
+}
+
 /* ─── Starting broadcasts ─────────────────────────────────── */
 
 async function pauseBroadcast(
@@ -169,10 +252,17 @@ async function pauseBroadcast(
       origin: messageBroadcasts.origin,
       createdBy: messageBroadcasts.createdBy,
       eventId: messageBroadcasts.eventId,
+      scheduledAt: messageBroadcasts.scheduledAt,
+      text: messageBroadcasts.text,
     });
   if (!b) return;
   console.log(`[sms] broadcast ${short(broadcastId)} paused: ${errorType}`);
-  if (b.origin !== 'event_reminder') return;
+  if (b.origin !== 'event_reminder') {
+    // Nobody is watching a scheduled message go out: tell its sender.
+    if (b.scheduledAt && errorType === 'insufficient_credits' && b.createdBy)
+      void emailScheduledPaused(broadcastId, b.createdBy, b.text);
+    return;
+  }
   await tx
     .update(eventReminders)
     .set({ status: 'paused' })
@@ -204,6 +294,28 @@ async function emailReminderPaused(
     });
   } catch (err) {
     console.error('[sms] reminder paused email failed:', errMsg(err));
+  }
+}
+
+async function emailScheduledPaused(broadcastId: string, userId: string, text: string) {
+  try {
+    const [row] = await db
+      .select({ email: authUsers.email })
+      .from(authUsers)
+      .where(eq(authUsers.id, userId))
+      .limit(1);
+    if (!row?.email) return;
+    const base = process.env['BETTER_AUTH_URL'] ?? '';
+    const flat = text.replace(/\s+/g, ' ').trim();
+    await sendEmail({
+      to: row.email,
+      ...smsScheduledPausedEmail({
+        textPreview: flat.length > 80 ? `${flat.slice(0, 80)}…` : flat,
+        url: `${base}/admin/messages/${broadcastId}`,
+      }),
+    });
+  } catch (err) {
+    console.error('[sms] scheduled paused email failed:', errMsg(err));
   }
 }
 
@@ -426,20 +538,22 @@ async function run() {
   console.log(
     `[sms] worker started (transport ${transport.name}${transport.configured ? '' : ', not configured'})`,
   );
-  try {
-    const recovered = await recoverInterruptedDeliveries();
-    if (recovered)
-      console.log(`[sms] ${recovered} interrupted message(s) marked unknown`);
-  } catch (err) {
-    console.error('[sms] startup recovery failed:', errMsg(err));
-  }
   let lastReminders = 0;
+  let lastRecover = 0;
   for (;;) {
     let delay = IDLE_MS;
     try {
+      // At startup and every few minutes (a crash leaves messages 'sending').
+      if (Date.now() - lastRecover >= RECOVER_EVERY_MS) {
+        lastRecover = Date.now();
+        const recovered = await recoverInterruptedDeliveries();
+        if (recovered)
+          console.log(`[sms] ${recovered} interrupted message(s) marked unknown`);
+      }
       if (Date.now() - lastReminders >= REMINDER_EVERY_MS) {
         lastReminders = Date.now();
         await fireDueReminders();
+        await fireScheduledBroadcasts();
       }
       await startQueuedBroadcasts(transport);
       const next = await sendNext(transport);

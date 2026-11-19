@@ -148,13 +148,21 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
         variant: 'destructive',
       });
     } else {
-      toast({
-        title: t('Updated'),
-        description: t('{name} is now {role}.', {
-          name: selected.displayName || selected.email || t('User'),
-          role: roleLabel(editRole, t),
-        }),
-      });
+      // Say what changed: the role, the right to send messages, or both.
+      const name = selected.displayName || selected.email || t('User');
+      const canSendNow = editRole === 'dept_head' && editCanSend;
+      const roleChanged = editRole !== selected.role;
+      const sendChanged = canSendNow !== selected.canSendMessages;
+      const lines: string[] = [];
+      if (roleChanged || !sendChanged)
+        lines.push(t('{name} is now {role}.', { name, role: roleLabel(editRole, t) }));
+      if (sendChanged)
+        lines.push(
+          canSendNow
+            ? t('{name} can now send messages.', { name })
+            : t('{name} can no longer send messages.', { name }),
+        );
+      toast({ title: t('Updated'), description: lines.join(' ') });
       setSelected(null);
       router.refresh();
     }

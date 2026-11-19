@@ -10,10 +10,10 @@ import {
   defaultReminderText,
   reminderDueAt,
   reminderRefusal,
-  reminderStatusOnSave,
   REMINDER_MAX_DAYS,
   type ReminderView,
 } from './reminder-time';
+import { hhmmOf, isClockTime } from './schedule';
 import { splitSms } from './split';
 import { smsSignature } from './transport';
 
@@ -28,6 +28,8 @@ export interface ReminderEvent {
 
 export interface ReminderInput {
   daysBefore: number;
+  /** "HH:MM" (or "HH:MM:SS" as stored), EAT. */
+  sendTime: string;
   /** null = the default text built from the event when it is sent. */
   text: string | null;
 }
@@ -41,11 +43,14 @@ export const reminderText = (
 
 /**
  * Why this reminder cannot be saved for the event, or null: days out of
- * range, sent after the start, or a text that does not fit in 5 SMS.
+ * range, sent after the start, a time that has passed or is less than 2
+ * minutes away (skipped when `now` is null), or a text that does not fit in
+ * 5 SMS.
  */
 export function reminderInputRefusal(
   event: Omit<ReminderEvent, 'id'>,
   input: ReminderInput,
+  now: Date | null,
 ): string | null {
   if (
     !Number.isInteger(input.daysBefore) ||
@@ -53,7 +58,13 @@ export function reminderInputRefusal(
     input.daysBefore > REMINDER_MAX_DAYS
   )
     return 'Days before must be between 0 and 14.';
-  const refusal = reminderRefusal(event, input.daysBefore);
+  if (!isClockTime(input.sendTime)) return 'Choose a time.';
+  const refusal = reminderRefusal(
+    event,
+    input.daysBefore,
+    hhmmOf(input.sendTime),
+    now,
+  );
   if (refusal) return refusal;
   const split = splitSms(reminderText(input, event), smsSignature());
   if (!split.ok) {
@@ -66,9 +77,9 @@ export function reminderInputRefusal(
 }
 
 /**
- * Sets (or replaces) the reminder of an event. A due time that has passed
- * already makes it 'missed' (never sent late). Call after
- * reminderInputRefusal returned null.
+ * Sets (or replaces) the reminder of an event, as 'scheduled'. Call after
+ * reminderInputRefusal (with now) returned null: a time in the past is
+ * refused, never stored.
  */
 export async function saveReminder(
   tx: Tx,
@@ -77,13 +88,15 @@ export async function saveReminder(
   userId: string,
   now: Date = new Date(),
 ) {
-  const dueAt = reminderDueAt(event.eventDate, input.daysBefore);
+  const sendTime = hhmmOf(input.sendTime);
+  const dueAt = reminderDueAt(event.eventDate, input.daysBefore, sendTime);
   const values = {
     daysBefore: input.daysBefore,
+    sendTime,
     text: input.text,
     setBy: userId,
     setAt: now,
-    status: reminderStatusOnSave(dueAt, now),
+    status: 'scheduled' as const,
     broadcastId: null,
     dueAt,
   };
@@ -101,38 +114,55 @@ export async function deleteReminder(tx: Tx, eventId: string) {
 }
 
 /**
- * The event changed (date, time or title): a reminder that has not gone out
- * moves with it. When it no longer works (it would come after the new start,
- * or the default text no longer fits with the new title) it is cancelled,
- * so the event can still be saved by editors without the right to send;
- * the form shows the cancelled reminder. Returns whether it was cancelled.
+ * The event changed (date, time or title) and the form left the reminder
+ * alone: a reminder that has not gone out moves with it (same days and
+ * time). When it no longer works (its new time has passed or comes after
+ * the new start, or the default text no longer fits with the new title):
+ * - `strict` (the editor may set reminders): returns the reason, the caller
+ *   refuses the save;
+ * - otherwise it is cancelled, so editors without the right to send can
+ *   still save the event; the form shows the cancelled reminder.
+ * A 'missed' reminder becomes 'scheduled' again when its new time works.
  */
 export async function rescheduleReminder(
   tx: Tx,
   event: ReminderEvent,
-  now: Date = new Date(),
-): Promise<boolean> {
+  opts: { strict: boolean; now?: Date },
+): Promise<{ refusal: string } | null> {
+  const now = opts.now ?? new Date();
   const [r] = await tx
     .select()
     .from(eventReminders)
     .where(eq(eventReminders.eventId, event.id))
     .for('update')
     .limit(1);
-  if (!r || (r.status !== 'scheduled' && r.status !== 'missed')) return false;
-  if (reminderInputRefusal(event, r)) {
+  if (!r || (r.status !== 'scheduled' && r.status !== 'missed')) return null;
+  const dueAt = reminderDueAt(event.eventDate, r.daysBefore, hhmmOf(r.sendTime));
+  const moved = dueAt.getTime() !== r.dueAt.getTime();
+  if (r.status === 'missed') {
+    if (moved && !reminderInputRefusal(event, r, now))
+      await tx
+        .update(eventReminders)
+        .set({ dueAt, status: 'scheduled' })
+        .where(eq(eventReminders.id, r.id));
+    return null;
+  }
+  // The time is only checked when it moves.
+  const refusal = reminderInputRefusal(event, r, moved ? now : null);
+  if (refusal) {
+    if (opts.strict) return { refusal };
     await tx
       .update(eventReminders)
       .set({ status: 'cancelled' })
       .where(eq(eventReminders.id, r.id));
-    return true;
+    return null;
   }
-  const dueAt = reminderDueAt(event.eventDate, r.daysBefore);
-  if (dueAt.getTime() === r.dueAt.getTime()) return false;
-  await tx
-    .update(eventReminders)
-    .set({ dueAt, status: reminderStatusOnSave(dueAt, now) })
-    .where(eq(eventReminders.id, r.id));
-  return false;
+  if (moved)
+    await tx
+      .update(eventReminders)
+      .set({ dueAt })
+      .where(eq(eventReminders.id, r.id));
+  return null;
 }
 
 /** Closing an event cancels a reminder that has not gone out. */
@@ -162,6 +192,7 @@ export async function loadReminders(
       r.eventId,
       {
         daysBefore: r.daysBefore,
+        sendTime: hhmmOf(r.sendTime),
         text: r.text,
         status: r.status,
         dueAt: r.dueAt.toISOString(),

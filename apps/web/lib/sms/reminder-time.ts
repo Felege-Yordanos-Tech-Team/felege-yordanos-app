@@ -8,30 +8,27 @@
 import type { ReminderStatus } from '@felege-yordanos/db/schema';
 import { eventStartAt } from '../check-in-window';
 import { ETH_MONTHS, parseYmd, toEthiopic, WEEKDAY_AM } from '../events';
+import { eatMoment, isTooSoon, TIME_PASSED } from './schedule';
 
 export const REMINDER_DEFAULT_DAYS = 2;
 export const REMINDER_MAX_DAYS = 14;
-/** Reminders are sent at this hour (EAT) on their day. */
-export const REMINDER_HOUR_EAT = 9;
+/** Default clock time (EAT) of a reminder on its day. */
+export const REMINDER_DEFAULT_TIME = '09:00';
 /** A reminder later than this is skipped as missed, never sent late. */
 export const REMINDER_GRACE_MS = 12 * 60 * 60 * 1000;
 
-const EAT_OFFSET_MS = 3 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 /**
  * When the reminder for an event on `eventDate` (YYYY-MM-DD, EAT) goes out:
- * 09:00 EAT, `daysBefore` days before that date.
+ * `sendTime` (HH:MM, EAT; default 09:00), `daysBefore` days before that date.
  */
-export function reminderDueAt(eventDate: string, daysBefore: number): Date {
-  const [y, m, d] = eventDate.split('-').map(Number);
-  const eventDayStartUtc = Date.UTC(y, (m ?? 1) - 1, d ?? 1);
-  return new Date(
-    eventDayStartUtc -
-      daysBefore * DAY_MS +
-      REMINDER_HOUR_EAT * 60 * 60 * 1000 -
-      EAT_OFFSET_MS,
-  );
+export function reminderDueAt(
+  eventDate: string,
+  daysBefore: number,
+  sendTime: string = REMINDER_DEFAULT_TIME,
+): Date {
+  return new Date(eatMoment(eventDate, sendTime).getTime() - daysBefore * DAY_MS);
 }
 
 /** Too late to send: more than 12 hours after the due time. */
@@ -39,25 +36,21 @@ export const isMissed = (dueAt: Date, now: Date) =>
   now.getTime() - dueAt.getTime() > REMINDER_GRACE_MS;
 
 /**
- * Status of a reminder when it is saved (set or event moved): a due time
- * that has already passed is 'missed' straight away (never sent late).
- */
-export const reminderStatusOnSave = (
-  dueAt: Date,
-  now: Date,
-): 'scheduled' | 'missed' => (dueAt.getTime() <= now.getTime() ? 'missed' : 'scheduled');
-
-/**
  * Why this reminder cannot be set, or null: it would go out after the event
- * has started (0 days before an event starting before 09:00).
+ * has started, or its time has passed or is less than 2 minutes away.
+ * `now` null skips the time check (a stored reminder whose time does not
+ * change).
  */
 export function reminderRefusal(
   event: { eventDate: string; startTime: string | null },
   daysBefore: number,
+  sendTime: string,
+  now: Date | null,
 ): string | null {
-  const due = reminderDueAt(event.eventDate, daysBefore);
+  const due = reminderDueAt(event.eventDate, daysBefore, sendTime);
   if (event.startTime && due.getTime() >= eventStartAt(event).getTime())
     return 'The reminder would be sent after the event starts.';
+  if (now && isTooSoon(due, now)) return TIME_PASSED;
   return null;
 }
 
@@ -101,6 +94,8 @@ export function defaultReminderText(event: {
 /** What the event form shows about an event's reminder. */
 export interface ReminderView {
   daysBefore: number;
+  /** "HH:MM", EAT. */
+  sendTime: string;
   /** null = the default text built from the event. */
   text: string | null;
   status: ReminderStatus;
@@ -113,6 +108,8 @@ export interface ReminderView {
 export interface ReminderFormInput {
   enabled: boolean;
   daysBefore: number;
+  /** "HH:MM", EAT. */
+  sendTime: string;
   /** null = the default text built from the event. */
   text: string | null;
 }

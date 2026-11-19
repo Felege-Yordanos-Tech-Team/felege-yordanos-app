@@ -19,6 +19,7 @@ import {
   canReceiveMessagingGrant,
   canViewBroadcast,
   canCancelBroadcast,
+  canEditBroadcast,
   canSetEventReminder,
   canChangeSmsOptOut,
 } from './permissions';
@@ -196,6 +197,17 @@ describe('messages (SMS)', () => {
     // The right was taken away: not even their own.
     assert.equal(canViewBroadcast(plainHead, own), false);
     assert.equal(canViewBroadcast(adminWithFlag, { createdBy: admin.id }), false);
+  });
+
+  it('scheduled broadcasts: edited by the same people who may cancel them', () => {
+    const own = { createdBy: grantedHead.id };
+    const other = { createdBy: 'someone-else' };
+    assert.equal(canEditBroadcast(superAdmin, other), true);
+    assert.equal(canEditBroadcast(grantedHead, own), true);
+    assert.equal(canEditBroadcast(grantedHead, other), false);
+    assert.equal(canEditBroadcast(plainHead, own), false);
+    assert.equal(canEditBroadcast(adminWithFlag, { createdBy: admin.id }), false);
+    assert.equal(canEditBroadcast(memberWithFlag, { createdBy: memberWithFlag.id }), false);
   });
 
   it('event reminders: may edit the event and may send', () => {

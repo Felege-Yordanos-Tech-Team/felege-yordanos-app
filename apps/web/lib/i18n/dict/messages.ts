@@ -132,11 +132,11 @@ export const messages: Record<string, string> = {
   // Event reminder
   'SMS reminder': 'የSMS ማስታወሻ',
   'Send an SMS reminder': 'የSMS ማስታወሻ ላክ',
-  'To everyone expected at the event with a phone number, once, at 09:00.':
-    'በመርሃ ግብሩ ለሚጠበቁና ስልክ ቁጥር ላላቸው ሁሉ፣ አንድ ጊዜ፣ ከጠዋቱ 3:00 ሰዓት።',
+  'To everyone expected at the event with a phone number, once, at the time you choose.':
+    'በመርሃ ግብሩ ለሚጠበቁና ስልክ ቁጥር ላላቸው ሁሉ፣ አንድ ጊዜ፣ በመረጡት ሰዓት።',
   'Days before': 'ከስንት ቀን በፊት',
   'Between 0 and {max} days.': 'ከ0 እስከ {max} ቀናት።',
-  'Goes out {date} at 09:00 (ከጠዋቱ 3:00 ሰዓት).': '{date} ከጠዋቱ 3:00 ሰዓት (09:00) ይላካል።',
+  'Goes out {date} at {time} ({eth}).': '{date} {eth} ({time}) ይላካል።',
   '{n} days before': 'ከ{n} ቀን በፊት',
   'Use the default text': 'መደበኛውን ጽሑፍ ተጠቀም',
   'Fill in the title and date first.': 'መጀመሪያ ርዕሱንና ቀኑን ይሙሉ።',
@@ -167,4 +167,36 @@ export const messages: Record<string, string> = {
   'You will receive SMS notices and event reminders.':
     'የSMS ማሳወቂያዎችንና የመርሃ ግብር ማስታወሻዎችን ይቀበላሉ።',
   'You will not receive SMS notices any more.': 'ከእንግዲህ የSMS ማሳወቂያዎችን አይቀበሉም።',
+
+  // Scheduling (#143)
+  'This time has already passed. Choose a later time.':
+    'ይህ ሰዓት አልፏል። ከዚህ በኋላ ያለ ሰዓት ይምረጡ።',
+  'Choose a time at most 60 days ahead.': 'ቢበዛ ከ60 ቀን በኋላ ያለ ሰዓት ይምረጡ።',
+  'Choose a time.': 'ሰዓት ይምረጡ።',
+  'Choose a date and time.': 'ቀንና ሰዓት ይምረጡ።',
+  'When?': 'መቼ?',
+  Later: 'በኋላ',
+  'Ethiopian time. Recipients are worked out when it goes out.':
+    'በኢትዮጵያ ሰዓት። ተቀባዮቹ የሚወሰኑት በሚላክበት ጊዜ ነው።',
+  'Recipients are worked out when it goes out.': 'ተቀባዮቹ የሚወሰኑት በሚላክበት ጊዜ ነው።',
+  'Recipients are worked out when it goes out: people who join, leave or turn off SMS before then are handled.':
+    'ተቀባዮቹ የሚወሰኑት በሚላክበት ጊዜ ነው፤ እስከዚያ የሚቀላቀሉ፣ የሚለቁ ወይም SMS የሚያጠፉ በትክክል ይስተናገዳሉ።',
+  'Schedule this SMS?': 'ይህ SMS በቀጠሮ ይያዝ?',
+  'Schedule the message': 'መልዕክቱን በቀጠሮ ያዝ',
+  'Counted as of today; people are counted again when it goes out.':
+    'ቁጥሩ የዛሬ ነው፤ በሚላክበት ጊዜ እንደገና ይቆጠራል።',
+  'Changes saved': 'ለውጦቹ ተቀምጠዋል',
+  'Goes out {when}.': '{when} ይላካል።',
+  'Scheduled for': 'የሚላክበት',
+  'Not sent (too late)': 'አልተላከም (ጊዜው አልፏል)',
+  'Not sent: the server was down at the time.': 'አልተላከም፦ በዚያ ሰዓት አገልጋዩ ቆሞ ነበር።',
+  'Nobody received this message.': 'ይህን መልዕክት ማንም አልተቀበለም።',
+  'Yes, cancel it': 'አዎ፣ ሰርዘው',
+  'Edit scheduled message': 'የታቀደ መልዕክት ማስተካከያ',
+  'Change the text, who gets it or when it goes out.':
+    'ጽሑፉን፣ ተቀባዮቹን ወይም የሚላክበትን ጊዜ ይቀይሩ።',
+  'This message has already started.': 'ይህ መልዕክት መላክ ጀምሯል።',
+  'The event was deleted.': 'መርሃ ግብሩ ተሰርዟል።',
+  '{name} can now send messages.': '{name} አሁን መልዕክት መላክ ይችላል።',
+  '{name} can no longer send messages.': '{name} ከእንግዲህ መልዕክት መላክ አይችልም።',
 };

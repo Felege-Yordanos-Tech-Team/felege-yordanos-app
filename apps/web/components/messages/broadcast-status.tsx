@@ -2,6 +2,8 @@ import type { BroadcastStatus } from '@felege-yordanos/db/schema';
 import { StatusPill, type StatusTone } from '@/components/ds';
 
 const TONE: Record<BroadcastStatus, StatusTone> = {
+  scheduled: 'upcoming',
+  missed: 'rejected',
   queued: 'upcoming',
   sending: 'upcoming',
   paused: 'late',
@@ -10,6 +12,8 @@ const TONE: Record<BroadcastStatus, StatusTone> = {
 };
 
 export const BROADCAST_STATUS_LABEL: Record<BroadcastStatus, string> = {
+  scheduled: 'Scheduled',
+  missed: 'Not sent (too late)',
   queued: 'Starting',
   sending: 'Sending',
   paused: 'Paused',
