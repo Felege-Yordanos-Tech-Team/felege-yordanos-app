@@ -48,4 +48,12 @@ export const email: Record<string, string> = {
   'Top up the SMSHub balance, then open the reminder and tap Resume.':
     'የSMSHub ሂሳቡን ይሙሉ፣ ከዚያ ማስታወሻውን ከፍተው «ቀጥል» የሚለውን ይንኩ።',
   'Open the reminder': 'ማስታወሻውን ክፈት',
+
+  // Scheduled SMS paused
+  'Scheduled SMS paused': 'የታቀደው SMS ቆሟል',
+  'Your scheduled SMS was paused because the SMS balance is too low:':
+    'የSMS ሂሳብ በቂ ስላልሆነ ያቀዱት SMS ቆሟል፦',
+  'Top up the SMSHub balance, then open the message and tap Resume.':
+    'የSMSHub ሂሳቡን ይሙሉ፣ ከዚያ መልዕክቱን ከፍተው «ቀጥል» የሚለውን ይንኩ።',
+  'Open the message': 'መልዕክቱን ክፈት',
 };

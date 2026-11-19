@@ -7,6 +7,7 @@ import {
   nextPart,
   recoverInterrupted,
   reminderDecision,
+  scheduledBroadcastDecision,
 } from './worker-rules';
 
 const ok = { ok: true as const };
@@ -118,14 +119,22 @@ describe('applyOutcome', () => {
   });
 });
 
-describe('startup recovery', () => {
-  it('a delivery interrupted mid-request becomes unknown, its person failed', () => {
-    assert.deepEqual(recoverInterrupted('sending'), {
+describe('recovery of interrupted messages', () => {
+  const now = new Date('2026-11-19T12:00:00Z');
+  const ago = (s: number) => new Date(now.getTime() - s * 1000);
+  it('a delivery sending for more than 2 minutes becomes unknown, its person failed', () => {
+    assert.deepEqual(recoverInterrupted('sending', ago(121), now), {
       delivery: 'unknown',
       recipient: 'failed',
     });
-    assert.equal(recoverInterrupted('queued'), null);
-    assert.equal(recoverInterrupted('sent'), null);
+  });
+  it('a delivery sending for 2 minutes or less may still be in flight: left alone', () => {
+    assert.equal(recoverInterrupted('sending', ago(5), now), null);
+    assert.equal(recoverInterrupted('sending', ago(120), now), null);
+  });
+  it('only sending deliveries are looked at', () => {
+    assert.equal(recoverInterrupted('queued', ago(3600), now), null);
+    assert.equal(recoverInterrupted('sent', ago(3600), now), null);
   });
   it('a broadcast is done when nobody is left', () => {
     assert.equal(isBroadcastDone(0), true);
@@ -154,6 +163,31 @@ describe('reminderDecision', () => {
   it('closed or deleted event: cancelled', () => {
     assert.equal(reminderDecision(r, { closedAt: due }, due, grace), 'cancelled');
     assert.equal(reminderDecision(r, null, due, grace), 'cancelled');
+  });
+});
+
+describe('scheduledBroadcastDecision', () => {
+  const at = new Date('2026-11-20T13:30:00Z');
+  const grace = 12 * 3600 * 1000;
+  const b = { status: 'scheduled' as const, scheduledAt: at };
+  it('waits until its time, then fires', () => {
+    assert.equal(scheduledBroadcastDecision(b, new Date('2026-11-20T13:29:59Z'), grace), 'wait');
+    assert.equal(scheduledBroadcastDecision(b, at, grace), 'fire');
+    assert.equal(scheduledBroadcastDecision(b, new Date('2026-11-21T01:30:00Z'), grace), 'fire');
+  });
+  it('more than 12 hours late: missed, never sent late', () => {
+    assert.equal(
+      scheduledBroadcastDecision(b, new Date('2026-11-21T01:30:01Z'), grace),
+      'missed',
+    );
+  });
+  it('fires once: anything but scheduled is skipped', () => {
+    assert.equal(scheduledBroadcastDecision({ ...b, status: 'queued' }, at, grace), 'skip');
+    assert.equal(scheduledBroadcastDecision({ ...b, status: 'cancelled' }, at, grace), 'skip');
+    assert.equal(
+      scheduledBroadcastDecision({ status: 'scheduled', scheduledAt: null }, at, grace),
+      'skip',
+    );
   });
 });
 

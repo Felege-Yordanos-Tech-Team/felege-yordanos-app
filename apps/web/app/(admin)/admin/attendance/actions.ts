@@ -41,7 +41,7 @@ import {
   canViewEventAttendance,
 } from '@/lib/permissions';
 import { requireUser, type CurrentUser } from '@/lib/session';
-import { defaultReminderText } from '@/lib/sms/reminder-time';
+import { defaultReminderText, REMINDER_DEFAULT_TIME } from '@/lib/sms/reminder-time';
 import {
   cancelReminder,
   deleteReminder,
@@ -99,6 +99,11 @@ const eventFields = z.object({
     .object({
       enabled: z.boolean(),
       daysBefore: z.number().int('Enter whole days.'),
+      // Clock time (EAT) on that day; older clients send none: 09:00.
+      sendTime: z
+        .string()
+        .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Choose a time.')
+        .default(REMINDER_DEFAULT_TIME),
       text: z.string().max(1000).nullable(),
     })
     .optional(),
@@ -123,6 +128,7 @@ const reminderInput = (r: ReminderFields, event: Omit<ReminderEvent, 'id'>) => {
   const text = r.text?.trim() || null;
   return {
     daysBefore: r.daysBefore,
+    sendTime: r.sendTime,
     text: text === defaultReminderText(event).trim() ? null : text,
   };
 };
@@ -197,6 +203,7 @@ export async function createEvent(
   }
 
   if (withReminder && reminder) {
+    const now = new Date();
     for (const row of rows) {
       const refusal = reminderInputRefusal(
         { title: row.title, eventDate: row.eventDate, startTime: row.startTime ?? null },
@@ -205,6 +212,7 @@ export async function createEvent(
           eventDate: row.eventDate,
           startTime: row.startTime ?? null,
         }),
+        now,
       );
       if (refusal) return fail(refusal);
     }
@@ -264,29 +272,38 @@ export async function updateEvent(
     startTime: fields.startTime,
   };
   if (reminder?.enabled) {
-    const refusal = reminderInputRefusal(updated, reminderInput(reminder, updated));
+    const refusal = reminderInputRefusal(
+      updated,
+      reminderInput(reminder, updated),
+      new Date(),
+    );
     if (refusal) return fail(refusal);
   }
 
   try {
+    // Reminder first: a refusal returns before the event row is written.
     const error = await db.transaction(async (tx) => {
-      await tx.update(events).set(fields).where(eq(events.id, event.id));
       if (!reminder) {
-        // Moves with the event (or is cancelled when it no longer works).
-        await rescheduleReminder(tx, updated);
-        return null;
+        // Moves with the event. When it no longer works: refused for who
+        // may set reminders, cancelled for other editors.
+        const res = await rescheduleReminder(tx, updated, {
+          strict: canSetEventReminder(user, event) && canSetEventReminder(user, fields),
+        });
+        if (res) return res.refusal;
+      } else {
+        const [current] = await tx
+          .select({ status: eventReminders.status })
+          .from(eventReminders)
+          .where(eq(eventReminders.eventId, event.id))
+          .for('update')
+          .limit(1);
+        const gone = current?.status === 'sent' || current?.status === 'paused';
+        if (gone) return 'This reminder has already been sent.';
+        if (reminder.enabled)
+          await saveReminder(tx, updated, reminderInput(reminder, updated), user.id);
+        else await deleteReminder(tx, event.id);
       }
-      const [current] = await tx
-        .select({ status: eventReminders.status })
-        .from(eventReminders)
-        .where(eq(eventReminders.eventId, event.id))
-        .for('update')
-        .limit(1);
-      const gone = current?.status === 'sent' || current?.status === 'paused';
-      if (gone) return 'This reminder has already been sent.';
-      if (reminder.enabled)
-        await saveReminder(tx, updated, reminderInput(reminder, updated), user.id);
-      else await deleteReminder(tx, event.id);
+      await tx.update(events).set(fields).where(eq(events.id, event.id));
       return null;
     });
     if (error) return fail(error);

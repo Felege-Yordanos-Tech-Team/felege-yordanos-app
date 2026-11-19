@@ -33,11 +33,13 @@ export const RECIPIENT_STATUSES = [
 export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number];
 
 export const BROADCAST_STATUSES = [
+  'scheduled',
   'queued',
   'sending',
   'paused',
   'done',
   'cancelled',
+  'missed',
 ] as const;
 export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
 
@@ -111,11 +113,23 @@ export function applyOutcome(input: {
 }
 
 /**
- * At startup: a delivery left in 'sending' may or may not have reached the
- * provider. It becomes 'unknown' and its recipient 'failed', never resent.
+ * A delivery 'sending' for longer than this was interrupted (a send takes a
+ * few seconds; a deploy briefly runs two processes, so a younger one may
+ * still be in flight in the other process).
  */
-export const recoverInterrupted = (status: DeliveryStatus) =>
-  status === 'sending'
+export const INTERRUPTED_AFTER_MS = 2 * 60 * 1000;
+
+/**
+ * A delivery left in 'sending' for more than 2 minutes may or may not have
+ * reached the provider. It becomes 'unknown' and its recipient 'failed',
+ * never resent. Checked at startup and every few minutes.
+ */
+export const recoverInterrupted = (
+  status: DeliveryStatus,
+  updatedAt: Date,
+  now: Date,
+) =>
+  status === 'sending' && now.getTime() - updatedAt.getTime() > INTERRUPTED_AFTER_MS
     ? { delivery: 'unknown' as const, recipient: 'failed' as const }
     : null;
 
@@ -145,6 +159,23 @@ export function reminderDecision(
   if (now.getTime() < reminder.dueAt.getTime()) return 'wait';
   if (now.getTime() - reminder.dueAt.getTime() > graceMs) return 'missed';
   return 'fire';
+}
+
+/**
+ * What the worker does with a scheduled broadcast now: nothing yet
+ * ('wait'), work out its recipients and queue it ('fire'), or mark it
+ * 'missed' when more than 12 hours late (never sent late). Only
+ * 'scheduled' broadcasts are looked at.
+ */
+export function scheduledBroadcastDecision(
+  broadcast: { status: BroadcastStatus; scheduledAt: Date | null },
+  now: Date,
+  graceMs: number,
+): 'skip' | 'wait' | 'fire' | 'missed' {
+  if (broadcast.status !== 'scheduled' || !broadcast.scheduledAt) return 'skip';
+  const late = now.getTime() - broadcast.scheduledAt.getTime();
+  if (late < 0) return 'wait';
+  return late > graceMs ? 'missed' : 'fire';
 }
 
 /** Pause before the next request: ~1.1 s, longer when the provider asks. */

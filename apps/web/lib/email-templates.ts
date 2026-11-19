@@ -264,3 +264,23 @@ export function smsReminderPausedEmail({
     action: { label: 'Open the reminder', url },
   });
 }
+
+/** A scheduled manual SMS paused for lack of credits (to its sender). */
+export function smsScheduledPausedEmail({
+  textPreview,
+  url,
+}: {
+  textPreview: string;
+  url: string;
+}): EmailContent {
+  return render({
+    subject: 'Scheduled SMS paused',
+    title: 'Scheduled SMS paused',
+    paragraphs: [
+      'Your scheduled SMS was paused because the SMS balance is too low:',
+      textPreview,
+      'Top up the SMSHub balance, then open the message and tap Resume.',
+    ],
+    action: { label: 'Open the message', url },
+  });
+}

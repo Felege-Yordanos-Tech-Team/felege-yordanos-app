@@ -4,9 +4,9 @@ import { ArrowLeft, Bot } from 'lucide-react';
 import { Card, PageHead, StatusPill, type StatusTone } from '@/components/ds';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { BroadcastStatusPill } from '@/components/messages/broadcast-status';
-import { formatSentAt, MESSAGE_AUDIENCE_LABEL, SKIP_LABEL } from '@/components/messages/format';
+import { formatScheduled, formatSentAt, MESSAGE_AUDIENCE_LABEL, SKIP_LABEL } from '@/components/messages/format';
 import { getLocale, getT } from '@/lib/i18n/server';
-import { canCancelBroadcast, canViewBroadcast } from '@/lib/permissions';
+import { canCancelBroadcast, canEditBroadcast, canViewBroadcast } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 import type { SkipReason } from '@/lib/sms/message-audience';
 import { loadBroadcast, loadRecipients } from '@/lib/sms/message-queries';
@@ -31,8 +31,8 @@ const RECIPIENT_LABEL: Record<string, string> = {
 
 /**
  * One broadcast: progress (refreshed every 3 s while sending), cancel and
- * resume, and every recipient with a masked number.
- * Permission: canViewBroadcast.
+ * resume, and every recipient with a masked number. A scheduled one: its
+ * time, Edit and Cancel, no recipients yet. Permission: canViewBroadcast.
  */
 export default async function BroadcastPage({
   params,
@@ -47,8 +47,15 @@ export default async function BroadcastPage({
   const [t, locale, recipients] = await Promise.all([getT(), getLocale(), loadRecipients(b.id)]);
 
   const active = b.status === 'queued' || b.status === 'sending';
-  const open = active || b.status === 'paused';
+  const scheduled = b.status === 'scheduled';
+  // Scheduled, missed, or cancelled before it went out: no recipients.
+  const notStarted =
+    scheduled ||
+    b.status === 'missed' ||
+    (!!b.scheduledAt && recipients.length === 0);
+  const open = active || scheduled || b.status === 'paused';
   const mayChange = canCancelBroadcast(user, b);
+  const mayEdit = scheduled && canEditBroadcast(user, b);
   const total = b.totals.queued + b.totals.sending + b.totals.sent + b.totals.failed;
   const finished = b.totals.sent + b.totals.failed;
   const pct = total ? Math.round((finished / total) * 100) : 100;
@@ -69,7 +76,13 @@ export default async function BroadcastPage({
         am={b.origin === 'event_reminder' ? 'የመርሃ ግብር ማስታወሻ' : 'የSMS መልዕክት'}
         actions={
           mayChange ? (
-            <BroadcastActions id={b.id} canCancel={open} canResume={b.status === 'paused'} />
+            <BroadcastActions
+              id={b.id}
+              canCancel={open}
+              canResume={b.status === 'paused'}
+              editHref={mayEdit ? `/admin/messages/${b.id}/edit` : null}
+              scheduled={scheduled}
+            />
           ) : undefined
         }
         className="flex-wrap"
@@ -87,11 +100,25 @@ export default async function BroadcastPage({
                 </span>
               )}
             </div>
+            {scheduled && b.scheduledAt && (
+              <p className="rounded-[10px] border border-gold/40 bg-gold/10 px-3 py-2 text-[12px] text-ink dark:bg-gold/[0.06]">
+                <span className="font-semibold">
+                  {t('Goes out {when}.', { when: formatScheduled(b.scheduledAt, locale) })}
+                </span>{' '}
+                {t('Recipients are worked out when it goes out.')}
+              </p>
+            )}
+            {b.status === 'missed' && (
+              <p className="rounded-[10px] border border-status-absent/30 bg-status-absent-bg px-3 py-2 text-[12px] text-status-absent">
+                {t('Not sent: the server was down at the time.')}
+              </p>
+            )}
             {b.status === 'paused' && b.pauseReason && (
               <p role="status" className="rounded-[10px] border border-status-late/30 bg-status-late-bg px-3 py-2 text-[12px] text-status-late">
                 {t('Paused')}: {b.pauseReason}
               </p>
             )}
+            {!notStarted && (<>
             <div>
               <div className="mb-1 flex justify-between text-[11.5px] text-ink-muted">
                 <span>{t('{done} of {total} people', { done: finished, total })}</span>
@@ -116,6 +143,7 @@ export default async function BroadcastPage({
                 </div>
               ))}
             </dl>
+            </>)}
             <dl className="space-y-1 border-t border-parchment-edge pt-3 text-[12px]">
               <Row label={t('Audience')}>
                 {b.audience === 'event' && b.eventTitle
@@ -124,6 +152,9 @@ export default async function BroadcastPage({
               </Row>
               <Row label={t('Sender')}>{b.senderName ?? '—'}</Row>
               <Row label={t('Created')}>{formatSentAt(b.createdAt, locale)}</Row>
+              {b.scheduledAt && (
+                <Row label={t('Scheduled for')}>{formatScheduled(b.scheduledAt, locale)}</Row>
+              )}
               {b.startedAt && <Row label={t('Started')}>{formatSentAt(b.startedAt, locale)}</Row>}
               {b.finishedAt && <Row label={t('Finished')}>{formatSentAt(b.finishedAt, locale)}</Row>}
               <Row label={t('Channel')}>SMS</Row>
@@ -147,8 +178,16 @@ export default async function BroadcastPage({
 
         <Card className="p-0">
           <div className="border-b border-parchment-edge px-4 py-3 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
-            {t('Recipients')} · {recipients.length}
+            {t('Recipients')}
+            {!notStarted && ` · ${recipients.length}`}
           </div>
+          {notStarted && (
+            <p className="px-4 py-6 text-center text-[12.5px] text-ink-muted">
+              {scheduled
+                ? t('Recipients are worked out when it goes out: people who join, leave or turn off SMS before then are handled.')
+                : t('Nobody received this message.')}
+            </p>
+          )}
           <ul className="divide-y divide-parchment-edge">
             {recipients.map((r) => (
               <li key={r.id} className="flex items-center gap-3 px-4 py-2.5">

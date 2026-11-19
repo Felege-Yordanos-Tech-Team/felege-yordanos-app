@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Lock, Search, Send, Smartphone } from 'lucide-react';
+import { CalendarClock, Lock, Search, Send, Smartphone } from 'lucide-react';
 import type { Audience } from '@felege-yordanos/db/schema';
 import { Card } from '@/components/ds';
 import { primaryBtn, secondaryBtn } from '@/components/events/button-classes';
@@ -18,9 +18,12 @@ import {
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
+import { eatDate, eatTime } from '@/lib/check-in-window';
 import { formatYmd } from '@/lib/events';
 import { useLocale, useT } from '@/lib/i18n/client';
 import type { MessageAudience, SelectionSummary } from '@/lib/sms/message-audience';
+import { ethiopianClock } from '@/lib/sms/reminder-time';
+import { eatMoment, isClockTime, sendLaterRefusal } from '@/lib/sms/schedule';
 import { estimateCredits, signatureSuffix } from '@/lib/sms/split';
 import type { SmsStatus } from '@/lib/sms/transport';
 import { cn } from '@/lib/utils';
@@ -29,6 +32,7 @@ import {
   prepareBroadcast,
   previewAudience,
   sendTestToSelf,
+  updateScheduledBroadcast,
   type PreparedBroadcast,
 } from '../actions';
 
@@ -37,6 +41,33 @@ interface EventOption {
   title: string;
   eventDate: string;
   audience: Audience;
+}
+
+/** A scheduled broadcast being edited. */
+export interface EditingBroadcast {
+  id: string;
+  audience: MessageAudience;
+  eventId: string | null;
+  text: string;
+  /** EAT date and time it goes out. */
+  date: string;
+  time: string;
+}
+
+/** Default "later": the next full hour, Ethiopian time. */
+function nextHour(): { date: string; time: string } {
+  const at = new Date(Math.ceil((Date.now() + 60_000) / 3_600_000) * 3_600_000);
+  return { date: eatDate(at), time: eatTime(at) };
+}
+
+/** "Fri, Nov 20 at 16:30 (ከቀኑ 10:30 ሰዓት)" for a moment, Ethiopian time. */
+function whenLabel(at: Date, locale: 'am' | 'en') {
+  const time = eatTime(at);
+  return {
+    date: formatYmd(eatDate(at), locale, { weekday: 'short', month: 'short', day: 'numeric' }),
+    time,
+    eth: ethiopianClock(time),
+  };
 }
 
 const AUDIENCE_OPTIONS: MessageAudience[] = ['members', 'pre_members', 'everyone', 'event'];
@@ -51,21 +82,27 @@ export function ComposeForm({
   events,
   ownPhoneMasked,
   today,
+  editing = null,
 }: {
   status: SmsStatus;
   events: EventOption[];
   ownPhoneMasked: string | null;
   today: string;
+  /** Edit a scheduled broadcast (always "later"). */
+  editing?: EditingBroadcast | null;
 }) {
   const t = useT();
   const locale = useLocale();
   const router = useRouter();
   const { toast } = useToast();
 
-  const [audience, setAudience] = useState<MessageAudience>('members');
-  const [eventId, setEventId] = useState<string | null>(null);
+  const [audience, setAudience] = useState<MessageAudience>(editing?.audience ?? 'members');
+  const [eventId, setEventId] = useState<string | null>(editing?.eventId ?? null);
   const [eventQuery, setEventQuery] = useState('');
-  const [text, setText] = useState('');
+  const [text, setText] = useState(editing?.text ?? '');
+  const [later, setLater] = useState(!!editing);
+  const [sendDate, setSendDate] = useState(editing?.date ?? '');
+  const [sendTime, setSendTime] = useState(editing?.time ?? '');
   const [summary, setSummary] = useState<SelectionSummary | null>(null);
   const [balance, setBalance] = useState<number | null>(null);
   const [loadingPreview, setLoadingPreview] = useState(false);
@@ -73,8 +110,25 @@ export function ComposeForm({
   const [busy, setBusy] = useState<'test' | 'check' | 'send' | null>(null);
 
   const parts = partsFor(text, status.signature);
-  const target = { audience, eventId: audience === 'event' ? eventId : null };
+  const sendAt = later ? { date: sendDate, time: sendTime } : null;
+  const target = { audience, eventId: audience === 'event' ? eventId : null, sendAt };
   const ready = audience !== 'event' || !!eventId;
+  // Same rule as the server (2 minutes to 60 days ahead), shown live.
+  const laterRefusal = !later
+    ? null
+    : !sendDate || !isClockTime(sendTime)
+      ? 'Choose a date and time.'
+      : sendLaterRefusal(eatMoment(sendDate, sendTime), new Date());
+  const laterAt = later && !laterRefusal ? eatMoment(sendDate, sendTime) : null;
+
+  function chooseLater(on: boolean) {
+    setLater(on);
+    if (on && !sendDate) {
+      const d = nextHour();
+      setSendDate(d.date);
+      setSendTime(d.time);
+    }
+  }
 
   // Recipient counts and balance for the chosen audience.
   useEffect(() => {
@@ -139,15 +193,33 @@ export function ComposeForm({
 
   async function handleSend() {
     setBusy('send');
-    const res = await createBroadcast({ ...target, channel: 'sms', text });
+    const input = { ...target, channel: 'sms' as const, text };
+    const res = editing
+      ? await updateScheduledBroadcast(editing.id, input)
+      : await createBroadcast(input);
     setBusy(null);
     if (!res.ok) return fail(res.error);
     setPrepared(null);
-    toast({ title: t('Sending started'), description: t('The messages go out in the background.') });
+    if (later)
+      toast({
+        title: editing ? t('Changes saved') : t('Scheduled'),
+        description: t('Recipients are worked out when it goes out.'),
+      });
+    else
+      toast({ title: t('Sending started'), description: t('The messages go out in the background.') });
     router.push(`/admin/messages/${res.data.id}`);
+    router.refresh();
   }
 
-  const canContinue = status.configured && parts > 0 && ready && !!summary && summary.recipients > 0;
+  // Later: today's count is only an estimate, nobody yet is fine.
+  const canContinue =
+    status.configured &&
+    parts > 0 &&
+    ready &&
+    !!summary &&
+    (later || summary.recipients > 0) &&
+    !laterRefusal;
+  const preparedAt = prepared?.scheduledAt ? whenLabel(new Date(prepared.scheduledAt), locale) : null;
 
   return (
     <>
@@ -276,6 +348,79 @@ export function ComposeForm({
             </p>
           </div>
 
+          {/* When */}
+          <div>
+            <div className={labelCls}>{t('When?')}</div>
+            {!editing && (
+              <div role="radiogroup" aria-label={t('When?')} className="grid grid-cols-2 gap-1 rounded-[10px] bg-parchment-deep p-[3px]">
+                {([false, true] as const).map((v) => (
+                  <button
+                    key={String(v)}
+                    type="button"
+                    role="radio"
+                    aria-checked={later === v}
+                    onClick={() => chooseLater(v)}
+                    className={cn(
+                      'flex items-center justify-center gap-1.5 rounded-lg px-2 py-2 text-[12px] transition-colors',
+                      later === v
+                        ? 'bg-parchment-soft font-semibold text-brand-ink shadow-[0_1px_2px_rgba(10,60,54,0.08)]'
+                        : 'font-medium text-ink-muted hover:text-ink',
+                    )}
+                  >
+                    {v ? <CalendarClock className="h-3.5 w-3.5" /> : <Send className="h-3.5 w-3.5" />}
+                    {v ? t('Later') : t('Now')}
+                  </button>
+                ))}
+              </div>
+            )}
+            {later && (
+              <div className={cn('space-y-1.5', !editing && 'mt-2.5')}>
+                <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-2">
+                  <div>
+                    <label htmlFor="sms-send-date" className="sr-only">
+                      {t('Date')}
+                    </label>
+                    <Input
+                      id="sms-send-date"
+                      type="date"
+                      min={today}
+                      value={sendDate}
+                      onChange={(e) => setSendDate(e.target.value)}
+                      className={cn(fieldCls, 'font-mono')}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="sms-send-time" className="sr-only">
+                      {t('Time')}
+                    </label>
+                    <Input
+                      id="sms-send-time"
+                      type="time"
+                      step={300}
+                      value={sendTime}
+                      onChange={(e) => setSendTime(e.target.value.slice(0, 5))}
+                      className={cn(fieldCls, 'font-mono')}
+                    />
+                  </div>
+                </div>
+                <p
+                  role={laterRefusal ? 'alert' : undefined}
+                  className={cn(
+                    'text-[11.5px]',
+                    laterRefusal ? 'font-medium text-status-absent' : 'text-ink-muted',
+                  )}
+                >
+                  {laterRefusal
+                    ? t(laterRefusal)
+                    : laterAt && t('Goes out {date} at {time} ({eth}).', whenLabel(laterAt, locale))}
+                </p>
+                <p className="text-[11px] text-ink-muted">
+                  {t('Ethiopian time. Recipients are worked out when it goes out.')}
+                </p>
+              </div>
+            )}
+          </div>
+
           <div className="flex flex-col gap-2 sm:flex-row">
             <button
               type="button"
@@ -322,13 +467,22 @@ export function ComposeForm({
       <Dialog open={!!prepared} onOpenChange={(o) => !o && setPrepared(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] border-parchment-edge bg-parchment sm:max-w-[520px]">
           <DialogTitle className="font-display text-2xl font-medium text-brand-ink">
-            {t('Send this SMS?')}
+            {preparedAt ? t('Schedule this SMS?') : t('Send this SMS?')}
           </DialogTitle>
           <DialogDescription className="text-[12.5px] text-ink-muted">
             {t('Checked by SMSHub. Nothing has been sent yet.')}
           </DialogDescription>
           {prepared && (
             <div className="space-y-3">
+              {preparedAt && (
+                <p className="flex items-start gap-2 rounded-[12px] border border-gold/40 bg-gold/10 px-3 py-2 text-[12px] text-ink dark:bg-gold/[0.06]">
+                  <CalendarClock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-gold-deep" />
+                  <span>
+                    <span className="font-semibold">{t('Goes out {date} at {time} ({eth}).', preparedAt)}</span>{' '}
+                    {t('Counted as of today; people are counted again when it goes out.')}
+                  </span>
+                </p>
+              )}
               <dl className="grid grid-cols-3 gap-2 rounded-[12px] border border-parchment-edge bg-parchment-soft p-3 text-center dark:bg-parchment-deep">
                 <div>
                   <dt className="text-[10px] uppercase tracking-[0.12em] text-gold-deep">{t('Recipients')}</dt>
@@ -370,7 +524,11 @@ export function ComposeForm({
                 >
                   {busy === 'send'
                     ? t('Starting…')
-                    : t('Send to {n} people', { n: prepared.summary.recipients })}
+                    : preparedAt
+                      ? editing
+                        ? t('Save changes')
+                        : t('Schedule the message')
+                      : t('Send to {n} people', { n: prepared.summary.recipients })}
                 </button>
               </div>
             </div>

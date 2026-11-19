@@ -6,7 +6,7 @@
  * Phone numbers never leave the server unmasked.
  */
 import 'server-only';
-import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm';
+import { and, asc, desc, eq, gte, inArray, sql } from 'drizzle-orm';
 import {
   authUsers,
   db,
@@ -23,6 +23,7 @@ import {
   type RecipientStatus,
 } from '@felege-yordanos/db/server';
 import type { Audience } from '../audience';
+import { todayYmd } from '../events';
 import { loadExpectedPeople } from '../expected-people';
 import {
   selectRecipients,
@@ -94,6 +95,22 @@ export async function loadSelection(
     selection: selectRecipients(await loadCandidates(peopleAudience)),
     event,
   };
+}
+
+/** Events the compose page offers (from a month ago on), newest first. */
+export async function loadComposeEvents() {
+  const from = new Date(Date.now() - 31 * 24 * 3600 * 1000);
+  return db
+    .select({
+      id: events.id,
+      title: events.title,
+      eventDate: events.eventDate,
+      audience: events.audience,
+    })
+    .from(events)
+    .where(gte(events.eventDate, todayYmd(from)))
+    .orderBy(desc(events.eventDate))
+    .limit(300);
 }
 
 export interface EventRef {
@@ -188,21 +205,66 @@ export async function insertBroadcast(
       status: 'queued',
     })
     .returning({ id: messageBroadcasts.id });
+  await insertRecipients(tx, b.id, input.parts, input.selection);
+  return b.id;
+}
 
+/**
+ * A manual broadcast to send later: status 'scheduled', no recipients yet
+ * (the worker works them out at `scheduledAt`, lib/sms/worker.ts).
+ */
+export async function insertScheduledBroadcast(
+  tx: Tx,
+  input: {
+    text: string;
+    parts: string[];
+    audience: BroadcastAudience;
+    eventId: string | null;
+    createdBy: string;
+    scheduledAt: Date;
+  },
+): Promise<string> {
+  const [b] = await tx
+    .insert(messageBroadcasts)
+    .values({
+      channel: 'sms',
+      text: input.text,
+      parts: input.parts,
+      audience: input.audience,
+      eventId: input.eventId,
+      origin: 'manual',
+      createdBy: input.createdBy,
+      status: 'scheduled',
+      scheduledAt: input.scheduledAt,
+    })
+    .returning({ id: messageBroadcasts.id });
+  return b.id;
+}
+
+/**
+ * The recipients (and skipped people) of a broadcast and one delivery per
+ * recipient and message, in the caller's transaction.
+ */
+export async function insertRecipients(
+  tx: Tx,
+  broadcastId: string,
+  parts: string[],
+  selection: Selection,
+): Promise<void> {
   const ids = (kind: string, id: number) =>
     kind === 'member'
       ? { memberId: id, preMemberId: null }
       : { memberId: null, preMemberId: id };
   const rows = [
-    ...input.selection.recipients.map((r) => ({
-      broadcastId: b.id,
+    ...selection.recipients.map((r) => ({
+      broadcastId,
       ...ids(r.kind, r.id),
       phone: r.phone,
       network: r.network,
       status: 'queued' as const,
     })),
-    ...input.selection.skipped.map((s) => ({
-      broadcastId: b.id,
+    ...selection.skipped.map((s) => ({
+      broadcastId,
       ...ids(s.kind, s.id),
       phone: null,
       network: null,
@@ -218,12 +280,11 @@ export async function insertBroadcast(
     const deliveries = inserted
       .filter((r) => r.status === 'queued')
       .flatMap((r) =>
-        input.parts.map((_, i) => ({ recipientId: r.id, partNo: i + 1 })),
+        parts.map((_, i) => ({ recipientId: r.id, partNo: i + 1 })),
       );
     for (const d of chunks(deliveries))
       await tx.insert(messageDeliveries).values(d);
   }
-  return b.id;
 }
 
 /* ─── History ─────────────────────────────────────────────── */
@@ -255,6 +316,8 @@ export interface BroadcastListItem {
   status: BroadcastStatus;
   pauseReason: string | null;
   createdAt: Date;
+  /** Status 'scheduled' (and missed): when it goes out. */
+  scheduledAt: Date | null;
   createdBy: string | null;
   senderName: string | null;
   totals: BroadcastTotals;
@@ -279,6 +342,7 @@ export async function listBroadcasts(
       status: messageBroadcasts.status,
       pauseReason: messageBroadcasts.pauseReason,
       createdAt: messageBroadcasts.createdAt,
+      scheduledAt: messageBroadcasts.scheduledAt,
       createdBy: messageBroadcasts.createdBy,
       senderName,
     })
@@ -332,6 +396,7 @@ export async function loadBroadcast(id: string) {
       status: messageBroadcasts.status,
       pauseReason: messageBroadcasts.pauseReason,
       createdAt: messageBroadcasts.createdAt,
+      scheduledAt: messageBroadcasts.scheduledAt,
       startedAt: messageBroadcasts.startedAt,
       finishedAt: messageBroadcasts.finishedAt,
       createdBy: messageBroadcasts.createdBy,

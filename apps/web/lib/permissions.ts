@@ -379,6 +379,15 @@ export const canCancelBroadcast = (
 ) => canViewBroadcast(u, broadcast);
 
 /**
+ * Change a scheduled broadcast (text, audience, time) before it goes out:
+ * same people as cancel. The action also checks the status is 'scheduled'.
+ */
+export const canEditBroadcast = (
+  u: MessagingUser,
+  broadcast: { createdBy: string | null },
+) => canCancelBroadcast(u, broadcast);
+
+/**
  * Set, change or remove the SMS reminder of an event: whoever may edit the
  * event and may send messages. Other editors see it read-only.
  */

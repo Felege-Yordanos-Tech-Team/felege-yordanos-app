@@ -14,10 +14,14 @@ import { useLocale, useT } from '@/lib/i18n/client';
 import type { SelectionSummary } from '@/lib/sms/message-audience';
 import {
   defaultReminderText,
+  ethiopianClock,
   reminderDueAt,
+  reminderRefusal,
+  REMINDER_DEFAULT_TIME,
   REMINDER_MAX_DAYS,
   type ReminderView,
 } from '@/lib/sms/reminder-time';
+import { isClockTime } from '@/lib/sms/schedule';
 import type { SmsStatus } from '@/lib/sms/transport';
 import { cn } from '@/lib/utils';
 import { SmsEstimate } from './sms-estimate';
@@ -27,6 +31,8 @@ import { partsFor, SmsPreview } from './sms-preview';
 export interface ReminderDraft {
   enabled: boolean;
   daysBefore: string;
+  /** "HH:MM", EAT. */
+  sendTime: string;
   text: string;
   /** The text was edited (else it follows the event: default text). */
   custom: boolean;
@@ -37,6 +43,7 @@ export interface ReminderDraft {
 export const emptyReminderDraft = (r: ReminderView | null): ReminderDraft => ({
   enabled: !!r && r.status !== 'cancelled',
   daysBefore: String(r?.daysBefore ?? 2),
+  sendTime: r?.sendTime ?? REMINDER_DEFAULT_TIME,
   text: r?.text ?? '',
   custom: r?.text != null,
   dirty: false,
@@ -48,6 +55,38 @@ interface DraftEvent {
   eventDate: string;
   startTime: string;
   audience: Audience;
+}
+
+/**
+ * Why the form cannot be saved because of the reminder, or null (same rule
+ * as the server, lib/sms/reminders.ts): after the event start, or a time
+ * that has passed or is less than 2 minutes away. The time of a stored
+ * reminder the form did not touch is only checked when the event moves it.
+ */
+export function reminderDraftRefusal(
+  draft: ReminderDraft,
+  reminder: ReminderView | null,
+  editable: boolean,
+  event: Pick<DraftEvent, 'eventDate' | 'startTime'>,
+  now: Date,
+): string | null {
+  if (!editable || !draft.enabled || !event.eventDate) return null;
+  if (reminder?.status === 'sent' || reminder?.status === 'paused') return null;
+  const days = Number(draft.daysBefore);
+  if (!Number.isInteger(days) || days < 0 || days > REMINDER_MAX_DAYS) return null;
+  if (!isClockTime(draft.sendTime)) return null;
+  const due = reminderDueAt(event.eventDate, days, draft.sendTime);
+  // Untouched: a missed reminder stays as it is; a scheduled one is only
+  // checked for time when the event moves it.
+  if (reminder && !draft.dirty && reminder.status === 'missed') return null;
+  const checkTime =
+    !reminder || draft.dirty || due.getTime() !== new Date(reminder.dueAt).getTime();
+  return reminderRefusal(
+    { eventDate: event.eventDate, startTime: event.startTime || null },
+    days,
+    draft.sendTime,
+    checkTime ? now : null,
+  );
 }
 
 const STATUS_LABEL: Record<ReminderView['status'], string> = {
@@ -64,8 +103,8 @@ const fieldCls =
   'h-auto rounded-[10px] border border-parchment-edge bg-parchment-soft px-[13px] py-2.5 text-[13px] text-ink placeholder:text-ink-faint focus-visible:ring-2 focus-visible:ring-gold/30 dark:bg-parchment-deep';
 
 /**
- * "SMS reminder" on the event form: on/off, days before (sent at 09:00
- * Ethiopian time), the text (default built from the event) with the live
+ * "SMS reminder" on the event form: on/off, days before and the time
+ * (Ethiopian time, default 09:00), the text (default built from the event) with the live
  * preview and the credit estimate. Read-only for editors without the right
  * to send (`editable` false), and once the reminder has gone out.
  */
@@ -99,6 +138,7 @@ export function ReminderSection({
   const daysOk = Number.isInteger(days) && days >= 0 && days <= REMINDER_MAX_DAYS;
   const done = reminder?.status === 'sent' || reminder?.status === 'paused';
   const showEditor = editable && !done;
+  const refusal = reminderDraftRefusal(draft, reminder, editable, event, new Date());
 
   // Recipient counts for the event's audience while the reminder is on.
   useEffect(() => {
@@ -120,10 +160,12 @@ export function ReminderSection({
   const set = (patch: Partial<ReminderDraft>) => onChange({ ...draft, ...patch, dirty: true });
 
   const dueLine = (() => {
-    if (!event.eventDate || !daysOk) return null;
-    const due = reminderDueAt(event.eventDate, days);
-    return t('Goes out {date} at 09:00 (ከጠዋቱ 3:00 ሰዓት).', {
+    if (!event.eventDate || !daysOk || !isClockTime(draft.sendTime)) return null;
+    const due = reminderDueAt(event.eventDate, days, draft.sendTime);
+    return t('Goes out {date} at {time} ({eth}).', {
       date: formatYmd(eatDate(due), locale, { weekday: 'short', month: 'short', day: 'numeric' }),
+      time: draft.sendTime,
+      eth: ethiopianClock(draft.sendTime),
     });
   })();
 
@@ -133,7 +175,8 @@ export function ReminderSection({
       {reminder.status !== 'cancelled' && (
         <span>
           · {t('{n} days before', { n: reminder.daysBefore })} ·{' '}
-          {formatYmd(eatDate(new Date(reminder.dueAt)), locale, { month: 'short', day: 'numeric' })} 09:00
+          {formatYmd(eatDate(new Date(reminder.dueAt)), locale, { month: 'short', day: 'numeric' })}{' '}
+          <span className="font-mono">{reminder.sendTime}</span> ({ethiopianClock(reminder.sendTime)})
         </span>
       )}
       {reminder.broadcastId && (
@@ -179,11 +222,11 @@ export function ReminderSection({
             checked={draft.enabled}
             onChange={(enabled) => set({ enabled })}
             title={t('Send an SMS reminder')}
-            hint={t('To everyone expected at the event with a phone number, once, at 09:00.')}
+            hint={t('To everyone expected at the event with a phone number, once, at the time you choose.')}
           />
           {draft.enabled && (
             <>
-              <div className="grid grid-cols-[110px_1fr] items-end gap-3">
+              <div className="grid grid-cols-[96px_120px] gap-3">
                 <div>
                   <label htmlFor="ev-reminder-days" className={labelCls}>
                     {t('Days before')}
@@ -200,10 +243,34 @@ export function ReminderSection({
                     className={cn(fieldCls, 'font-mono')}
                   />
                 </div>
-                <p className={cn('pb-2 text-[11.5px]', daysOk ? 'text-ink-muted' : 'text-status-absent')}>
-                  {daysOk ? dueLine : t('Between 0 and {max} days.', { max: REMINDER_MAX_DAYS })}
-                </p>
+                <div>
+                  <label htmlFor="ev-reminder-time" className={labelCls}>
+                    {t('Time')}
+                  </label>
+                  <Input
+                    id="ev-reminder-time"
+                    type="time"
+                    step={300}
+                    required
+                    value={draft.sendTime}
+                    onChange={(e) => set({ sendTime: e.target.value.slice(0, 5) })}
+                    className={cn(fieldCls, 'font-mono')}
+                  />
+                </div>
               </div>
+              <p
+                role={refusal || !daysOk ? 'alert' : undefined}
+                className={cn(
+                  'text-[11.5px]',
+                  daysOk && !refusal ? 'text-ink-muted' : 'font-medium text-status-absent',
+                )}
+              >
+                {!daysOk
+                  ? t('Between 0 and {max} days.', { max: REMINDER_MAX_DAYS })
+                  : refusal
+                    ? t(refusal)
+                    : dueLine}
+              </p>
               <div>
                 <div className="mb-1.5 flex items-center justify-between">
                   <label htmlFor="ev-reminder-text" className={cn(labelCls, 'mb-0')}>
@@ -263,6 +330,7 @@ export function reminderPayload(
   return {
     enabled: draft.enabled,
     daysBefore: Number(draft.daysBefore),
+    sendTime: draft.sendTime,
     text,
   };
 }
