@@ -27,6 +27,7 @@ graph TD
         ADMIN_CHECKIN["/admin/attendance/[eventId]<br/>Member List + Quick Check-in"]
         ADMIN_DONATIONS["/admin/donations<br/>Verify/reject donations"]
         ADMIN_PEOPLE["/admin/people<br/>People list: attendance, last seen, streaks"]
+        ADMIN_MESSAGES["/admin/messages · /new · /[id]<br/>SMS history, compose, progress"]
         ADMIN_PERSON["/admin/people/m/[id] · /p/[id]<br/>One person's totals + timeline"]
         ADMIN_PRE["/admin/pre-members<br/>Pre-members by status (admins)"]
         ADMIN_PRE_NEW["/admin/pre-members/new<br/>Register a walk-in"]
@@ -78,6 +79,7 @@ graph TD
 | `/admin/attendance` | Protected | dept_head, admin, super_admin | Root > Admin | Working (events + create/edit) |
 | `/admin/attendance/[eventId]` | Protected | dept_head, admin, super_admin | Root > Admin | Working (check-in tabs) |
 | `/admin/people` | Protected | admin, super_admin, Programs & Events | Root > Admin | Members + pre-members: expected, attended, rate, last seen, missed streak; filters in the URL; CSV (`/api/people/export`) |
+| `/admin/messages`, `/admin/messages/new`, `/admin/messages/[id]` | Protected | super_admin; dept_head with the right to send (`canSendMessages`) | Root > Admin | SMS history (own, or all for super admins), compose with preview and credit estimate, detail with live progress, cancel, resume |
 | `/admin/people/m/[id]`, `/admin/people/p/[id]` | Protected | admin, super_admin, Programs & Events | Root > Admin | One person: totals, filters, timeline, CSV (promoted `p/` → `m/`) |
 | `/admin/donations` | Protected | admin, super_admin, Budget dept head | Root > Admin | Working (verify/reject) |
 | `/admin/pre-members` | Protected | admin, super_admin | Root > Admin | Tabs by status, search |

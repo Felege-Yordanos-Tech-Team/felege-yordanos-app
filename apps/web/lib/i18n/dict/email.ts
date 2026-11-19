@@ -40,4 +40,12 @@ export const email: Record<string, string> = {
     'አሁን የሰንበት ት/ቤቱ የተመዘገቡ አባል ሆነዋል። የአባልነት መታወቂያዎ ይህ ነው፦',
   'From now on please use your member QR code to check in. Your pre-member QR no longer works.':
     'ከአሁን በኋላ ለመግቢያ የአባልነት QR ኮድዎን ይጠቀሙ። የቅድመ አባል QR ኮድዎ ከእንግዲህ አይሠራም።',
+
+  // SMS reminder paused
+  'SMS reminder paused': 'የSMS ማስታወሻው ቆሟል',
+  'The SMS reminder for this event was paused because the SMS balance is too low:':
+    'የSMS ሂሳብ በቂ ስላልሆነ የዚህ መርሃ ግብር የSMS ማስታወሻ ቆሟል፦',
+  'Top up the SMSHub balance, then open the reminder and tap Resume.':
+    'የSMSHub ሂሳቡን ይሙሉ፣ ከዚያ ማስታወሻውን ከፍተው «ቀጥል» የሚለውን ይንኩ።',
+  'Open the reminder': 'ማስታወሻውን ክፈት',
 };

@@ -15,7 +15,7 @@ PostgreSQL 17 with Drizzle ORM. Everything lives in `libs/db`:
 | Table | Purpose |
 |---|---|
 | departments | the 9 departments (ids set explicitly) |
-| profiles | one per login: role, department, display name |
+| profiles | one per login: role, department, display name, `can_send_messages` (SMS right, department heads only) |
 | members, member_types, member_jobs, member_academic_education, member_spiritual_education | parish member register |
 | categories, songs | songbook |
 | song_views | the latest time each user opened each song; used for recently opened songs on the dashboard |
@@ -28,6 +28,10 @@ PostgreSQL 17 with Drizzle ORM. Everything lives in `libs/db`:
 | rate_limits | request counts per key and fixed window (`/join` limits per IP and per session); windows older than a day are pruned |
 | notices, notice_reads | notice board (`notices.audience` as for events) and read marks |
 | donations | donations; receipt file key in `receipt_url` |
+| message_broadcasts | SMS broadcasts (`channel` `sms`, `telegram` reserved): `text`, `parts` (jsonb, the 1–5 messages as sent, frozen at confirm), `audience` `members` / `pre_members` / `everyone` / `event` (+ `event_id`), `origin` `manual` / `event_reminder`, `status` `queued` / `sending` / `paused` / `done` / `cancelled`, `pause_reason` |
+| message_recipients | one row per person of a broadcast (exactly one of `member_id` / `pre_member_id`): normalised `phone`, `network`, `status`, `skip_reason` (`no_phone` / `invalid_phone` / `opted_out` / `duplicate_phone`), `next_part`. Unique per person and per phone |
+| message_deliveries | one row per recipient and message (`part_no`): `status` `queued` / `sending` / `sent` / `failed` / `unknown`, `attempts`, `provider_message_id`, `error_type`, `credits_used` |
+| event_reminders | one SMS reminder per event: `days_before` (0–14), `text` (null = default text built from the event), `due_at` (09:00 EAT), `status` `scheduled` / `sent` / `missed` / `cancelled` / `paused`, `broadcast_id` |
 | auth_users, auth_sessions, auth_accounts, auth_verifications | Better Auth |
 
 `members.auth_user_id` links a login to a member record, `pre_members.auth_user_id` to a pre-member record (both set when an admin approves a `/claim` request). Link requests for pre-members live in `member_link_requests` (nullable `pre_member_id` and a check that exactly one id is set) instead of a sibling table, so the admin queue and the one-open-request rule stay in one place.

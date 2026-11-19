@@ -168,6 +168,8 @@ jobs:
       R2_SECRET_ACCESS_KEY: ci
       TURNSTILE_SITE_KEY: ci
       TURNSTILE_SECRET_KEY: ci
+      # SMSHUB_API_KEY deliberately unset: proves the config is valid while
+      # the secret does not exist yet (it is then empty).
     steps:
       - uses: actions/checkout@v6
       - uses: ruby/setup-ruby@v1
@@ -223,6 +225,9 @@ jobs:
       # Cloudflare Turnstile on /join (one widget per environment, same names).
       TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
       TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+      # Empty while the secret does not exist: the deploy still works and
+      # the app shows "SMS is not configured".
+      SMSHUB_API_KEY: ${{ secrets.SMSHUB_API_KEY }}
     steps:
       - uses: actions/checkout@v6
 
@@ -324,6 +329,9 @@ jobs:
       # Cloudflare Turnstile on /join (one widget per environment, same names).
       TURNSTILE_SITE_KEY: ${{ secrets.TURNSTILE_SITE_KEY }}
       TURNSTILE_SECRET_KEY: ${{ secrets.TURNSTILE_SECRET_KEY }}
+      # Empty while the secret does not exist: the deploy still works and
+      # the app shows "SMS is not configured".
+      SMSHUB_API_KEY: ${{ secrets.SMSHUB_API_KEY }}
     steps:
       - uses: actions/checkout@v6
 

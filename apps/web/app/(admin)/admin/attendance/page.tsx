@@ -9,9 +9,13 @@ import {
   canCreateEvent,
   canEditEvent,
   canManageAllEvents,
+  canSendMessages,
+  canSetEventReminder,
   canViewEventAttendance,
 } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
+import { loadReminders } from '@/lib/sms/reminders';
+import { smsStatus } from '@/lib/sms/transport';
 import { EventsList } from './events-list';
 
 export default async function ManageAttendancePage() {
@@ -52,6 +56,12 @@ export default async function ManageAttendancePage() {
     .filter((e) => canEditEvent(user, e))
     .map((e) => e.id);
   const canPickDepartment = canManageAllEvents(user);
+  // SMS reminders: shown to everyone who may edit the event, changed only
+  // by those who may also send messages (canSetEventReminder).
+  const reminders = await loadReminders(editableIds);
+  const reminderEditableIds = eventRows
+    .filter((e) => canSetEventReminder(user, e))
+    .map((e) => e.id);
   const canCreate =
     canPickDepartment || canCreateEvent(user, user.departmentId);
 
@@ -65,6 +75,12 @@ export default async function ManageAttendancePage() {
       editableIds={editableIds}
       canCreate={canCreate}
       canPickDepartment={canPickDepartment}
+      sms={{
+        status: smsStatus(),
+        reminders,
+        reminderEditableIds,
+        canCreateReminders: canSendMessages(user),
+      }}
     />
   );
 }

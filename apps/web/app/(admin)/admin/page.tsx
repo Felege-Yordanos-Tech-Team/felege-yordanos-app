@@ -13,6 +13,7 @@ import {
   CalendarClock,
   DoorOpen,
   Megaphone,
+  MessageSquareText,
   Music,
   Sprout,
   UserCheck,
@@ -84,6 +85,15 @@ const adminLinks: AdminLinkDef[] = [
     en: 'Notices',
     description: 'Post announcements for everyone or for your department.',
     cta: 'Manage notices',
+  },
+  {
+    href: '/admin/messages',
+    icon: MessageSquareText,
+    am: 'መልዕክቶች',
+    en: 'Messages',
+    description:
+      'Send SMS notices and see event reminders and their delivery.',
+    cta: 'Open messages',
   },
   {
     href: '/admin/songs',

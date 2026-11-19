@@ -46,6 +46,12 @@ const SECTIONS: LegalSection[] = [
     ],
   },
   {
+    title: 'SMS notices',
+    blocks: [
+      'If your member or pre-member record has a mobile number, the Sunday School may send you SMS notices and reminders before its events. They come from SMSHub\'s shared sender name and start with "ፈለገ ዮርዳኖስ". We never ask you to reply with a code. You can turn them off at any time on your profile (Receive SMS notices).',
+    ],
+  },
+  {
     title: 'Content',
     blocks: [
       'Songs, notices and other content in the app belong to the Sunday School. You may use them for worship and personal study; ask us before republishing them.',

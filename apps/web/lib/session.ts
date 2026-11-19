@@ -59,6 +59,11 @@ export type CurrentUser = {
    * (songbook and profile only). Derived from the fields above.
    */
   access: AccessLevel;
+  /**
+   * profiles.can_send_messages, false until the email is verified (same as
+   * role). Permission checks use canSendMessages in lib/permissions.ts.
+   */
+  canSendMessages: boolean;
 };
 
 /** The signed-in user with their profile, or null when signed out. */
@@ -128,6 +133,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       memberRecordId,
       preMemberRecordId,
     }),
+    canSendMessages: emailVerified && (profile?.canSendMessages ?? false),
   };
 });
 

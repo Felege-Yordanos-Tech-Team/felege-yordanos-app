@@ -5,6 +5,7 @@ import {
   LayoutDashboard,
   ListMusic,
   Megaphone,
+  MessageSquareText,
   Music,
   Receipt,
   ScanLine,
@@ -24,6 +25,7 @@ import {
   canManageSongs,
   canManageUsers,
   canReviewDonations,
+  canSendMessages,
   canViewPeople,
 } from './permissions';
 
@@ -110,6 +112,13 @@ export const ADMIN_NAV: NavItem[] = [
     matchNested: true,
   },
   {
+    href: '/admin/messages',
+    labelEn: 'Messages',
+    labelAm: 'መልዕክቶች',
+    icon: MessageSquareText,
+    matchNested: true,
+  },
+  {
     href: '/admin/songs',
     labelEn: 'Songs',
     labelAm: 'መዝሙሮች',
@@ -157,7 +166,8 @@ export function isElevated(role: UserRole | null | undefined): boolean {
   return !!role && ELEVATED_ROLES.includes(role);
 }
 
-type NavUser = Parameters<typeof canAccessAdmin>[0];
+type NavUser = Parameters<typeof canAccessAdmin>[0] &
+  Parameters<typeof canSendMessages>[0];
 
 /**
  * Which admin pages a user may open, from lib/permissions.ts. Menus only show
@@ -169,6 +179,7 @@ const ADMIN_NAV_RULES: Record<string, (u: NavUser) => boolean> = {
   '/admin/check-in': canAccessAdmin,
   '/admin/people': canViewPeople,
   '/admin/notices': canManageNotices,
+  '/admin/messages': canSendMessages,
   '/admin/songs': canManageSongs,
   '/admin/donations': canReviewDonations,
   '/admin/member-links': canApproveMemberLinks,
