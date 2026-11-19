@@ -1005,6 +1005,7 @@ export const RECIPIENT_STATUSES = [
 export type RecipientStatus = (typeof RECIPIENT_STATUSES)[number];
 
 export const RECIPIENT_SKIP_REASONS = [
+  'child_member',
   'no_phone',
   'invalid_phone',
   'opted_out',
@@ -1063,7 +1064,7 @@ export const messageRecipients = pgTable(
     ),
     check(
       'message_recipients_skip_reason_check',
-      sql`(${t.status} = 'skipped') = (${t.skipReason} IS NOT NULL) AND (${t.skipReason} IS NULL OR ${t.skipReason} = ANY (ARRAY['no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))`,
+      sql`(${t.status} = 'skipped') = (${t.skipReason} IS NOT NULL) AND (${t.skipReason} IS NULL OR ${t.skipReason} = ANY (ARRAY['child_member'::text, 'no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))`,
     ),
     check(
       'message_recipients_network_check',

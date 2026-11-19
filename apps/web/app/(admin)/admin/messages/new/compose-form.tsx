@@ -6,7 +6,7 @@ import { CalendarClock, Lock, Search, Send, Smartphone } from 'lucide-react';
 import type { Audience } from '@felege-yordanos/db/schema';
 import { Card } from '@/components/ds';
 import { primaryBtn, secondaryBtn } from '@/components/events/button-classes';
-import { MESSAGE_AUDIENCE_LABEL } from '@/components/messages/format';
+import { MESSAGE_AUDIENCE_LABEL, SKIP_LABEL } from '@/components/messages/format';
 import { SmsEstimate } from '@/components/messages/sms-estimate';
 import { partsFor, SmsPreview } from '@/components/messages/sms-preview';
 import {
@@ -21,7 +21,7 @@ import { useToast } from '@/hooks/use-toast';
 import { eatDate, eatTime } from '@/lib/check-in-window';
 import { formatYmd } from '@/lib/events';
 import { useLocale, useT } from '@/lib/i18n/client';
-import type { MessageAudience, SelectionSummary } from '@/lib/sms/message-audience';
+import type { MessageAudience, SelectionSummary, SkipReason } from '@/lib/sms/message-audience';
 import { ethiopianClock } from '@/lib/sms/reminder-time';
 import { eatMoment, isClockTime, sendLaterRefusal } from '@/lib/sms/schedule';
 import { estimateCredits, signatureSuffix } from '@/lib/sms/split';
@@ -280,6 +280,9 @@ export function ComposeForm({
                 </button>
               ))}
             </div>
+            <p className="mt-1.5 text-[11px] text-ink-muted">
+              {t('Children (ህጻናት መደበኛ) do not get SMS.')}
+            </p>
             {audience === 'event' && (
               <div className="mt-3">
                 <div className="relative">
@@ -499,6 +502,25 @@ export function ComposeForm({
                   </dd>
                 </div>
               </dl>
+              {(Object.entries(prepared.summary.skipped) as [SkipReason, number][]).some(
+                ([, n]) => n > 0,
+              ) && (
+                <div className="text-[11.5px] text-ink-muted">
+                  <div className="mb-0.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-gold-deep">
+                    {t('Skipped')}
+                  </div>
+                  <ul className="space-y-0.5">
+                    {(Object.entries(prepared.summary.skipped) as [SkipReason, number][])
+                      .filter(([, n]) => n > 0)
+                      .map(([reason, n]) => (
+                        <li key={reason} className="flex justify-between gap-3">
+                          <span>{t(SKIP_LABEL[reason])}</span>
+                          <span className="font-mono">{n}</span>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
               {prepared.balance !== null && (
                 <p className="text-[11.5px] text-ink-muted">
                   {t('Balance: {n} credits', { n: prepared.balance })}

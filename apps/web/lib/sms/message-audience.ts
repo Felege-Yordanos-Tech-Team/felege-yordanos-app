@@ -4,6 +4,10 @@
  * check-in list) with their phones and opt-out, this module picks the
  * recipients.
  *
+ * - Child members (member type in SMS_EXCLUDED_MEMBER_TYPES, the register's
+ *   "ህጻናት መደበኛ"): skipped ('child_member'), checked first so a child is
+ *   always counted as a child. No type = adult. Pre-members are never
+ *   affected. They stay expected at events; only SMS leaves them out.
  * - Opted out of SMS: skipped ('opted_out').
  * - No phone, or nothing that is a mobile number: skipped ('no_phone',
  *   'invalid_phone').
@@ -21,7 +25,11 @@ export const MESSAGE_AUDIENCES = [
 ] as const;
 export type MessageAudience = (typeof MESSAGE_AUDIENCES)[number];
 
+/** Member types (member_types.name) that never get SMS. */
+export const SMS_EXCLUDED_MEMBER_TYPES: readonly string[] = ['Regular_Youth'];
+
 export const SKIP_REASONS = [
+  'child_member',
   'no_phone',
   'invalid_phone',
   'opted_out',
@@ -38,6 +46,8 @@ export interface Candidate {
   /** Phone fields in order of preference (members have two). */
   phones: (string | null)[];
   optOut: boolean;
+  /** member_types.name of a member; null or missing = no type (adult). */
+  memberType?: string | null;
 }
 
 export interface Recipient {
@@ -88,6 +98,14 @@ export function selectRecipients(candidates: Candidate[]): Selection {
       name: c.name,
       fatherName: c.fatherName,
     };
+    if (
+      c.kind === 'member' &&
+      c.memberType != null &&
+      SMS_EXCLUDED_MEMBER_TYPES.includes(c.memberType)
+    ) {
+      skipped.push({ ...person, reason: 'child_member' });
+      continue;
+    }
     if (c.optOut) {
       skipped.push({ ...person, reason: 'opted_out' });
       continue;

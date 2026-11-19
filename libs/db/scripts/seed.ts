@@ -24,18 +24,21 @@ if (/supabase\.co|prod/i.test(url)) {
 const client = postgres(url, { max: 1 });
 const db = drizzle(client, { schema });
 
-// Fictional members for local testing only.
+// Fictional members for local testing only. Member type ids come from the
+// member_types reference data (migration 0003): 1 Regular, 2 Regular_Youth
+// (children, never get SMS), 3 Special_Regular, 4 Honorary, null = no type.
+// Phones are made up.
 const sampleMembers = [
-  [1, 'FY-0001', 'አበበ', 'በቀለ', 'ወንድ'],
-  [2, 'FY-0002', 'ሰላም', 'ተስፋዬ', 'ሴት'],
-  [3, 'FY-0003', 'ዮሐንስ', 'ገብሩ', 'ወንድ'],
-  [4, 'FY-0004', 'ማርታ', 'ደስታ', 'ሴት'],
-  [5, 'FY-0005', 'ሚካኤል', 'ኃይሉ', 'ወንድ'],
-  [6, 'FY-0006', 'ሄለን', 'ታደሰ', 'ሴት'],
-  [7, 'FY-0007', 'ዳዊት', 'አለሙ', 'ወንድ'],
-  [8, 'FY-0008', 'ቤተልሔም', 'ወልዴ', 'ሴት'],
-  [9, 'FY-0009', 'ናትናኤል', 'ሙሉጌታ', 'ወንድ'],
-  [10, 'FY-0010', 'ኤልሳቤጥ', 'ካሳ', 'ሴት'],
+  [1, 'FY-0001', 'አበበ', 'በቀለ', 'ወንድ', 1, '0911000001'],
+  [2, 'FY-0002', 'ሰላም', 'ተስፋዬ', 'ሴት', 1, '0911000002'],
+  [3, 'FY-0003', 'ዮሐንስ', 'ገብሩ', 'ወንድ', 3, '0911000003'],
+  [4, 'FY-0004', 'ማርታ', 'ደስታ', 'ሴት', 4, '0711000004'],
+  [5, 'FY-0005', 'ሚካኤል', 'ኃይሉ', 'ወንድ', null, '0911000005'],
+  [6, 'FY-0006', 'ሄለን', 'ታደሰ', 'ሴት', 1, null],
+  [7, 'FY-0007', 'ዳዊት', 'አለሙ', 'ወንድ', 1, '0911000007'],
+  [8, 'FY-0008', 'ቤተልሔም', 'ወልዴ', 'ሴት', 2, '0911000008'],
+  [9, 'FY-0009', 'ናትናኤል', 'ሙሉጌታ', 'ወንድ', 2, '0911000009'],
+  [10, 'FY-0010', 'ኤልሳቤጥ', 'ካሳ', 'ሴት', 2, null],
 ] as const;
 
 // One login per role, all with TEST_PASSWORD.
@@ -114,13 +117,17 @@ async function main() {
   await db
     .insert(schema.members)
     .values(
-      sampleMembers.map(([id, memberId, name, fatherName, gender]) => ({
-        id,
-        memberId,
-        name,
-        fatherName,
-        gender,
-      })),
+      sampleMembers.map(
+        ([id, memberId, name, fatherName, gender, memberTypeId, addressPhone]) => ({
+          id,
+          memberId,
+          name,
+          fatherName,
+          gender,
+          memberTypeId,
+          addressPhone,
+        }),
+      ),
     )
     .onConflictDoNothing();
 

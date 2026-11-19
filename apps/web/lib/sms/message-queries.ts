@@ -12,6 +12,7 @@ import {
   db,
   events,
   members,
+  memberTypes,
   messageBroadcasts,
   messageDeliveries,
   messageRecipients,
@@ -34,7 +35,11 @@ import { maskPhone, pickPhone } from './phone';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 
-/** The people of an audience (same rule as an event with that audience). */
+/**
+ * The people of an audience (same rule as an event with that audience), with
+ * their phones, opt-out and, for members, the member type (SMS leaves child
+ * members out; the expected people themselves are unchanged).
+ */
 export async function loadCandidates(audience: Audience): Promise<Candidate[]> {
   const expected = await loadExpectedPeople({ audience });
   const memberIds = expected.filter((e) => e.kind === 'member').map((e) => e.id);
@@ -47,8 +52,10 @@ export async function loadCandidates(audience: Audience): Promise<Candidate[]> {
             phone: members.addressPhone,
             phoneTwo: members.addressPhoneTwo,
             optOut: members.smsOptOut,
+            memberType: memberTypes.name,
           })
           .from(members)
+          .leftJoin(memberTypes, eq(memberTypes.id, members.memberTypeId))
           .where(inArray(members.id, memberIds))
       : Promise.resolve([]),
     preIds.length
@@ -71,6 +78,7 @@ export async function loadCandidates(audience: Audience): Promise<Candidate[]> {
         ...e,
         phones: [r?.phone ?? null, r?.phoneTwo ?? null],
         optOut: r?.optOut ?? false,
+        memberType: r?.memberType ?? null,
       };
     }
     const r = preById.get(e.id);

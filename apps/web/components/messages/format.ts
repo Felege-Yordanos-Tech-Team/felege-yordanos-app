@@ -32,6 +32,7 @@ export function formatScheduled(d: Date | string, locale: Locale): string {
 
 /** Why a person was skipped (English, translated in the UI). */
 export const SKIP_LABEL: Record<SkipReason, string> = {
+  child_member: 'Child member',
   no_phone: 'No phone number',
   invalid_phone: 'Not a mobile number',
   opted_out: 'Turned off SMS',

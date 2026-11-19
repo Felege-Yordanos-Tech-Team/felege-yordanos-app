@@ -83,6 +83,8 @@ export const messages: Record<string, string> = {
   'n/a': 'የለም',
   'Development: nothing is sent': 'የሙከራ አካባቢ፦ ምንም አይላክም',
   '{n} Safaricom': '{n} ሳፋሪኮም',
+  'Child member': 'ህጻናት መደበኛ አባል',
+  'Children (ህጻናት መደበኛ) do not get SMS.': 'ህጻናት (ህጻናት መደበኛ) SMS አይላክላቸውም።',
   'No phone number': 'ስልክ ቁጥር የለም',
   'Not a mobile number': 'የሞባይል ቁጥር አይደለም',
   'Turned off SMS': 'SMS አጥፍተዋል',
