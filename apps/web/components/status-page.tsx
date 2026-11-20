@@ -12,7 +12,7 @@ export function StatusPage({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="parchment-bg flex min-h-screen flex-col items-center justify-center px-6 text-center">
+    <div className="parchment-bg flex min-h-screen flex-col items-center justify-center px-6 pt-[env(safe-area-inset-top,0px)] text-center">
       <LogoCross size={64} />
       <h1 className="mt-6 font-display text-[30px] font-medium leading-tight text-brand-ink">
         {title}

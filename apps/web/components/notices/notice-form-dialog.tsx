@@ -129,7 +129,7 @@ export function NoticeFormDialog({
         <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-brand-ink/50 backdrop-blur-[2px] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
         <DialogPrimitive.Content
           // Above the overlay whatever order the two mount in.
-          className="fixed inset-0 z-[51] flex flex-col bg-parchment shadow-fy-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 md:inset-auto md:left-1/2 md:top-1/2 md:h-[min(90dvh,880px)] md:w-[min(94vw,1080px)] md:-translate-x-1/2 md:-translate-y-1/2 md:overflow-hidden md:rounded-xl md:border md:border-parchment-edge"
+          className="fixed inset-0 z-[51] flex flex-col bg-parchment pb-[env(safe-area-inset-bottom,0px)] pl-[env(safe-area-inset-left,0px)] pr-[env(safe-area-inset-right,0px)] pt-[env(safe-area-inset-top,0px)] shadow-fy-lg duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 md:inset-auto md:left-1/2 md:top-1/2 md:h-[min(90dvh,880px)] md:w-[min(94vw,1080px)] md:-translate-x-1/2 md:-translate-y-1/2 md:overflow-hidden md:rounded-xl md:border md:border-parchment-edge md:p-0"
         >
           <NoticeForm
             // A fresh form for each notice.

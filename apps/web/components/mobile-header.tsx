@@ -10,7 +10,10 @@ import { ThemeToggle } from '@/components/theme-toggle';
 import { roleLabel } from '@/components/role-badge';
 import { UserMenu } from '@/components/user-menu';
 
-/** Mobile header. Hidden on desktop, where the top bar is used. */
+/**
+ * Mobile header. Hidden on desktop, where the top bar is used. Its green runs
+ * behind the iOS status bar; the content starts below it (safe-area top).
+ */
 export function MobileHeader({
   displayName,
   email,
@@ -22,7 +25,7 @@ export function MobileHeader({
 }) {
   const t = useT();
   return (
-    <header className="print:hidden sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-gold/15 bg-gradient-to-b from-brand to-brand-mid px-4 pb-3 pt-2.5 md:hidden">
+    <header className="print:hidden sticky top-0 z-50 flex items-center justify-between gap-2 border-b border-gold/15 bg-gradient-to-b from-brand to-brand-mid px-4 pb-3 pt-[calc(10px+env(safe-area-inset-top,0px))] md:hidden">
       <Link href="/dashboard" className="flex min-w-0 items-center gap-2">
         <LogoMedallion size={36} />
         <div className="min-w-0">

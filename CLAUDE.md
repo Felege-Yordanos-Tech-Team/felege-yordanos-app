@@ -154,6 +154,7 @@ Seeded test logins (password `password123`): member@, songs.head@ (dept 6), budg
 - Building blocks: `components/ds` (Card, Eyebrow, Chip, PageHead, SectionHeader, StatusPill)
 - Language: Amharic by default, English toggle (cookie `fy-lang`). `?lang=en` or `?lang=am` on any URL sets it too (`proxy.ts`; used for Google's reviewers: `/privacy?lang=en`). Write English in code and translate it: server `const t = await getT()` (`@/lib/i18n/server`), client `const t = useT()` (`@/lib/i18n/client`). Add Amharic to `lib/i18n/dict/<area>.ts`. Headings use `SectionHeader` / `PageHead` (current language big, other language as eyebrow). Dates and numbers via `Intl` with `intlLocale(locale)`
 - Theme: light/dark via next-themes (`class` on `<html>`); tokens switch automatically
+- Safe areas (#161): the viewport is `viewportFit: 'cover'`, so every edge that touches the screen pads itself with `env(safe-area-inset-*)`: `body` takes left/right, the phone header and public pages the top, fixed full-screen overlays all four. Phone tab bar: fully rounded pill, 20 px + inset from the sides, `--bottom-nav-gap` = `max(16px, inset-bottom)` below, `--bottom-nav-height` 56 px (`app/global.css`); `AppShell` pads `<main>` with the same variables
 
 ## How Features Are Built
 
