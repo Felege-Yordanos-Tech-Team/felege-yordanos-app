@@ -75,14 +75,17 @@ export function MessageFilterBar({
         scroll={false}
         className={cn(
           'grid grid-cols-2 items-end gap-2.5',
-          senders ? 'md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)]' : 'md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]',
+          // The search takes the free space; the selects keep a natural width.
+          senders
+            ? 'lg:grid-cols-[minmax(0,1fr)_minmax(160px,240px)_minmax(150px,200px)]'
+            : 'lg:grid-cols-[minmax(0,1fr)_minmax(150px,200px)]',
         )}
       >
         {f.status !== DEFAULT_MESSAGE_FILTERS.status && (
           <input type="hidden" name="status" value={f.status} />
         )}
         {f.per !== DEFAULT_MESSAGE_FILTERS.per && <input type="hidden" name="per" value={f.per} />}
-        <div className="col-span-2 flex min-w-0 flex-col gap-1 md:col-span-1">
+        <div className="col-span-2 flex min-w-0 flex-col gap-1 lg:col-span-1">
           <label htmlFor="msg-q" className={labelCls}>
             {t('Search')}
           </label>
@@ -126,7 +129,7 @@ export function MessageFilterBar({
             </AutoSubmitSelect>
           </div>
         )}
-        <div className={cn('flex min-w-0 flex-col gap-1', !senders && 'col-span-2 md:col-span-1')}>
+        <div className={cn('flex min-w-0 flex-col gap-1', !senders && 'col-span-2 lg:col-span-1')}>
           <label htmlFor="msg-period" className={labelCls}>
             {t('Period')}
           </label>

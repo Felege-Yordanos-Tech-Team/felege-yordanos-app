@@ -144,19 +144,19 @@ export function MessageList({
   const th = 'px-3 py-2.5 text-left text-[9.5px] font-semibold uppercase tracking-[0.16em] text-gold-deep';
   return (
     <>
-      {/* Desktop */}
-      <div className="hidden overflow-hidden rounded-2xl border border-parchment-edge bg-parchment-soft md:block">
+      {/* Wide screens (xl: the columns fit next to the sidebar); grows to fill the page */}
+      <div className="hidden overflow-hidden rounded-2xl border border-parchment-edge bg-parchment-soft xl:block xl:flex-1">
         <table className="w-full table-fixed border-collapse text-[12px]">
           <caption className="sr-only">{t('Messages')}</caption>
           <colgroup>
-            <col className="w-[120px]" />
+            <col className="w-[112px]" />
             <col />
-            <col className="w-[15%]" />
-            <col className="w-[12%]" />
+            <col className="w-[13%] 2xl:w-[240px]" />
+            <col className="w-[10%] 2xl:w-[180px]" />
             <col className="w-[112px]" />
             <col className="w-[88px]" />
-            <col className="w-[80px]" />
-            <col className="w-[132px]" />
+            <col className="w-[96px]" />
+            <col className="w-[168px]" />
           </colgroup>
           <thead className="border-b border-parchment-edge-strong">
             <tr>
@@ -216,8 +216,8 @@ export function MessageList({
         </table>
       </div>
 
-      {/* Phone */}
-      <ul className="flex flex-col gap-1.5 md:hidden">
+      {/* Phone and narrower desktops; grows to fill the page */}
+      <ul className="flex flex-col gap-1.5 md:flex-1 xl:hidden">
         {rows.map((r) => (
           <li
             key={r.id}
@@ -313,7 +313,7 @@ export function MessagePagination({
       </div>
 
       {/* Desktop */}
-      <div className="hidden items-center justify-between gap-4 md:flex">
+      <div className="hidden flex-wrap items-center justify-between gap-x-4 gap-y-2 md:flex">
         <div className="flex items-center gap-4">
           <span className="font-mono text-[11px] text-ink-muted">
             {t('Showing {a} to {b} of {n} messages', {
@@ -333,7 +333,7 @@ export function MessagePagination({
               <input type="hidden" name="period" value={f.period} />
             )}
             {f.q && <input type="hidden" name="q" value={f.q} />}
-            <label htmlFor="per" className="text-[11px] text-ink-muted">
+            <label htmlFor="per" className="whitespace-nowrap text-[11px] text-ink-muted">
               {t('Rows per page')}
             </label>
             <AutoSubmitSelect
