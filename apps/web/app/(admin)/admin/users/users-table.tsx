@@ -209,7 +209,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                     onClick={() => openEditor(p)}
                     className="flex w-full items-center gap-3 border-b border-parchment-edge px-3.5 py-[11px] text-left transition-colors last:border-b-0 hover:bg-parchment-deep/50"
                   >
-                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display text-[13px] font-bold text-brand-deep">
+                    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display text-[11.5px] font-bold text-brand-deep">
                       {initialsOf(p.displayName, p.email)}
                     </div>
                     <div className="min-w-0 flex-1">
@@ -298,7 +298,7 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
                     <div className="flex min-w-0 items-center gap-2.5">
                       <div
                         className={cn(
-                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-[11px] font-bold',
+                          'flex h-7 w-7 shrink-0 items-center justify-center rounded-full font-display text-[10px] font-bold',
                           isSuper
                             ? 'bg-gradient-to-br from-gold to-gold-deep text-brand-deep'
                             : 'bg-parchment-deep text-brand dark:bg-gold/[0.14] dark:text-gold',
@@ -352,12 +352,12 @@ export function UsersTable({ profiles, departments }: UsersTableProps) {
       >
         <SheetContent className="border-parchment-edge bg-parchment-soft">
           <SheetHeader className="text-left">
-            <SheetTitle className="font-display text-[22px] font-medium text-brand-ink">
+            <SheetTitle className="font-display tracking-[-0.01em] text-[19px] font-semibold text-brand-ink">
               {t('Edit user role')}
             </SheetTitle>
             <SheetDescription asChild>
               <div className="flex items-center gap-2.5 pt-2">
-                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display text-[13px] font-bold text-brand-deep">
+                <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display text-[11.5px] font-bold text-brand-deep">
                   {selected
                     ? initialsOf(selected.displayName, selected.email)
                     : ''}

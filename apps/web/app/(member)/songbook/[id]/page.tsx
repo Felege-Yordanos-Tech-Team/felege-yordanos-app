@@ -52,7 +52,7 @@ export default async function SongDetailPage({
       {/* Title row */}
       <div className="flex items-start gap-3.5">
         <div className="sacred-gradient flex h-14 w-14 shrink-0 items-center justify-center rounded-[14px] border border-gold/30 shadow-[0_6px_16px_-8px_rgba(10,60,54,0.5)]">
-          <span className="font-display text-2xl font-medium tabular-nums lining-nums text-gold">
+          <span className="font-display tracking-[-0.01em] text-[21px]/8 font-semibold tabular-nums lining-nums text-gold">
             {songNumber(song.number)}
           </span>
         </div>
@@ -61,7 +61,7 @@ export default async function SongDetailPage({
             {song.title}
           </h1>
           {song.titleEn && (
-            <p className="mt-0.5 font-display text-[15px] italic text-ink-muted">
+            <p className="mt-0.5 font-display text-[13px] text-ink-muted">
               {song.titleEn}
             </p>
           )}

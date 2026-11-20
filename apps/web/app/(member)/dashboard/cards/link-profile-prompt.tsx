@@ -48,7 +48,7 @@ async function PromptCard({
             'leading-tight text-brand-ink',
             locale === 'am'
               ? 'font-ethiopic text-sm font-semibold'
-              : 'font-display text-[17px] font-medium md:text-lg',
+              : 'font-display text-[15px] font-semibold md:text-[15.5px]/7',
           )}
         >
           {title}

@@ -115,12 +115,14 @@ export function NoticeCard({
             'mt-2.5 leading-tight text-brand-ink',
             hasEthiopic(notice.title)
               ? 'font-ethiopic font-semibold'
-              : 'font-display font-medium',
+              : 'font-display font-semibold',
             featured
-              ? 'text-[21px] md:text-[24px]'
+              ? hasEthiopic(notice.title)
+                ? 'text-[21px] md:text-[24px]'
+                : 'text-[18px] tracking-[-0.01em] md:text-[21px]'
               : hasEthiopic(notice.title)
                 ? 'text-[16px]'
-                : 'text-[19px]',
+                : 'text-[16.5px]',
           )}
         >
           {notice.title}

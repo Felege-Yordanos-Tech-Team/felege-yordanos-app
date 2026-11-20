@@ -24,7 +24,7 @@ export default async function ManageUsersPage() {
       <div className="mx-auto max-w-md px-[22px] py-16">
         <Card className="p-8 text-center">
           <ShieldAlert className="mx-auto h-10 w-10 text-status-absent" />
-          <h2 className="mt-2 font-display text-2xl font-medium text-brand-ink">
+          <h2 className="mt-2 font-display tracking-[-0.01em] text-[21px]/8 font-semibold text-brand-ink">
             {t('Access denied')}
           </h2>
           <p className="mt-2 text-sm text-ink-muted">

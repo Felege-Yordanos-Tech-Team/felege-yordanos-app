@@ -37,7 +37,7 @@ export default async function SongbookPage() {
             <h1 className="mt-1 font-ethiopic text-[52px] font-bold leading-[0.95] tracking-[-0.01em] text-brand dark:text-gold">
               መዝሙር
             </h1>
-            <p className="mt-0.5 font-display text-base italic text-ink-muted">
+            <p className="mt-0.5 font-display text-[14px]/6 text-ink-muted">
               Songbook
             </p>
           </div>

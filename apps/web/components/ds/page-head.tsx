@@ -28,7 +28,7 @@ export function PageHead({
         <div
           className={cn(
             'text-xs tracking-[0.06em] text-gold-deep',
-            locale === 'am' ? 'font-display' : 'font-ethiopic',
+            locale === 'am' ? 'font-display text-[11px]' : 'font-ethiopic',
           )}
         >
           {secondary}
@@ -38,7 +38,7 @@ export function PageHead({
             'mt-0.5 text-brand-ink',
             locale === 'am'
               ? 'font-ethiopic text-[28px] font-semibold'
-              : 'font-display text-[30px] font-medium',
+              : 'font-display tracking-[-0.01em] text-[26px] font-semibold',
             'leading-[1.05]',
           )}
         >

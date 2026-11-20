@@ -431,7 +431,7 @@ export function EventFormDialog({
             <div
               className={cn(
                 'text-[11px] tracking-[0.06em] text-gold-deep',
-                locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+                locale === 'am' ? 'font-display text-[11px]/4' : 'font-ethiopic',
               )}
             >
               {mode === 'create'
@@ -443,7 +443,7 @@ export function EventFormDialog({
                 'mt-0.5 leading-[1.05] text-brand-ink',
                 locale === 'am'
                   ? 'font-ethiopic text-[22px] font-semibold'
-                  : 'font-display text-2xl font-medium',
+                  : 'font-display tracking-[-0.01em] text-[21px]/8 font-semibold',
               )}
             >
               {mode === 'create' ? t('Create event') : t('Edit event')}

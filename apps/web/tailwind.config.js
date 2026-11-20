@@ -17,8 +17,11 @@ module.exports = {
     },
     extend: {
       fontFamily: {
-        headline: ['var(--font-display)'],
-        display: ['var(--font-display)'],
+        // Inter for headings, labels and big numbers. Without the body's
+        // 'tnum': in Inter it also widens the hyphen ("Check - in"). Numbers
+        // that line up keep their tabular-nums / lining-nums classes (#57).
+        headline: ['var(--font-display)', { fontFeatureSettings: "'cv11' on" }],
+        display: ['var(--font-display)', { fontFeatureSettings: "'cv11' on" }],
         body: ['var(--font-body)'],
         sans: ['var(--font-body)'],
         label: ['var(--font-body)'],

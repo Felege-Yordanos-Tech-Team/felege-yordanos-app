@@ -4,10 +4,21 @@ import { useLocale } from '@/lib/i18n/client';
 import { bilingual } from '@/lib/i18n/translate';
 import { cn } from '@/lib/utils';
 
+// Amharic (Noto Sans Ethiopic) and English (Inter) sizes. Inter is larger
+// than Ge'ez at the same px, so its title and eyebrow are a step smaller.
 const SIZES = {
-  sm: { eyebrow: 'text-[11px]', title: 'text-[22px]' },
-  md: { eyebrow: 'text-xs', title: 'text-[28px]' },
-  lg: { eyebrow: 'text-[13px]', title: 'text-[36px]' },
+  sm: {
+    eyebrow: { am: 'text-[11px]', en: 'text-[10px]' },
+    title: { am: 'text-[20px]', en: 'text-[19px] tracking-[-0.01em]' },
+  },
+  md: {
+    eyebrow: { am: 'text-xs', en: 'text-[11px]' },
+    title: { am: 'text-[28px]', en: 'text-[24px] tracking-[-0.02em]' },
+  },
+  lg: {
+    eyebrow: { am: 'text-[13px]', en: 'text-[11.5px]' },
+    title: { am: 'text-[36px]', en: 'text-[31px] tracking-[-0.02em]' },
+  },
 } as const;
 
 /**
@@ -37,7 +48,8 @@ export function SectionHeader({
         className={cn(
           'mb-1.5 font-medium tracking-[0.08em] text-gold-deep',
           locale === 'am' ? 'font-display' : 'font-ethiopic',
-          s.eyebrow,
+          // The eyebrow is in the other language.
+          locale === 'am' ? s.eyebrow.en : s.eyebrow.am,
         )}
       >
         {secondary}
@@ -47,8 +59,8 @@ export function SectionHeader({
           'tracking-[-0.01em] text-brand-ink',
           locale === 'am'
             ? 'font-ethiopic font-semibold'
-            : 'font-display font-medium',
-          locale === 'am' && size === 'sm' ? 'text-[20px]' : s.title,
+            : 'font-display font-semibold',
+          locale === 'am' ? s.title.am : s.title.en,
           // after the size class: tailwind-merge drops leading-* that comes before text-[size]
           'leading-[1.05]',
         )}

@@ -59,7 +59,7 @@ export async function WelcomeBanner({
         <div
           className={cn(
             'mb-1 text-xs tracking-[0.05em] text-gold-light',
-            am ? 'font-display text-[13px] italic' : 'font-ethiopic',
+            am ? 'font-display text-[11.5px]' : 'font-ethiopic',
           )}
         >
           {am ? 'Welcome' : 'እንኳን ደህና መጡ'}
@@ -67,14 +67,16 @@ export async function WelcomeBanner({
         <h1
           className={cn(
             'leading-[1.05] text-cream',
-            am ? 'font-ethiopic font-semibold' : 'font-display font-medium',
+            am
+              ? 'font-ethiopic font-semibold'
+              : 'font-display font-semibold tracking-[-0.02em]',
             desktop
               ? am
                 ? 'text-[32px]'
-                : 'text-[36px]'
+                : 'text-[31px]'
               : am
                 ? 'text-[27px]'
-                : 'text-[32px]',
+                : 'text-[28px]',
           )}
         >
           {t('Welcome,')}{' '}
@@ -83,7 +85,7 @@ export async function WelcomeBanner({
               'text-gold',
               hasEthiopic(firstName)
                 ? 'font-ethiopic not-italic'
-                : 'font-display italic',
+                : 'font-display not-italic',
             )}
           >
             {firstName}
@@ -117,7 +119,7 @@ export async function WelcomeBanner({
               'line-clamp-2 leading-[1.1] text-cream',
               hasEthiopic(nextEvent.title)
                 ? 'font-ethiopic text-lg font-semibold'
-                : 'font-display text-[21px] font-medium',
+                : 'font-display text-[18px] font-semibold',
             )}
           >
             {nextEvent.title}
