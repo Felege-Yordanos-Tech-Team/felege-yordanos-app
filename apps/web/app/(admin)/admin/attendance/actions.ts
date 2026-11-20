@@ -50,7 +50,7 @@ import {
   saveReminder,
   type ReminderEvent,
 } from '@/lib/sms/reminders';
-import { MAX_SMS_INPUT } from '@/lib/sms/split';
+import { MAX_SMS_INPUT, normalizeSmsText } from '@/lib/sms/split';
 
 /* ─── Validation ───────────────────────────────────────────── */
 
@@ -126,11 +126,12 @@ type ReminderFields = NonNullable<z.output<typeof eventFields>['reminder']>;
 
 /** Blank or default text is stored as null (follows the event). */
 const reminderInput = (r: ReminderFields, event: Omit<ReminderEvent, 'id'>) => {
-  const text = r.text?.trim() || null;
+  // Line breaks are kept as typed (#153).
+  const text = r.text ? normalizeSmsText(r.text) || null : null;
   return {
     daysBefore: r.daysBefore,
     sendTime: r.sendTime,
-    text: text === defaultReminderText(event).trim() ? null : text,
+    text: text === normalizeSmsText(defaultReminderText(event)) ? null : text,
   };
 };
 

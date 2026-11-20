@@ -75,9 +75,40 @@ export const MAX_SMS_INPUT = 1600;
 /** What the provider appends to every message. */
 export const signatureSuffix = (name: string) => `\n\n- ${name}`;
 
-/** Collapses whitespace runs to one space and trims. */
+/**
+ * The text as it is sent (#153). Line breaks stay exactly as typed (blank
+ * lines too, none collapsed); "\r\n" and "\r" become "\n". Inside a line,
+ * runs of spaces, tabs and other whitespace become one space, and spaces at
+ * the start or end of a line are dropped. The whole text is trimmed.
+ * A line break is one character in GSM-7 and in UCS-2.
+ */
 export const normalizeSmsText = (text: string) =>
-  text.replace(/\s+/g, ' ').trim();
+  text
+    .replace(/\r\n?/g, '\n')
+    .split('\n')
+    .map((line) => line.replace(/[^\S\n]+/g, ' ').trim())
+    .join('\n')
+    .trim();
+
+/** Line breaks in a text (for the provider check, counts only). */
+export const lineBreakCount = (text: string) =>
+  (text.match(/\r\n|\r|\n/g) ?? []).length;
+
+/**
+ * The provider's final_text (from /api/test, signature included) against
+ * what was sent: the line-break counts when they differ, else null (also
+ * when the provider gave no final_text). Counts only, never the text.
+ */
+export function lineBreakMismatch(
+  sent: string,
+  signature: string,
+  finalText: string | null,
+): { expected: number; received: number } | null {
+  if (finalText === null) return null;
+  const expected = lineBreakCount(sent + signatureSuffix(signature));
+  const received = lineBreakCount(finalText);
+  return expected === received ? null : { expected, received };
+}
 
 export type SmsMessage =
   | {
