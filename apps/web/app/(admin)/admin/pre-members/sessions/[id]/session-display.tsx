@@ -55,12 +55,12 @@ export function SessionDisplay({
   }, [id, closed]);
 
   return (
-    <div className="sacred-gradient fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-y-auto px-6 py-8 text-cream">
+    <div className="sacred-gradient fixed inset-0 z-[60] flex flex-col items-center justify-center overflow-y-auto pl-[calc(24px+env(safe-area-inset-left,0px))] pr-[calc(24px+env(safe-area-inset-right,0px))] pb-[calc(32px+env(safe-area-inset-bottom,0px))] pt-[calc(32px+env(safe-area-inset-top,0px))] text-cream">
       <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-30" />
       <Link
         href="/admin/pre-members/sessions"
         aria-label={t('Close')}
-        className="absolute right-5 top-5 rounded-full border border-cream/25 p-2 text-cream/80 hover:bg-cream/10"
+        className="absolute right-[calc(20px+env(safe-area-inset-right,0px))] top-[calc(20px+env(safe-area-inset-top,0px))] rounded-full border border-cream/25 p-2 text-cream/80 hover:bg-cream/10"
       >
         <X className="h-5 w-5" />
       </Link>
