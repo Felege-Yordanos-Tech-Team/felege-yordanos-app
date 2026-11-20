@@ -50,6 +50,7 @@ import {
   saveReminder,
   type ReminderEvent,
 } from '@/lib/sms/reminders';
+import { MAX_SMS_INPUT } from '@/lib/sms/split';
 
 /* ─── Validation ───────────────────────────────────────────── */
 
@@ -104,7 +105,7 @@ const eventFields = z.object({
         .string()
         .regex(/^([01]\d|2[0-3]):[0-5]\d$/, 'Choose a time.')
         .default(REMINDER_DEFAULT_TIME),
-      text: z.string().max(1000).nullable(),
+      text: z.string().max(MAX_SMS_INPUT).nullable(),
     })
     .optional(),
 });

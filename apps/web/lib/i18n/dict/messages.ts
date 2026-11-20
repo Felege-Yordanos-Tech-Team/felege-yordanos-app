@@ -60,22 +60,30 @@ export const messages: Record<string, string> = {
   'Test sent': 'ሙከራ ተልኳል',
   'Development: printed in the server log, not sent.':
     'የሙከራ አካባቢ፦ በሰርቨሩ መዝገብ ታትሟል፤ አልተላከም።',
-  '{n} SMS to {phone}': '{n} SMS ወደ {phone}',
+  'Sent to {phone}': 'ወደ {phone} ተልኳል',
   'The preview appears as you type.': 'ሲጽፉ ቅድመ እይታው ይታያል።',
-  'This needs {n} SMS; at most {max} are allowed. Shorten it, or post it on the notice board.':
-    'ይህ {n} SMS ያስፈልገዋል፤ የሚፈቀደው ቢበዛ {max} ነው። ያሳጥሩት ወይም በማስታወቂያ ሰሌዳው ላይ ይለጥፉት።',
-  'A word is too long for one SMS: “{word}”.': 'አንድ ቃል ለአንድ SMS በጣም ረጅም ነው፦ «{word}»።',
-  'A word is too long for one SMS.': 'አንድ ቃል ለአንድ SMS በጣም ረጅም ነው።',
-  '1 SMS per person': 'ለእያንዳንዱ ሰው 1 SMS',
-  '{n} SMS per person, sent in order': 'ለእያንዳንዱ ሰው {n} SMS፣ በቅደም ተከተል',
-  '{n} SMS per person': 'ለእያንዳንዱ ሰው {n} SMS',
-  'Amharic: 70 characters per SMS': 'አማርኛ፦ በአንድ SMS 70 ፊደላት',
-  'Latin only: 160 characters per SMS': 'ላቲን ብቻ፦ በአንድ SMS 160 ፊደላት',
+  'Too long: at most {max} SMS parts. Remove 1 character, or post it on the notice board.':
+    'በጣም ረጅም ነው፦ ቢበዛ {max} የSMS ክፍሎች። 1 ፊደል ያስወግዱ ወይም በማስታወቂያ ሰሌዳው ላይ ይለጥፉት።',
+  'Too long: at most {max} SMS parts. Remove {n} characters, or post it on the notice board.':
+    'በጣም ረጅም ነው፦ ቢበዛ {max} የSMS ክፍሎች። {n} ፊደላት ያስወግዱ ወይም በማስታወቂያ ሰሌዳው ላይ ይለጥፉት።',
+  '{chars} characters, 1 SMS part, {credits} credit per person ({safaricom} on Safaricom)':
+    '{chars} ፊደላት፣ 1 የSMS ክፍል፣ ለአንድ ሰው {credits} ክሬዲት (በሳፋሪኮም {safaricom})',
+  '{chars} characters, {parts} SMS parts, {credits} credits per person ({safaricom} on Safaricom)':
+    '{chars} ፊደላት፣ {parts} የSMS ክፍሎች፣ ለአንድ ሰው {credits} ክሬዲት (በሳፋሪኮም {safaricom})',
+  'Arrives as one message; charged per SMS part.':
+    'እንደ አንድ መልዕክት ይደርሳል፤ ክፍያው በእያንዳንዱ የSMS ክፍል ነው።',
+  'Amharic: 70 characters for one SMS, 67 per part':
+    'አማርኛ፦ ለአንድ SMS 70 ፊደላት፣ ከዚያ በላይ በእያንዳንዱ ክፍል 67',
+  'Latin only: 160 characters for one SMS, 153 per part':
+    'ላቲን ብቻ፦ ለአንድ SMS 160 ፊደላት፣ ከዚያ በላይ በእያንዳንዱ ክፍል 153',
+  '1 message, 1 SMS part': '1 መልዕክት፣ 1 የSMS ክፍል',
+  '1 message, {p} SMS parts': '1 መልዕክት፣ {p} የSMS ክፍሎች',
+  '{n} messages, {p} SMS parts': '{n} መልዕክቶች፣ {p} የSMS ክፍሎች',
   'Enter a message.': 'መልዕክት ያስገቡ።',
 
   // Estimate
   Recipients: 'ተቀባዮች',
-  'SMS per person': 'SMS ለአንድ ሰው',
+  'SMS parts per person': 'የSMS ክፍሎች ለአንድ ሰው',
   'Estimated credits': 'የሚገመት ክሬዲት',
   Credits: 'ክሬዲት',
   Balance: 'ቀሪ ሂሳብ',
@@ -153,10 +161,8 @@ export const messages: Record<string, string> = {
     'ማስታወሻው መርሃ ግብሩ ከጀመረ በኋላ ይላካል።',
   'Days before must be between 0 and 14.': 'ቀናቱ ከ0 እስከ 14 መሆን አለባቸው።',
   'Enter the reminder text.': 'የማስታወሻውን ጽሑፍ ያስገቡ።',
-  'The reminder text has a word too long for one SMS.':
-    'የማስታወሻው ጽሑፍ ለአንድ SMS በጣም ረጅም ቃል አለው።',
-  'The reminder text needs more than 5 SMS. Shorten it.':
-    'የማስታወሻው ጽሑፍ ከ5 SMS በላይ ያስፈልገዋል። ያሳጥሩት።',
+  'The reminder text is too long: at most 10 SMS parts. Shorten it.':
+    'የማስታወሻው ጽሑፍ በጣም ረጅም ነው፦ ቢበዛ 10 የSMS ክፍሎች። ያሳጥሩት።',
   'Enter whole days.': 'ሙሉ ቀናት ያስገቡ።',
 
   // Users and profile

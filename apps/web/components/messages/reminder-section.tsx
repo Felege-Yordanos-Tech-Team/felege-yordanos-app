@@ -25,6 +25,7 @@ import { isClockTime } from '@/lib/sms/schedule';
 import type { SmsStatus } from '@/lib/sms/transport';
 import { cn } from '@/lib/utils';
 import { SmsEstimate } from './sms-estimate';
+import { MAX_SMS_INPUT } from '@/lib/sms/split';
 import { partsFor, SmsPreview } from './sms-preview';
 
 /** Reminder fields of the event form. */
@@ -289,7 +290,7 @@ export function ReminderSection({
                 <Textarea
                   id="ev-reminder-text"
                   rows={3}
-                  maxLength={1000}
+                  maxLength={MAX_SMS_INPUT}
                   value={text}
                   placeholder={t('Fill in the title and date first.')}
                   onChange={(e) => set({ text: e.target.value, custom: true })}

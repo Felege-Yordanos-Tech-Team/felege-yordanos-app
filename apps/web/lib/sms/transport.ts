@@ -1,7 +1,7 @@
 /**
  * How SMS leave the app, from SMS_TRANSPORT:
- * - console (default): prints a masked number, the message number and its
- *   length in the server log; nothing leaves the machine.
+ * - console (default): prints a masked number and the message length in
+ *   the server log; nothing leaves the machine.
  * - smshub_test (staging): calls SMSHub's /api/test for every message: all
  *   the provider's checks run, nothing is sent or charged.
  * - smshub (production): real sends.
@@ -50,9 +50,6 @@ export function smsTransportName(): TransportName | null {
   return v === 'console' || v === 'smshub_test' || v === 'smshub' ? v : null;
 }
 
-/** First characters of a message: "(1/3)" for numbered ones. */
-const label = (text: string) => /^\(\d\/\d\)/.exec(text)?.[0] ?? '(1/1)';
-
 function consoleTransport(): SmsTransport {
   return {
     name: 'console',
@@ -61,18 +58,26 @@ function consoleTransport(): SmsTransport {
     hasBalance: false,
     async send(msisdn, text) {
       console.log(
-        `[sms:console] ${maskPhone(msisdn)} ${label(text)} ${text.length} chars (not sent)`,
+        `[sms:console] ${maskPhone(msisdn)} ${text.length} chars (not sent)`,
       );
       return {
         ok: true,
         messageId: null,
         creditsUsed: 0,
         creditsRemaining: null,
+        parts: null,
         rate: NO_RATE,
       };
     },
     async check() {
-      return { ok: true, finalText: null, characters: null, limit: null };
+      return {
+        ok: true,
+        finalText: null,
+        characters: null,
+        limit: null,
+        parts: null,
+        creditsNeeded: null,
+      };
     },
     async balance() {
       return null;
@@ -99,6 +104,7 @@ function smshubTransport(name: 'smshub' | 'smshub_test'): SmsTransport {
         messageId: res.requestId ? `test:${res.requestId}` : null,
         creditsUsed: 0,
         creditsRemaining: null,
+        parts: res.parts,
         rate: res.rate,
       };
     },
@@ -117,6 +123,8 @@ function smshubTransport(name: 'smshub' | 'smshub_test'): SmsTransport {
         finalText: res.finalText,
         characters: res.characters,
         limit: res.limit,
+        parts: res.parts,
+        creditsNeeded: res.creditsNeeded,
       };
     },
     async balance() {

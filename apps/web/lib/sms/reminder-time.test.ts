@@ -8,7 +8,7 @@ import {
   reminderRefusal,
 } from './reminder-time';
 import { TIME_PASSED } from './schedule';
-import { splitSms } from './split';
+import { composeSms } from './split';
 
 describe('reminderDueAt', () => {
   it('is 09:00 Addis Ababa time, N days before the event date', () => {
@@ -131,8 +131,8 @@ describe('default reminder text', () => {
       text,
       'ፈለገ ዮርዳኖስ ሰ/ት/ቤት፦ የአባላት ወርኃዊ ጉባዔ፣ ቅዳሜ ኅዳር 19 ቀን 2019 ዓ.ም. ከቀኑ 8:00 ሰዓት ጀምሮ። እንዲገኙ እናሳስባለን።',
     );
-    // Fits in at most five SMS.
-    assert.equal(splitSms(text, 'FYSS').ok, true);
+    // One message within the provider's limit.
+    assert.equal(composeSms(text, 'FYSS').ok, true);
   });
 
   it('leaves out the time when the event has none', () => {

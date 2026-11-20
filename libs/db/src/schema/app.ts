@@ -920,7 +920,11 @@ export type BroadcastStatus = (typeof BROADCAST_STATUSES)[number];
 /**
  * One message to many people (lib/sms). `parts` are the messages exactly as
  * sent to the provider, frozen when the broadcast was confirmed (or the
- * reminder fired). Sent in the background by lib/sms/worker.ts.
+ * reminder fired): since #150 always one element, the whole text (the
+ * provider sends it as one long SMS of up to 10 parts). Broadcasts from
+ * before #150 can have up to 5 numbered parts. `sms_parts` = SMS parts
+ * charged per person (old rows: the number of numbered parts, one SMS each).
+ * Sent in the background by lib/sms/worker.ts.
  */
 export const messageBroadcasts = pgTable(
   'message_broadcasts',
@@ -929,6 +933,7 @@ export const messageBroadcasts = pgTable(
     channel: text('channel').$type<MessageChannel>().notNull().default('sms'),
     text: text('text').notNull(),
     parts: jsonb('parts').$type<string[]>().notNull(),
+    smsParts: integer('sms_parts').notNull().default(1),
     audience: text('audience').$type<BroadcastAudience>().notNull(),
     // Audience 'event' (and reminders): the event whose expected people
     // were the recipients. Audience 'selected': the chosen people are in
@@ -978,6 +983,10 @@ export const messageBroadcasts = pgTable(
     check(
       'message_broadcasts_parts_check',
       sql`jsonb_typeof(${t.parts}) = 'array' AND jsonb_array_length(${t.parts}) BETWEEN 1 AND 5`,
+    ),
+    check(
+      'message_broadcasts_sms_parts_check',
+      sql`${t.smsParts} BETWEEN 1 AND 10`,
     ),
     index('idx_message_broadcasts_created_at').on(t.createdAt.desc()),
     index('idx_message_broadcasts_status').on(t.status),

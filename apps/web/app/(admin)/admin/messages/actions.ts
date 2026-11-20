@@ -40,10 +40,11 @@ import {
   type PersonOption,
   type TargetRef,
 } from '@/lib/sms/selected-people';
-import { estimateCredits, MAX_PARTS, splitSms } from '@/lib/sms/split';
+import { getT } from '@/lib/i18n/server';
+import { composeSms, estimateCredits, MAX_PARTS, MAX_SMS_INPUT } from '@/lib/sms/split';
 import { smsSignature, smsTransport } from '@/lib/sms/transport';
 
-const MAX_TEXT = 1000;
+const MAX_TEXT = MAX_SMS_INPUT;
 
 const targetSchema = z.object({
   kind: z.enum(['member', 'pre_member']),
@@ -95,15 +96,25 @@ function scheduledMoment(
   return refusal ? { error: refusal } : { at };
 }
 
-/** Message for a text the splitter refuses. */
-function splitRefusal(text: string): { parts: string[] } | { error: string } {
-  const split = splitSms(text, smsSignature());
-  if (split.ok) return { parts: split.parts };
-  if (split.reason === 'empty') return { error: 'Enter a message.' };
-  if (split.reason === 'word_too_long')
-    return { error: 'A word is too long for one SMS.' };
+/**
+ * The one message for a text (sent to the provider as is; it appends the
+ * signature) and its SMS parts, or why it is refused (translated: it
+ * carries the number of characters to remove).
+ */
+async function smsFor(
+  text: string,
+): Promise<{ text: string; smsParts: number } | { error: string }> {
+  const sms = composeSms(text, smsSignature());
+  if (sms.ok) return { text: sms.text, smsParts: sms.smsParts };
+  if (sms.reason === 'empty') return { error: 'Enter a message.' };
+  const t = await getT();
   return {
-    error: `This message needs ${split.needed} SMS; at most ${MAX_PARTS} are allowed. Shorten it, or post it on the notice board.`,
+    error: t(
+      sms.excess === 1
+        ? 'Too long: at most {max} SMS parts. Remove 1 character, or post it on the notice board.'
+        : 'Too long: at most {max} SMS parts. Remove {n} characters, or post it on the notice board.',
+      { n: sms.excess, max: MAX_PARTS },
+    ),
   };
 }
 
@@ -167,7 +178,10 @@ export async function previewAudience(input: {
 export interface PreparedBroadcast {
   /** ISO instant for "send later", null = now. */
   scheduledAt: string | null;
-  parts: string[];
+  /** The one message (without the signature, which the provider appends). */
+  text: string;
+  /** SMS parts per person (the message is charged per part). */
+  smsParts: number;
   signature: string;
   summary: SelectionSummary;
   credits: number;
@@ -177,7 +191,7 @@ export interface PreparedBroadcast {
 }
 
 /**
- * Everything the confirm step repeats, after the provider checked every
+ * Everything the confirm step repeats, after the provider checked the
  * message (so a text it would reject never starts a broadcast). Nothing is
  * sent. Permission: canSendMessages.
  */
@@ -192,8 +206,8 @@ export async function prepareBroadcast(
   if (!(await hitRateLimit(db, `sms:prepare:${user.id}`, 3600, 30)))
     return fail('Too many checks. Please wait a while and try again.');
 
-  const split = splitRefusal(parsed.data.text);
-  if ('error' in split) return fail(split.error);
+  const sms = await smsFor(parsed.data.text);
+  if ('error' in sms) return fail(sms.error);
   const when = scheduledMoment(parsed.data.sendAt);
   if ('error' in when) return fail(when.error);
   const transport = smsTransport();
@@ -212,21 +226,21 @@ export async function prepareBroadcast(
   if (summary.recipients === 0 && !when.at)
     return fail('Nobody in this audience has a phone number for SMS.');
 
-  // The provider's own check of each message (nothing sent or charged).
+  // The provider's own check of the message (nothing sent or charged).
   const checkPhone =
     (await ownPhone(user)) ?? loaded.selection.recipients[0]?.phone ?? null;
-  if (checkPhone)
-    for (const part of split.parts) {
-      const res = await transport.check(checkPhone, part);
-      if (!res.ok) return fail(`SMSHub: ${res.message}`);
-    }
+  if (checkPhone) {
+    const res = await transport.check(checkPhone, sms.text);
+    if (!res.ok) return fail(`SMSHub: ${res.message}`);
+  }
 
   return ok({
     scheduledAt: when.at?.toISOString() ?? null,
-    parts: split.parts,
+    text: sms.text,
+    smsParts: sms.smsParts,
     signature: smsSignature(),
     summary,
-    credits: estimateCredits(split.parts.length, summary),
+    credits: estimateCredits(sms.smsParts, summary),
     balance: transport.hasBalance ? await transport.balance() : null,
     people:
       parsed.data.audience === 'selected'
@@ -252,8 +266,8 @@ export async function createBroadcast(
   if (!parsed.success) return fail(firstIssue(parsed.error));
   if (parsed.data.channel !== 'sms') return fail('Telegram is coming soon.');
 
-  const split = splitRefusal(parsed.data.text);
-  if ('error' in split) return fail(split.error);
+  const sms = await smsFor(parsed.data.text);
+  if ('error' in sms) return fail(sms.error);
   const when = scheduledMoment(parsed.data.sendAt);
   if ('error' in when) return fail(when.error);
   const transport = smsTransport();
@@ -275,7 +289,8 @@ export async function createBroadcast(
     const id = await db.transaction((tx) =>
       insertScheduledBroadcast(tx, {
         text: parsed.data.text.trim(),
-        parts: split.parts,
+        parts: [sms.text],
+        smsParts: sms.smsParts,
         audience: parsed.data.audience,
         eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
         createdBy: user.id,
@@ -292,7 +307,7 @@ export async function createBroadcast(
 
   if (transport.charges) {
     const balance = await transport.balance();
-    const credits = estimateCredits(split.parts.length, summary);
+    const credits = estimateCredits(sms.smsParts, summary);
     if (balance === null) return fail('Could not read the SMS balance. Try again.');
     if (balance < credits)
       return fail(
@@ -305,7 +320,8 @@ export async function createBroadcast(
   const id = await db.transaction((tx) =>
     insertBroadcast(tx, {
       text: parsed.data.text.trim(),
-      parts: split.parts,
+      parts: [sms.text],
+      smsParts: sms.smsParts,
       audience: parsed.data.audience,
       eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
       origin: 'manual',
@@ -319,8 +335,8 @@ export async function createBroadcast(
 }
 
 /**
- * Sends the messages to the sender's own phone (linked member or
- * pre-member record), in order. Permission: canSendMessages; 5 per hour.
+ * Sends the message to the sender's own phone (linked member or pre-member
+ * record). Permission: canSendMessages; 5 per hour.
  */
 export async function sendTestToSelf(input: {
   text: string;
@@ -329,8 +345,8 @@ export async function sendTestToSelf(input: {
   if (!user) return fail(NOT_ALLOWED);
   const text = z.string().max(MAX_TEXT).safeParse(input.text);
   if (!text.success) return fail('Invalid input.');
-  const split = splitRefusal(text.data);
-  if ('error' in split) return fail(split.error);
+  const sms = await smsFor(text.data);
+  if ('error' in sms) return fail(sms.error);
   const transport = smsTransport();
   if (!transport.configured) return fail('SMS is not configured.');
   const phone = await ownPhone(user);
@@ -338,13 +354,9 @@ export async function sendTestToSelf(input: {
   if (!(await hitRateLimit(db, `sms:test:${user.id}`, 3600, 5)))
     return fail('At most 5 test messages per hour. Please wait a while.');
 
-  let sent = 0;
-  for (const part of split.parts) {
-    const res = await transport.send(phone, part);
-    if (!res.ok) return fail(`SMSHub: ${res.message}`);
-    sent += 1;
-  }
-  return ok({ sent });
+  const res = await transport.send(phone, sms.text);
+  if (!res.ok) return fail(`SMSHub: ${res.message}`);
+  return ok({ sent: 1 });
 }
 
 const searchSchema = z.object({
@@ -410,8 +422,8 @@ export async function updateScheduledBroadcast(
   if (!parsed.success) return fail(firstIssue(parsed.error));
   if (parsed.data.channel !== 'sms') return fail('Telegram is coming soon.');
   if (!parsed.data.sendAt) return fail('Choose a date and time.');
-  const split = splitRefusal(parsed.data.text);
-  if ('error' in split) return fail(split.error);
+  const sms = await smsFor(parsed.data.text);
+  if ('error' in sms) return fail(sms.error);
   const when = scheduledMoment(parsed.data.sendAt);
   if ('error' in when) return fail(when.error);
   if (!when.at) return fail('Choose a date and time.');
@@ -429,7 +441,10 @@ export async function updateScheduledBroadcast(
       .update(messageBroadcasts)
       .set({
         text: parsed.data.text.trim(),
-        parts: split.parts,
+        // Always one message, also for one scheduled before #150 with
+        // several numbered parts.
+        parts: [sms.text],
+        smsParts: sms.smsParts,
         audience: parsed.data.audience,
         eventId: parsed.data.audience === 'event' ? parsed.data.eventId : null,
         scheduledAt,
