@@ -177,7 +177,7 @@ export function AttendanceView({
               </div>
               {nextEvent ? (
                 <>
-                  <div className="mt-0.5 truncate font-display text-[17px] font-medium leading-tight text-cream">
+                  <div className="mt-0.5 truncate font-display text-[15px] font-semibold leading-tight text-cream">
                     {nextEvent.title}
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 font-mono text-[10.5px] text-gold-light">
@@ -186,7 +186,7 @@ export function AttendanceView({
                   </div>
                 </>
               ) : (
-                <div className="mt-0.5 font-display text-[15px] italic text-cream/70">
+                <div className="mt-0.5 font-display text-[13px] text-cream/70">
                   {t('No upcoming events')}
                 </div>
               )}
@@ -219,7 +219,7 @@ export function AttendanceView({
           </div>
           {nextEvent ? (
             <>
-              <div className="relative whitespace-nowrap font-display text-xl font-medium leading-[1.1] text-cream">
+              <div className="relative whitespace-nowrap font-display text-[17px] font-semibold leading-[1.1] text-cream">
                 {nextEvent.title}
               </div>
               <div className="relative flex items-center gap-2 whitespace-nowrap font-mono text-[11.5px] text-gold-light">
@@ -236,7 +236,7 @@ export function AttendanceView({
               </div>
             </>
           ) : (
-            <div className="relative font-display text-lg italic text-cream/70">
+            <div className="relative font-display text-[15.5px]/7 text-cream/70">
               {t('No upcoming events')}
             </div>
           )}
@@ -269,7 +269,7 @@ export function AttendanceView({
                 <div
                   className={cn(
                     'text-[11px] tracking-[0.06em] text-gold-deep',
-                    locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+                    locale === 'am' ? 'font-display text-[11px]/4' : 'font-ethiopic',
                   )}
                 >
                   {locale === 'am' ? 'Check-in code' : 'የመገኘት ኮድ'}
@@ -279,7 +279,7 @@ export function AttendanceView({
                     'text-brand-ink',
                     locale === 'am'
                       ? 'font-ethiopic text-xl font-semibold'
-                      : 'font-display text-2xl font-medium',
+                      : 'font-display tracking-[-0.01em] text-[21px]/8 font-semibold',
                   )}
                 >
                   {t('Check-in code')}

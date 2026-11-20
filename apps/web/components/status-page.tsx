@@ -14,7 +14,7 @@ export function StatusPage({
   return (
     <div className="parchment-bg flex min-h-screen flex-col items-center justify-center px-6 pt-[env(safe-area-inset-top,0px)] text-center">
       <LogoCross size={64} />
-      <h1 className="mt-6 font-display text-[30px] font-medium leading-tight text-brand-ink">
+      <h1 className="mt-6 font-display tracking-[-0.01em] text-[26px] font-semibold leading-tight text-brand-ink">
         {title}
       </h1>
       <p className="mt-2 text-sm text-ink-muted">{subtitle}</p>

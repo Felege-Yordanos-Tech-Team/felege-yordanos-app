@@ -233,7 +233,7 @@ export function SongForm({ categories, song }: SongFormProps) {
             value={titleEn}
             onChange={(e) => setTitleEn(e.target.value)}
             placeholder={t('Song title in English')}
-            className={cn(FIELD, 'font-display text-[15px] italic')}
+            className={cn(FIELD, 'font-display text-[13px]')}
           />
         </div>
 

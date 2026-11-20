@@ -238,7 +238,7 @@ export default async function AdminDashboard() {
       <div
         className={cn(
           'text-xs tracking-[0.06em] text-gold-deep',
-          am ? 'font-display text-[13px] italic' : 'font-ethiopic',
+          am ? 'font-display text-[11.5px]' : 'font-ethiopic',
         )}
       >
         {am ? 'Admin panel' : 'የአስተዳዳሪ ክፍል'}
@@ -248,14 +248,14 @@ export default async function AdminDashboard() {
           'mt-1 leading-none text-brand-ink',
           am
             ? 'font-ethiopic text-[32px] font-semibold md:text-[30px]'
-            : 'font-display text-[38px] font-medium md:text-[34px]',
+            : 'font-display tracking-[-0.02em] text-[33px] font-semibold md:text-[30px]',
         )}
       >
         {am ? (
           t('Admin panel')
         ) : (
           <>
-            Admin <em className="text-brand dark:text-gold">panel</em>
+            Admin <em className="not-italic text-brand dark:text-gold">panel</em>
           </>
         )}
       </h1>
@@ -288,7 +288,7 @@ export default async function AdminDashboard() {
               >
                 {t(s.en)}
               </div>
-              <div className="mt-0.5 font-display text-[26px] font-medium leading-none tabular-nums lining-nums text-brand dark:text-gold md:mt-2 md:text-[34px]">
+              <div className="mt-0.5 font-display tracking-[-0.02em] text-[23px] font-semibold leading-none tabular-nums lining-nums text-brand dark:text-gold md:mt-2 md:text-[30px]">
                 {num.format(s.value)}
               </div>
               <div className="mt-0.5 text-[9px] uppercase tracking-[0.08em] text-ink-muted md:mt-1 md:text-[10.5px]">
@@ -358,7 +358,7 @@ export default async function AdminDashboard() {
                       className={cn(
                         'text-[10px] font-medium tracking-[0.04em]',
                         am
-                          ? 'font-display text-[11px] italic'
+                          ? 'font-display text-[10px]'
                           : 'font-ethiopic',
                         featured ? 'text-cream/60' : 'text-gold-deep',
                       )}
@@ -383,7 +383,7 @@ export default async function AdminDashboard() {
                       'mb-1.5 leading-[1.05]',
                       am
                         ? 'font-ethiopic text-[19px] font-semibold'
-                        : 'font-display text-[22px] font-medium',
+                        : 'font-display tracking-[-0.01em] text-[19px] font-semibold',
                       featured ? 'text-cream' : 'text-brand-ink',
                     )}
                   >

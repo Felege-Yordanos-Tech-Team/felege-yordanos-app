@@ -299,7 +299,7 @@ export function DonationsTable({
                 >
                   <div className="mb-2.5 flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
+                      <div className="truncate font-display text-[14px] font-semibold leading-tight text-brand-ink">
                         {donorName(d.donorId)}
                       </div>
                       <div className="mt-0.5 flex items-center gap-1.5 text-[10.5px] text-ink-muted">
@@ -370,7 +370,7 @@ export function DonationsTable({
                 >
                   <div className="flex items-center justify-between gap-2">
                     <div className="min-w-0 flex-1">
-                      <div className="truncate font-display text-[15px] font-medium leading-tight text-brand-ink">
+                      <div className="truncate font-display text-[13px] font-semibold leading-tight text-brand-ink">
                         {donorName(d.donorId)}
                       </div>
                       <div className="mt-px font-mono text-[10px] text-ink-muted">
@@ -460,7 +460,7 @@ export function DonationsTable({
                         )}
                       >
                         <span className="flex min-w-0 items-center gap-[9px]">
-                          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-parchment-deep font-display text-[10.5px] font-bold text-brand dark:bg-gold/[0.14] dark:text-gold">
+                          <span className="flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full bg-parchment-deep font-display text-[10px] font-bold text-brand dark:bg-gold/[0.14] dark:text-gold">
                             {initialsOf(name) || '?'}
                           </span>
                           <span
@@ -617,7 +617,7 @@ export function DonationsTable({
                 'text-xl text-brand-ink',
                 locale === 'am'
                   ? 'font-ethiopic font-semibold'
-                  : 'font-display font-medium',
+                  : 'font-display text-[17px]/7 font-semibold',
               )}
             >
               {t('Reject donation')}
@@ -673,7 +673,7 @@ export function DonationsTable({
                 'text-xl text-brand-ink',
                 locale === 'am'
                   ? 'font-ethiopic font-semibold'
-                  : 'font-display font-medium',
+                  : 'font-display text-[17px]/7 font-semibold',
               )}
             >
               {t('Receipt')}

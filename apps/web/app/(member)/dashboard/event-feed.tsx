@@ -42,7 +42,7 @@ const DOTS = [
 ];
 const dotFor = (deptId: number) => DOTS[deptId % DOTS.length];
 
-/** Event / department text: Ethiopic font for Ge'ez, display serif otherwise. */
+/** Event / department text: Ethiopic font for Ge'ez, display font (Inter) otherwise. */
 function TitleText({ text, className }: { text: string; className?: string }) {
   const am = hasEthiopic(text);
   return (
@@ -51,7 +51,7 @@ function TitleText({ text, className }: { text: string; className?: string }) {
         'leading-[1.15] text-brand-ink',
         am
           ? 'font-ethiopic text-[15px] font-semibold'
-          : 'font-display text-[17px] font-medium',
+          : 'font-display text-[15px] font-semibold',
         className,
       )}
     >
@@ -209,7 +209,7 @@ export function EventFeed({
                 )}
               </div>
               <div className="shrink-0 text-right">
-                <div className="font-display text-[17px] font-medium leading-none text-brand dark:text-gold-light">
+                <div className="font-display text-[15px] font-semibold leading-none text-brand dark:text-gold-light">
                   {shortDate(event.eventDate, locale)}
                 </div>
                 {time(event) && (
@@ -262,7 +262,7 @@ export function EventFeed({
                   )}
                 </div>
                 <div className="shrink-0 text-right">
-                  <div className="font-display text-lg font-medium leading-none text-brand dark:text-gold-light">
+                  <div className="font-display text-[15.5px] font-semibold leading-none text-brand dark:text-gold-light">
                     {shortDate(event.eventDate, locale)}
                   </div>
                   {time(event) && (

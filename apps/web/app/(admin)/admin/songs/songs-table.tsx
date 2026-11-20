@@ -65,7 +65,7 @@ const DANGER_BTN =
 const ICON_BTN =
   'flex h-[26px] w-[26px] items-center justify-center rounded-[7px] border border-parchment-edge transition-colors';
 const DIALOG = 'border-parchment-edge bg-parchment-soft sm:rounded-2xl';
-const DIALOG_TITLE = 'font-display text-[22px] font-medium text-brand-ink';
+const DIALOG_TITLE = 'font-display tracking-[-0.01em] text-[19px] font-semibold text-brand-ink';
 
 export function SongsTable({ songs, categories }: SongsTableProps) {
   const router = useRouter();
@@ -407,7 +407,7 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
                       {song.title}
                     </div>
                     {song.titleEn && (
-                      <div className="truncate font-display text-[11px] italic text-ink-muted">
+                      <div className="truncate font-display text-[10px] text-ink-muted">
                         {song.titleEn}
                       </div>
                     )}
@@ -545,13 +545,13 @@ export function SongsTable({ songs, categories }: SongsTableProps) {
                   key={song.id}
                   className="grid grid-cols-[46px_1.3fr_1.1fr_110px_70px] items-center gap-3 border-b border-parchment-edge px-1 py-3"
                 >
-                  <span className="font-display text-[15px] font-semibold text-brand dark:text-gold">
+                  <span className="font-display text-[13px] font-semibold text-brand dark:text-gold">
                     {songNumber(song.number)}
                   </span>
                   <span className="truncate font-ethiopic text-[13.5px] font-semibold text-brand-ink">
                     {song.title}
                   </span>
-                  <span className="truncate font-display text-[13px] italic text-ink-muted">
+                  <span className="truncate font-display text-[11.5px] text-ink-muted">
                     {song.titleEn}
                   </span>
                   <span

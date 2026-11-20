@@ -62,7 +62,7 @@ function ConfirmDialog({
         <div
           className={cn(
             'text-[11px] tracking-[0.06em] text-gold-deep',
-            locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+            locale === 'am' ? 'font-display text-[11px]/4' : 'font-ethiopic',
           )}
         >
           {eyebrow}
@@ -72,7 +72,7 @@ function ConfirmDialog({
             'mt-0.5 leading-[1.1] text-brand-ink',
             locale === 'am'
               ? 'font-ethiopic text-xl font-semibold'
-              : 'font-display text-2xl font-medium',
+              : 'font-display tracking-[-0.01em] text-[21px]/8 font-semibold',
           )}
         >
           {title}

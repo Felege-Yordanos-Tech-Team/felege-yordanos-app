@@ -156,7 +156,7 @@ export function MemberQRCard({
         <p
           className={cn(
             'text-center text-xs leading-snug text-gold-light',
-            locale === 'am' ? 'font-ethiopic' : 'font-display text-[13px]',
+            locale === 'am' ? 'font-ethiopic' : 'font-display text-[11.5px]',
           )}
         >
           {hint.primary}
@@ -164,7 +164,7 @@ export function MemberQRCard({
         <p
           className={cn(
             'mt-0.5 text-center text-[11px] text-cream/55',
-            locale === 'am' ? 'font-display italic' : 'font-ethiopic',
+            locale === 'am' ? 'font-display text-[10px]' : 'font-ethiopic',
           )}
         >
           {hint.secondary}

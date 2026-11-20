@@ -421,10 +421,10 @@ function FeaturedNotice({
         <h2
           className={cn(
             'break-words leading-[1.12] text-cream',
-            am ? 'font-ethiopic font-semibold' : 'font-display font-medium',
+            am ? 'font-ethiopic font-semibold' : 'font-display font-semibold',
             desktop
-              ? am ? 'text-[30px]' : 'text-[34px]'
-              : am ? 'mt-3 text-[24px]' : 'mt-3 text-[28px]',
+              ? am ? 'text-[30px]' : 'text-[30px] tracking-[-0.02em]'
+              : am ? 'mt-3 text-[24px]' : 'mt-3 text-[24px] tracking-[-0.02em]',
           )}
         >
           {notice.title}
@@ -535,7 +535,7 @@ function NoticeListItem({
         <img src={mediaUrl(notice.imageKey)} alt="" loading="lazy" className="h-full min-h-[120px] w-full object-cover" />
       ) : (
         <span className="flex h-full min-h-[120px] flex-col items-center justify-center border-r border-parchment-edge bg-parchment-deep/60">
-          <span className="font-display text-[32px] font-medium leading-none text-brand dark:text-gold">
+          <span className="font-display tracking-[-0.02em] text-[28px] font-semibold leading-none text-brand dark:text-gold">
             {dates.day.format(created)}
           </span>
           <span className={cn('mt-1 text-[11px] text-gold-deep', locale === 'am' && 'font-ethiopic')}>
@@ -556,7 +556,7 @@ function NoticeListItem({
         <span
           className={cn(
             'mt-2 line-clamp-2 break-words leading-snug text-brand-ink',
-            hasEthiopic(notice.title) ? 'font-ethiopic text-[16px] font-semibold' : 'font-display text-[18px] font-medium',
+            hasEthiopic(notice.title) ? 'font-ethiopic text-[16px] font-semibold' : 'font-display text-[15.5px] font-semibold',
           )}
         >
           {notice.title}
@@ -589,7 +589,7 @@ function EmptyBoard() {
       <p
         className={cn(
           'relative leading-tight text-brand-ink',
-          locale === 'am' ? 'font-ethiopic text-[19px] font-semibold' : 'font-display text-[22px] font-medium',
+          locale === 'am' ? 'font-ethiopic text-[19px] font-semibold' : 'font-display tracking-[-0.01em] text-[19px] font-semibold',
         )}
       >
         {t('No notices yet')}

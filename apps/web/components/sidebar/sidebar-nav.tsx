@@ -62,7 +62,7 @@ export function SidebarNav({
             <span className="block whitespace-nowrap font-ethiopic text-[15px] font-semibold text-cream">
               ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
             </span>
-            <span className="mt-0.5 block whitespace-nowrap font-display text-[12px] italic text-gold-light/75">
+            <span className="mt-0.5 block whitespace-nowrap font-display text-[11px] text-gold-light/75">
               Felege Yordanos Sunday School
             </span>
           </span>
@@ -191,7 +191,7 @@ export function Avatar({ name, size = 30 }: { name: string; size?: number }) {
   return (
     <div
       className="flex shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gold to-gold-deep font-display font-bold text-brand-deep"
-      style={{ width: size, height: size, fontSize: Math.round(size * 0.42) }}
+      style={{ width: size, height: size, fontSize: Math.round(size * 0.37) }}
     >
       {initials(name)}
     </div>

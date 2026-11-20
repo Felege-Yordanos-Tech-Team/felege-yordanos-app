@@ -506,7 +506,7 @@ export function ComposeForm({
 
       <Dialog open={!!prepared} onOpenChange={(o) => !o && setPrepared(null)}>
         <DialogContent className="max-h-[90vh] overflow-y-auto rounded-[20px] border-parchment-edge bg-parchment sm:max-w-[520px]">
-          <DialogTitle className="font-display text-2xl font-medium text-brand-ink">
+          <DialogTitle className="font-display tracking-[-0.01em] text-[21px]/8 font-semibold text-brand-ink">
             {preparedAt ? t('Schedule this SMS?') : t('Send this SMS?')}
           </DialogTitle>
           <DialogDescription className="text-[12.5px] text-ink-muted">
