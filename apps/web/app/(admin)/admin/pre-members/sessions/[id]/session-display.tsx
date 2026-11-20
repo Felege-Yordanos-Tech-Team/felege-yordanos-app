@@ -92,13 +92,13 @@ export function SessionDisplay({
         </div>
 
         <div className="max-w-md text-center md:text-left">
-          <div className="font-display text-sm uppercase tracking-[0.2em] text-gold-light">
+          <div className="font-display text-[12.5px]/5 uppercase tracking-[0.2em] text-gold-light">
             {label}
           </div>
           <h1 className="mt-3 font-ethiopic text-[34px] font-semibold leading-tight md:text-[44px]">
             ቅድመ አባል ምዝገባ
           </h1>
-          <p className="mt-1 font-display text-2xl text-gold-light md:text-3xl">
+          <p className="mt-1 font-display tracking-[-0.01em] text-[21px]/8 text-gold-light md:text-[26px]/9">
             Pre-member registration
           </p>
           <p className="mt-5 font-ethiopic text-lg leading-relaxed text-cream/90">
@@ -109,7 +109,7 @@ export function SessionDisplay({
           </p>
 
           <div className="mt-8 inline-flex items-baseline gap-3 rounded-2xl border border-gold/30 bg-cream/[0.08] px-6 py-4">
-            <span className="font-display text-6xl font-medium tabular-nums lining-nums text-gold">
+            <span className="font-display tracking-[-0.02em] text-[52px]/none font-semibold tabular-nums lining-nums text-gold">
               {count}
             </span>
             <span className="text-sm text-cream/80">

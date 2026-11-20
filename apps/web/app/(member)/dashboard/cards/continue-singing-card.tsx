@@ -52,7 +52,7 @@ export async function SongbookPreviewCard({
                 href={`/songbook/${song.id}`}
                 className="group -mx-1.5 flex items-center gap-2.5 rounded-lg px-1.5 py-2.5 transition-colors hover:bg-gold/[0.06]"
               >
-                <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep font-display text-[13px] font-semibold text-brand dark:text-gold">
+                <span className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-lg border border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep font-display text-[11.5px] font-semibold text-brand dark:text-gold">
                   {song.number != null
                     ? String(song.number).padStart(2, '0')
                     : '—'}
@@ -62,7 +62,7 @@ export async function SongbookPreviewCard({
                     {song.title}
                   </span>
                   {song.titleEn && (
-                    <span className="block truncate font-display text-[11.5px] italic text-ink-muted">
+                    <span className="block truncate font-display text-[10.5px] text-ink-muted">
                       {song.titleEn}
                     </span>
                   )}

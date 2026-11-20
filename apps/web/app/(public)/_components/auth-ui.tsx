@@ -36,7 +36,7 @@ export function Medallion({ size }: { size: number }) {
   );
 }
 
-/** Church name: Amharic first, English italic below. */
+/** Church name: Amharic first, English below. */
 export function ChurchName({ large = false }: { large?: boolean }) {
   return (
     <div className="relative text-center">
@@ -50,8 +50,8 @@ export function ChurchName({ large = false }: { large?: boolean }) {
       </div>
       <div
         className={cn(
-          'font-display italic tracking-[0.04em] text-gold-light',
-          large ? 'mt-1 text-sm' : 'mt-0.5 text-xs',
+          'font-display tracking-[0.04em] text-gold-light',
+          large ? 'mt-1 text-[12.5px]/5' : 'mt-0.5 text-[11px]/4',
         )}
       >
         Felege Yordanos Sunday School
@@ -102,7 +102,7 @@ function BrandPanel() {
         <div className="font-ethiopic text-[21px] font-semibold tracking-[0.02em] text-cream lg:text-2xl">
           ፈለገ ዮርዳኖስ ሰንበት ት/ቤት
         </div>
-        <div className="mt-1 font-display text-sm italic tracking-[0.04em] text-gold-light">
+        <div className="mt-1 font-display text-[12.5px]/5 tracking-[0.04em] text-gold-light">
           Felege Yordanos Sunday School
         </div>
       </div>
@@ -244,10 +244,10 @@ export function AuthHeading({
           'text-center leading-[1.1] text-brand-ink',
           locale === 'am'
             ? 'font-ethiopic text-[25px] font-semibold md:text-[29px]'
-            : 'font-display text-[28px] font-medium md:text-[34px]',
+            : 'font-display tracking-[-0.02em] text-[24px] font-semibold md:text-[30px]',
         )}
       >
-        {plain} <em className={cn('text-gold-deep', locale === 'am' ? 'not-italic' : 'italic')}>{em}</em>
+        {plain} <em className="not-italic text-gold-deep">{em}</em>
       </h1>
       <p className="mt-1.5 text-center text-[13px] text-ink-muted md:mt-2">{sub}</p>
       <div className="mb-[22px] mt-[18px] flex items-center gap-2.5 md:mb-[26px] md:mt-[22px]">

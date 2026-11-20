@@ -146,7 +146,7 @@ export function NoticesList({
       <Dialog open={!!target} onOpenChange={(open) => !open && setTarget(null)}>
         <DialogContent className="border-parchment-edge bg-parchment-soft sm:rounded-2xl">
           <DialogHeader>
-            <DialogTitle className="font-display text-[22px] font-medium text-brand-ink">
+            <DialogTitle className="font-display tracking-[-0.01em] text-[19px] font-semibold text-brand-ink">
               {t('Delete notice')}
             </DialogTitle>
             <DialogDescription className="text-ink-muted">

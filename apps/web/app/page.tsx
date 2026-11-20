@@ -46,7 +46,7 @@ export default async function LandingPage() {
         </span>
       </Link>
 
-      <p className="relative mt-5 text-center font-display text-[13px] italic tracking-[0.04em] text-cream/45">
+      <p className="relative mt-5 text-center font-display text-[11.5px] tracking-[0.04em] text-cream/45">
         {t('Ethiopian Orthodox Tewahedo Church')}
       </p>
 

@@ -88,7 +88,7 @@ export function LyricsCard({
                   <>
                     <span
                       className={cn(
-                        'float-left mt-1 font-display font-medium text-brand dark:text-gold',
+                        'float-left mt-1 font-display font-semibold text-brand dark:text-gold',
                         lg ? 'mr-2.5 text-[56px]' : 'mr-2 text-[52px]',
                         // after the size: tailwind-merge drops a leading-* that comes before text-[size]
                         'leading-[0.85]',

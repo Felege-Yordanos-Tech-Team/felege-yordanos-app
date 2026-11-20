@@ -282,7 +282,7 @@ function NoticeForm({
           <div
             className={cn(
               'text-xs tracking-[0.06em] text-gold-deep',
-              locale === 'am' ? 'font-display' : 'font-ethiopic',
+              locale === 'am' ? 'font-display text-[11px]' : 'font-ethiopic',
             )}
           >
             {head.secondary}
@@ -292,7 +292,7 @@ function NoticeForm({
               'mt-0.5 leading-[1.05] text-brand-ink',
               locale === 'am'
                 ? 'font-ethiopic text-[26px] font-semibold md:text-[30px]'
-                : 'font-display text-[28px] font-medium md:text-[32px]',
+                : 'font-display tracking-[-0.02em] text-[24px] font-semibold md:text-[28px]',
             )}
           >
             {head.primary}
@@ -570,7 +570,7 @@ function NoticeForm({
                 title ? 'text-brand-ink' : 'text-ink-faint',
                 hasEthiopic(title) || (!title && locale === 'am')
                   ? 'font-ethiopic text-[22px] font-semibold'
-                  : 'font-display text-[24px] font-medium',
+                  : 'font-display tracking-[-0.01em] text-[21px] font-semibold',
               )}
             >
               {title || t('Notice title')}

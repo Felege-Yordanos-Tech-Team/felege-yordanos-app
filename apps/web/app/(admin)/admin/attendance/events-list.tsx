@@ -229,7 +229,7 @@ export function EventsList({
         <PageHead
           en="Events & attendance"
           am="የስብሰባ ክትትል"
-          className="mb-0 items-end [&_h1]:text-[26px]"
+          className="mb-0 items-end [&_h1.font-display]:text-[20px] [&_h1.font-ethiopic]:text-[26px]"
           actions={newEventBtn(t('Event'))}
         />
         <div className="my-3.5">
@@ -262,7 +262,7 @@ export function EventsList({
                         className="flex items-center gap-2.5 rounded-xl border border-parchment-edge bg-parchment-soft py-[11px] pl-[18px] pr-3"
                       >
                         <div className="w-10 shrink-0 border-r border-parchment-edge pr-2.5 text-center">
-                          <div className="font-display text-[17px] font-medium leading-none tabular-nums lining-nums text-brand dark:text-gold-light">
+                          <div className="font-display text-[15px] font-semibold leading-none tabular-nums lining-nums text-brand dark:text-gold-light">
                             {day}
                           </div>
                           <div className="mt-0.5 text-[8px] uppercase tracking-[0.16em] text-ink-muted">
@@ -274,7 +274,7 @@ export function EventsList({
                           className="min-w-0 flex-1"
                         >
                           <div className="flex items-center gap-1.5">
-                            <span className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
+                            <span className="truncate font-display text-[13px] font-semibold leading-[1.1] text-brand-ink">
                               {event.title}
                             </span>
                             {event.recurrenceGroup && (
@@ -348,7 +348,7 @@ export function EventsList({
                     >
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1.5">
-                          <span className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
+                          <span className="truncate font-display text-[13px] font-semibold leading-[1.1] text-brand-ink">
                             {event.title}
                           </span>
                           {event.recurrenceGroup && (
@@ -450,7 +450,7 @@ export function EventsList({
                     >
                       <div className="min-w-0 pl-3">
                         <div className="flex min-w-0 items-center gap-2">
-                          <span className="truncate font-display text-base font-medium text-brand-ink">
+                          <span className="truncate font-display text-[14px]/6 font-semibold text-brand-ink">
                             {event.title}
                           </span>
                           <RecurBadge recurrence={event.recurrence} />

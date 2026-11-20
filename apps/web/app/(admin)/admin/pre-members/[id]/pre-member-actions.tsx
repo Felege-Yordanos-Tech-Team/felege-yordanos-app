@@ -267,7 +267,7 @@ export function PreMemberActions({
         }}
       >
         <DialogContent className="gap-0 rounded-xl border-parchment-edge bg-parchment p-6 sm:max-w-[420px]">
-          <DialogTitle className="font-display text-2xl font-medium leading-[1.1] text-brand-ink">
+          <DialogTitle className="font-display tracking-[-0.01em] text-[21px] font-semibold leading-[1.1] text-brand-ink">
             {confirm?.title}
           </DialogTitle>
           <DialogDescription className="mt-2.5 text-[13px] leading-relaxed text-ink-muted">
@@ -320,7 +320,7 @@ export function PreMemberActions({
       {/* Edit */}
       <Dialog open={editing} onOpenChange={setEditing}>
         <DialogContent className="max-h-[90dvh] overflow-y-auto rounded-xl border-parchment-edge bg-parchment p-6 sm:max-w-[640px]">
-          <DialogTitle className="font-display text-2xl font-medium text-brand-ink">
+          <DialogTitle className="font-display tracking-[-0.01em] text-[21px]/8 font-semibold text-brand-ink">
             {t('Edit details')}
           </DialogTitle>
           <DialogDescription className="text-[12px] text-ink-muted">
