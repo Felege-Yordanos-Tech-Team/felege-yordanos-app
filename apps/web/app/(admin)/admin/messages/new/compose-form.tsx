@@ -382,7 +382,7 @@ export function ComposeForm({
               className={cn(fieldCls, 'min-h-[140px] font-ethiopic leading-[1.55]')}
             />
             <p className="mt-1.5 text-[11px] leading-snug text-ink-muted">
-              {t('Line breaks become spaces. Never ask people to reply with a code: the provider blocks it.')}
+              {t('Never ask people to reply with a code: the provider blocks it.')}
             </p>
           </div>
 

@@ -201,7 +201,7 @@ export function ReminderSection({
         <div className="space-y-2">
           {statusLine}
           {reminder && reminder.status !== 'cancelled' && (
-            <p className="rounded-[10px] bg-parchment px-3 py-2 font-ethiopic text-[12px] leading-[1.5] text-ink dark:bg-parchment-deep">
+            <p className="whitespace-pre-wrap break-words rounded-[10px] bg-parchment px-3 py-2 font-ethiopic text-[12px] leading-[1.5] text-ink dark:bg-parchment-deep">
               {reminder.text ?? defaultText}
             </p>
           )}

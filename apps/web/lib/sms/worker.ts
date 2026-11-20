@@ -47,7 +47,7 @@ import {
 } from './message-queries';
 import { REMINDER_GRACE_MS } from './reminder-time';
 import { reminderText } from './reminders';
-import { composeSms, estimateCredits } from './split';
+import { composeSms, estimateCredits, lineBreakMismatch } from './split';
 import { smsSignature, smsTransport, type SmsTransport } from './transport';
 import {
   applyOutcome,
@@ -404,6 +404,13 @@ export async function startQueuedBroadcasts(transport: SmsTransport) {
         if (b.parts.length === 1 && res.parts !== null && res.parts !== b.smsParts)
           console.warn(
             `[sms] broadcast ${short(b.id)}: provider counts ${res.parts} SMS parts, app ${b.smsParts}`,
+          );
+        // Line breaks are sent as typed (#153): log (counts only) when the
+        // provider's final text has a different number. Never pauses.
+        const breaks = lineBreakMismatch(part, smsSignature(), res.finalText);
+        if (breaks)
+          console.warn(
+            `[sms] broadcast ${short(b.id)}: provider final text has ${breaks.received} line breaks, app sent ${breaks.expected}`,
           );
         await sleep(1100);
       }

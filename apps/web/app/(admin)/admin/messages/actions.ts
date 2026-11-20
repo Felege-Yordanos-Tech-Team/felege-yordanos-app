@@ -288,7 +288,7 @@ export async function createBroadcast(
       return fail('At most 5 messages per hour. Please wait a while.');
     const id = await db.transaction((tx) =>
       insertScheduledBroadcast(tx, {
-        text: parsed.data.text.trim(),
+        text: sms.text,
         parts: [sms.text],
         smsParts: sms.smsParts,
         audience: parsed.data.audience,
@@ -319,7 +319,7 @@ export async function createBroadcast(
 
   const id = await db.transaction((tx) =>
     insertBroadcast(tx, {
-      text: parsed.data.text.trim(),
+      text: sms.text,
       parts: [sms.text],
       smsParts: sms.smsParts,
       audience: parsed.data.audience,
@@ -440,7 +440,7 @@ export async function updateScheduledBroadcast(
     const [row] = await tx
       .update(messageBroadcasts)
       .set({
-        text: parsed.data.text.trim(),
+        text: sms.text,
         // Always one message, also for one scheduled before #150 with
         // several numbered parts.
         parts: [sms.text],

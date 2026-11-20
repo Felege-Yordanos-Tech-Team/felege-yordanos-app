@@ -48,8 +48,8 @@ export const messages: Record<string, string> = {
   Text: 'ጽሑፍ',
   'Start with ፈለገ ዮርዳኖስ so people know who it is from.':
     'ከማን እንደሆነ እንዲታወቅ በ«ፈለገ ዮርዳኖስ» ይጀምሩ።',
-  'Line breaks become spaces. Never ask people to reply with a code: the provider blocks it.':
-    'አዲስ መስመሮች ክፍት ቦታ ይሆናሉ። ሰዎች በኮድ እንዲመልሱ በፍጹም አይጠይቁ፤ አቅራቢው ያግደዋል።',
+  'Never ask people to reply with a code: the provider blocks it.':
+    'ሰዎች በኮድ እንዲመልሱ በፍጹም አይጠይቁ፤ አቅራቢው ያግደዋል።',
   'Send a test to myself': 'ለራሴ ሙከራ ላክ',
   'The test goes to your number {phone}.': 'ሙከራው ወደ ቁጥርዎ {phone} ይሄዳል።',
   'Test to yourself needs a phone number on your linked member or pre-member record.':

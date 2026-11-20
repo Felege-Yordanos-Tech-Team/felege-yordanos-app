@@ -4,6 +4,8 @@ import {
   composeSms,
   estimateCredits,
   isGsm7,
+  lineBreakCount,
+  lineBreakMismatch,
   MAX_PARTS,
   maxSmsLength,
   normalizeSmsText,
@@ -40,8 +42,8 @@ describe('encoding and length', () => {
     assert.equal(smsLength('🙂', 'ucs2'), 2);
   });
 
-  it('normalises whitespace', () => {
-    assert.equal(normalizeSmsText('  a \n\n b\t c  '), 'a b c');
+  it('normalises spaces inside a line, keeps line breaks', () => {
+    assert.equal(normalizeSmsText('  a \n\n b\t  c  '), 'a\n\nb c');
   });
 
   it('the signature suffix is 8 characters for FYSS', () => {
@@ -153,7 +155,7 @@ describe('composeSms: the message', () => {
 
   it('is one message without numbering, the signature appended once', () => {
     const r = ok('  ሰላም   ለሁላችሁ። \n ነገ ጉባዔ አለ። ');
-    assert.equal(r.text, 'ሰላም ለሁላችሁ። ነገ ጉባዔ አለ።');
+    assert.equal(r.text, 'ሰላም ለሁላችሁ።\nነገ ጉባዔ አለ።');
     assert.equal(r.finalText, `${r.text}${SUFFIX}`);
     assert.ok(!/\(\d+\/\d+\)/.test(r.finalText));
   });
@@ -167,6 +169,74 @@ describe('composeSms: the message', () => {
 
   it('refuses an empty text', () => {
     assert.deepEqual(composeSms('   \n ', SIG), { ok: false, reason: 'empty' });
+  });
+});
+
+describe('line breaks (#153)', () => {
+  const P1 = 'ሰላም ለሁላችሁ።';
+  const P2 = 'ነገ ጉባዔ አለ።';
+  const P3 = 'እግዚአብሔር ይስጥልን።';
+
+  it('a three-paragraph Amharic text keeps its blank lines, counted', () => {
+    const typed = `${P1}\n\n${P2}\n\n${P3}`;
+    const r = ok(typed);
+    assert.equal(r.text, typed);
+    assert.equal(lineBreakCount(r.text), 4);
+    assert.equal(r.encoding, 'ucs2');
+    assert.equal(r.length, typed.length + SUFFIX.length);
+    assert.equal(r.length, P1.length + P2.length + P3.length + 4 + SUFFIX.length);
+  });
+
+  it('keeps several blank lines in a row', () => {
+    assert.equal(normalizeSmsText('a\n\n\n\nb'), 'a\n\n\n\nb');
+  });
+
+  it('"\\r\\n" and "\\r" give the same text as "\\n"', () => {
+    const lf = ok(`${P1}\n\n${P2}`);
+    assert.deepEqual(ok(`${P1}\r\n\r\n${P2}`), lf);
+    assert.deepEqual(ok(`${P1}\r\r${P2}`), lf);
+  });
+
+  it('removes blank lines at the very start and end', () => {
+    assert.equal(normalizeSmsText('\n\n  \r\nHello\n\nworld\n \n\n'), 'Hello\n\nworld');
+  });
+
+  it('a Latin text with line breaks stays GSM-7', () => {
+    const r = ok('Hello all,\n\nMeeting tomorrow.\nBring a friend.');
+    assert.equal(r.encoding, 'gsm7');
+    assert.equal(isGsm7('a\nb'), true);
+    assert.equal(smsLength('a\nb', 'gsm7'), 3);
+    assert.equal(smsLength('ሰ\nሰ', 'ucs2'), 3);
+  });
+
+  it('the 670 / 1530 limits count line breaks', () => {
+    // Amharic: 670 with the signature fits, one more line break does not.
+    const am = 'ሰ'.repeat(670 - SUFFIX.length - 2);
+    assert.equal(ok(`${am.slice(0, 300)}\n\n${am.slice(300)}`).smsParts, 10);
+    const amOver = composeSms(`${am.slice(0, 300)}\n\n\n${am.slice(300)}`, SIG);
+    assert.equal(amOver.ok, false);
+    if (!amOver.ok && amOver.reason === 'too_long') assert.equal(amOver.excess, 1);
+    // GSM-7: 1530 with the signature fits, one more line break does not.
+    const la = 'a'.repeat(1530 - SUFFIX.length - 2);
+    assert.equal(ok(`${la.slice(0, 700)}\n\n${la.slice(700)}`).smsParts, 10);
+    const laOver = composeSms(`${la.slice(0, 700)}\n\n\n${la.slice(700)}`, SIG);
+    assert.equal(laOver.ok, false);
+    if (!laOver.ok && laOver.reason === 'too_long') {
+      assert.equal(laOver.encoding, 'gsm7');
+      assert.equal(laOver.excess, 1);
+    }
+  });
+
+  it('lineBreakMismatch compares with the provider\'s final_text (signature included)', () => {
+    const sent = 'a\n\nb';
+    assert.equal(lineBreakMismatch(sent, SIG, `a\n\nb${SUFFIX}`), null);
+    assert.equal(lineBreakMismatch(sent, SIG, null), null);
+    assert.deepEqual(lineBreakMismatch(sent, SIG, `a b${SUFFIX}`), { expected: 4, received: 2 });
+  });
+
+  it('lineBreakCount counts each "\\r\\n" once', () => {
+    assert.equal(lineBreakCount('a\r\nb\nc\rd'), 3);
+    assert.equal(lineBreakCount('abc'), 0);
   });
 });
 
