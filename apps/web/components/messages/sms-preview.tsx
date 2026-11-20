@@ -2,13 +2,13 @@
 
 import { TriangleAlert } from 'lucide-react';
 import { useT } from '@/lib/i18n/client';
-import { MAX_PARTS, signatureSuffix, splitSms } from '@/lib/sms/split';
+import { composeSms, CREDITS_PER_PART, MAX_PARTS, signatureSuffix } from '@/lib/sms/split';
 import { cn } from '@/lib/utils';
 
 /**
- * The SMS exactly as they will arrive: numbered messages with the
- * provider's signature, and each one's length against the limit. Uses the
- * same splitter as the server (lib/sms/split.ts).
+ * The SMS exactly as it will arrive: one message with the provider's
+ * signature, its length, SMS parts and credits per person. Uses the same
+ * rule as the server (lib/sms/split.ts).
  */
 export function SmsPreview({
   text,
@@ -20,9 +20,9 @@ export function SmsPreview({
   className?: string;
 }) {
   const t = useT();
-  const split = splitSms(text, signature);
-  if (!split.ok) {
-    if (split.reason === 'empty')
+  const sms = composeSms(text, signature);
+  if (!sms.ok) {
+    if (sms.reason === 'empty')
       return (
         <p className={cn('text-[12px] text-ink-faint', className)}>
           {t('The preview appears as you type.')}
@@ -37,48 +37,68 @@ export function SmsPreview({
         )}
       >
         <TriangleAlert className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-        {split.reason === 'too_many_parts'
-          ? t(
-              'This needs {n} SMS; at most {max} are allowed. Shorten it, or post it on the notice board.',
-              { n: split.needed, max: MAX_PARTS },
-            )
-          : t('A word is too long for one SMS: “{word}”.', {
-              word: split.word.slice(0, 24),
-            })}
+        {t(
+          sms.excess === 1
+            ? 'Too long: at most {max} SMS parts. Remove 1 character, or post it on the notice board.'
+            : 'Too long: at most {max} SMS parts. Remove {n} characters, or post it on the notice board.',
+          { n: sms.excess, max: MAX_PARTS },
+        )}
       </p>
     );
   }
   return (
     <div className={cn('space-y-2', className)}>
-      {split.parts.map((part, i) => (
-        <div
-          key={i}
-          className="rounded-[14px] rounded-bl-[4px] border border-parchment-edge bg-parchment px-3.5 py-2.5 dark:bg-parchment-deep"
-        >
-          <p className="whitespace-pre-wrap break-words font-ethiopic text-[13px] leading-[1.5] text-ink">
-            {part}
-            <span className="text-ink-muted">{signatureSuffix(signature)}</span>
-          </p>
-          <div className="mt-1 text-right font-mono text-[10px] text-ink-faint">
-            {split.lengths[i]}/{split.limit}
-          </div>
-        </div>
-      ))}
-      <p className="text-[11px] text-ink-muted">
-        {split.parts.length === 1
-          ? t('1 SMS per person')
-          : t('{n} SMS per person, sent in order', { n: split.parts.length })}
+      <div className="rounded-[14px] rounded-bl-[4px] border border-parchment-edge bg-parchment px-3.5 py-2.5 dark:bg-parchment-deep">
+        <p className="whitespace-pre-wrap break-words font-ethiopic text-[13px] leading-[1.5] text-ink">
+          {sms.text}
+          <span className="text-ink-muted">{signatureSuffix(signature)}</span>
+        </p>
+      </div>
+      <SmsCounter sms={sms} />
+    </div>
+  );
+}
+
+/**
+ * "244 characters, 4 SMS parts, 4 credits per person (8 on Safaricom)" and
+ * how it is charged.
+ */
+export function SmsCounter({
+  sms,
+  className,
+}: {
+  sms: { length: number; smsParts: number; encoding: 'gsm7' | 'ucs2' };
+  className?: string;
+}) {
+  const t = useT();
+  return (
+    <div className={cn('space-y-0.5 text-[11px] text-ink-muted', className)}>
+      <p className="font-medium text-ink">
+        {t(
+          sms.smsParts === 1
+            ? '{chars} characters, 1 SMS part, {credits} credit per person ({safaricom} on Safaricom)'
+            : '{chars} characters, {parts} SMS parts, {credits} credits per person ({safaricom} on Safaricom)',
+          {
+            chars: sms.length,
+            parts: sms.smsParts,
+            credits: sms.smsParts * CREDITS_PER_PART.ethio,
+            safaricom: sms.smsParts * CREDITS_PER_PART.safaricom,
+          },
+        )}
+      </p>
+      <p>
+        {t('Arrives as one message; charged per SMS part.')}
         {' · '}
-        {split.encoding === 'ucs2'
-          ? t('Amharic: 70 characters per SMS')
-          : t('Latin only: 160 characters per SMS')}
+        {sms.encoding === 'ucs2'
+          ? t('Amharic: 70 characters for one SMS, 67 per part')
+          : t('Latin only: 160 characters for one SMS, 153 per part')}
       </p>
     </div>
   );
 }
 
-/** Messages per person for a text, or 0 when it cannot be sent. */
+/** SMS parts per person for a text, or 0 when it cannot be sent. */
 export const partsFor = (text: string, signature: string) => {
-  const s = splitSms(text, signature);
-  return s.ok ? s.parts.length : 0;
+  const s = composeSms(text, signature);
+  return s.ok ? s.smsParts : 0;
 };

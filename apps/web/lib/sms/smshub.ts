@@ -6,8 +6,10 @@
  * (lib/sms/transport.ts) calls the client. The API key is only read from
  * the environment and never logged.
  *
- * API facts (smshub.et/docs, 2026-11-18): one recipient and one SMS segment
- * per request, no idempotency key, 60 requests per minute per account.
+ * API facts (smshub.et/docs, 2026-11-20): one recipient per request, the
+ * whole text in one request (up to 10 SMS parts, joined on the phone,
+ * charged per part: credits_used is the total), the provider appends the
+ * signature, no idempotency key, 60 requests per minute per account.
  */
 
 export const SMSHUB_BASE_URL = 'https://smshub.et';
@@ -93,8 +95,11 @@ export type SmsResult =
   | {
       ok: true;
       messageId: string | null;
+      /** Total for the request (SMS parts × 1 or 2), as the provider says. */
       creditsUsed: number | null;
       creditsRemaining: number | null;
+      /** SMS parts, when the provider says (not in every response). */
+      parts: number | null;
       rate: RateInfo;
     }
   | {
@@ -107,7 +112,15 @@ export type SmsResult =
     };
 
 export type CheckResult =
-  | { ok: true; finalText: string | null; characters: number | null; limit: number | null }
+  | {
+      ok: true;
+      finalText: string | null;
+      characters: number | null;
+      limit: number | null;
+      /** `parts` / `credits_needed`: documented but not in the sample response. */
+      parts: number | null;
+      creditsNeeded: number | null;
+    }
   | { ok: false; kind: ErrorClass; errorType: string; message: string };
 
 type Json = Record<string, unknown>;
@@ -178,6 +191,7 @@ export async function smshubSend(
     messageId: str(data['message_id']) ?? (numOrNull(data['message_id'])?.toString() ?? null),
     creditsUsed: numOrNull(data['credits_used']),
     creditsRemaining: numOrNull(data['credits_remaining']),
+    parts: numOrNull(data['parts']),
     rate,
   };
 }
@@ -201,6 +215,8 @@ export async function smshubTest(
     finalText: str(data['final_text']),
     characters: numOrNull(data['characters']),
     limit: numOrNull(data['character_limit']),
+    parts: numOrNull(data['parts']),
+    creditsNeeded: numOrNull(data['credits_needed']),
     rate,
     requestId,
   };

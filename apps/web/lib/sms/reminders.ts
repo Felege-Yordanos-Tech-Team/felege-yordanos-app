@@ -14,7 +14,7 @@ import {
   type ReminderView,
 } from './reminder-time';
 import { hhmmOf, isClockTime } from './schedule';
-import { splitSms } from './split';
+import { composeSms } from './split';
 import { smsSignature } from './transport';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
@@ -44,8 +44,8 @@ export const reminderText = (
 /**
  * Why this reminder cannot be saved for the event, or null: days out of
  * range, sent after the start, a time that has passed or is less than 2
- * minutes away (skipped when `now` is null), or a text that does not fit in
- * 5 SMS.
+ * minutes away (skipped when `now` is null), or a text longer than the
+ * provider takes (10 SMS parts).
  */
 export function reminderInputRefusal(
   event: Omit<ReminderEvent, 'id'>,
@@ -66,12 +66,11 @@ export function reminderInputRefusal(
     now,
   );
   if (refusal) return refusal;
-  const split = splitSms(reminderText(input, event), smsSignature());
-  if (!split.ok) {
-    if (split.reason === 'empty') return 'Enter the reminder text.';
-    if (split.reason === 'word_too_long')
-      return 'The reminder text has a word too long for one SMS.';
-    return 'The reminder text needs more than 5 SMS. Shorten it.';
+  const sms = composeSms(reminderText(input, event), smsSignature());
+  if (!sms.ok) {
+    if (sms.reason === 'empty') return 'Enter the reminder text.';
+    // The reminder form shows the characters to remove live.
+    return 'The reminder text is too long: at most 10 SMS parts. Shorten it.';
   }
   return null;
 }

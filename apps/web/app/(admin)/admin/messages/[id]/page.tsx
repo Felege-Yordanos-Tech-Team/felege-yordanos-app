@@ -4,7 +4,13 @@ import { ArrowLeft, Bot } from 'lucide-react';
 import { Card, PageHead, StatusPill, type StatusTone } from '@/components/ds';
 import { AutoRefresh } from '@/components/auto-refresh';
 import { BroadcastStatusPill } from '@/components/messages/broadcast-status';
-import { formatScheduled, formatSentAt, MESSAGE_AUDIENCE_LABEL, SKIP_LABEL } from '@/components/messages/format';
+import {
+  formatScheduled,
+  formatSentAt,
+  MESSAGE_AUDIENCE_LABEL,
+  messageSizeLabel,
+  SKIP_LABEL,
+} from '@/components/messages/format';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { canCancelBroadcast, canEditBroadcast, canViewBroadcast } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
@@ -170,7 +176,7 @@ export default async function BroadcastPage({
 
           <section>
             <div className="mb-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-gold-deep">
-              {t('{n} SMS per person', { n: b.parts.length })}
+              {t(...messageSizeLabel(b.parts.length, b.smsParts))}
             </div>
             <ol className="space-y-2">
               {b.parts.map((p, i) => (
@@ -241,7 +247,10 @@ export default async function BroadcastPage({
                   <span className="text-[10.5px] text-ink-muted">
                     {r.status === 'skipped'
                       ? t(SKIP_LABEL[r.skipReason as SkipReason] ?? r.skipReason ?? '')
-                      : `${r.partsSent}/${b.parts.length}${r.errorType ? ` · ${r.errorType}` : ''}`}
+                      : // Numbered parts sent (broadcasts from before #150 only).
+                        [b.parts.length > 1 ? `${r.partsSent}/${b.parts.length}` : null, r.errorType]
+                          .filter(Boolean)
+                          .join(' · ')}
                   </span>
                 </div>
               </li>

@@ -1,22 +1,30 @@
 /**
- * Splits a text into the SMS messages sent to the provider (SMSHub).
+ * The SMS sent to the provider (SMSHub) for a text, and how many SMS parts
+ * it is charged as.
  *
- * SMSHub sends one SMS segment per request and rejects longer texts: 160
- * characters when the whole text is GSM-7, 70 as soon as any other character
- * (Amharic) is in it, including the signature the provider appends
- * ("\n\n- <name>"). A longer text becomes numbered messages "(1/3) …", at
- * most MAX_PARTS, cut after a sentence end when that keeps the messages
- * about the same length, else at a space, never inside a word.
+ * SMSHub takes the whole text in one request (up to 10 SMS parts) and
+ * appends the signature itself ("\n\n- <name>"); the phone joins the parts
+ * into one message. The app only counts, for the preview, the estimate and
+ * the limit (smshub.et/docs, "Character limits & encoding", 2026-11-20):
+ * - any non-GSM character (Amharic): 70 characters in one SMS, otherwise 67
+ *   per part;
+ * - GSM-7 only: 160 in one SMS, otherwise 153 per part (extension
+ *   characters count two);
+ * - the signature is part of the length; at most MAX_PARTS parts.
  *
  * Pure: used by the compose page (live preview), the server actions and the
  * worker, so what the sender sees is exactly what is sent.
  */
 
-export const MAX_PARTS = 5;
-export const GSM_LIMIT = 160;
-export const UNICODE_LIMIT = 70;
+export const MAX_PARTS = 10;
 
 export type SmsEncoding = 'gsm7' | 'ucs2';
+
+/** Characters in a single SMS, and per part of a longer one. */
+export const SMS_LIMITS = {
+  gsm7: { single: 160, part: 153 },
+  ucs2: { single: 70, part: 67 },
+} as const;
 
 // GSM 03.38 basic character set (one septet each).
 const GSM_BASIC = new Set(
@@ -47,6 +55,23 @@ export function smsLength(text: string, encoding: SmsEncoding): number {
   return n;
 }
 
+/** SMS parts for a length (signature included). 0 for an empty text. */
+export function smsPartCount(length: number, encoding: SmsEncoding): number {
+  const { single, part } = SMS_LIMITS[encoding];
+  if (length <= 0) return 0;
+  return length <= single ? 1 : Math.ceil(length / part);
+}
+
+/** Longest text the provider takes (signature included): 670 or 1530. */
+export const maxSmsLength = (encoding: SmsEncoding) =>
+  MAX_PARTS * SMS_LIMITS[encoding].part;
+
+/**
+ * Longest text a form or action accepts before the parts rule: above the
+ * longest GSM-7 message, so the rule (with its "remove N characters") decides.
+ */
+export const MAX_SMS_INPUT = 1600;
+
 /** What the provider appends to every message. */
 export const signatureSuffix = (name: string) => `\n\n- ${name}`;
 
@@ -54,148 +79,65 @@ export const signatureSuffix = (name: string) => `\n\n- ${name}`;
 export const normalizeSmsText = (text: string) =>
   text.replace(/\s+/g, ' ').trim();
 
-/** Sentence ends in Amharic and Latin text. */
-const SENTENCE_END = /(?:።|፡፡|\.|!|\?|፧)["'»”’)]*$/;
-
-const partPrefix = (i: number, n: number) => `(${i}/${n}) `;
-
-export type SplitResult =
+export type SmsMessage =
   | {
       ok: true;
-      /** The messages as sent to the provider (without the signature). */
-      parts: string[];
+      /** The text sent to the provider (it appends the signature). */
+      text: string;
+      /** What arrives on the phone: text + signature. */
+      finalText: string;
       encoding: SmsEncoding;
-      /** Characters per SMS for this text (160 or 70). */
-      limit: number;
-      /** Length of each message with the signature, as the provider counts. */
-      lengths: number[];
+      /** Length of finalText as the provider counts it. */
+      length: number;
+      /** SMS parts the provider charges per person (1 to MAX_PARTS). */
+      smsParts: number;
     }
   | { ok: false; reason: 'empty' }
-  | { ok: false; reason: 'too_many_parts'; needed: number }
-  | { ok: false; reason: 'word_too_long'; word: string };
-
-/**
- * The messages for `text` with the provider's signature `signature` (the
- * name, e.g. "FYSS").
- */
-export function splitSms(text: string, signature: string): SplitResult {
-  const clean = normalizeSmsText(text);
-  if (!clean) return { ok: false, reason: 'empty' };
-
-  const suffix = signatureSuffix(signature);
-  // The number prefix is GSM-7, so it never changes the encoding.
-  const encoding: SmsEncoding = isGsm7(clean + suffix) ? 'gsm7' : 'ucs2';
-  const limit = encoding === 'gsm7' ? GSM_LIMIT : UNICODE_LIMIT;
-  const len = (s: string) => smsLength(s, encoding);
-  const lengthsOf = (parts: string[]) => parts.map((p) => len(p + suffix));
-
-  const room = limit - len(suffix);
-  if (len(clean) <= room)
-    return {
-      ok: true,
-      parts: [clean],
-      encoding,
-      limit,
-      lengths: lengthsOf([clean]),
+  | {
+      ok: false;
+      reason: 'too_long';
+      encoding: SmsEncoding;
+      length: number;
+      /** Parts it would need (more than MAX_PARTS). */
+      smsParts: number;
+      /** Characters to remove so it fits. */
+      excess: number;
     };
 
-  // Numbered: "(i/n) " is 6 characters for n up to 9.
-  const budget = room - partPrefix(1, MAX_PARTS).length;
-  const words = clean.split(' ');
-  const cost = words.map(len);
-  const tooLong = words.find((_, i) => cost[i] > budget);
-  if (tooLong !== undefined)
-    return { ok: false, reason: 'word_too_long', word: tooLong };
-
-  // Fewest messages: greedy packing.
-  let needed = 1;
-  let used = -1;
-  for (const c of cost) {
-    if (used + 1 + c > budget) {
-      needed += 1;
-      used = c;
-    } else used += 1 + c;
-  }
-  if (needed > MAX_PARTS) return { ok: false, reason: 'too_many_parts', needed };
-
-  const groups = balancedCuts(words, cost, needed, budget);
-  const parts = groups.map(
-    ([a, b], i) => partPrefix(i + 1, needed) + words.slice(a, b).join(' '),
-  );
-  return { ok: true, parts, encoding, limit, lengths: lengthsOf(parts) };
-}
-
 /**
- * Cuts `words` into exactly `n` messages of at most `budget` that are about
- * the same length, preferring cuts after a sentence end. Dynamic programming
- * over word boundaries: cost = squared distance from the average length,
- * plus a penalty for each cut that is not after a sentence end. Returns
- * [from, to) word ranges.
+ * The one message for `text` with the provider's signature `signature`
+ * (the name, e.g. "FYSS").
  */
-function balancedCuts(
-  words: string[],
-  cost: number[],
-  n: number,
-  budget: number,
-): [number, number][] {
-  const W = words.length;
-  // pre[i] = length of words[0..i) joined with spaces, plus one.
-  const pre = [0];
-  for (let i = 0; i < W; i++) pre.push(pre[i] + cost[i] + 1);
-  const segLen = (a: number, b: number) => pre[b] - pre[a] - 1;
-  const total = segLen(0, W);
-  const target = total / n;
-  // A cut that is not after a sentence end (or one that leaves the message
-  // less than half full) costs as much as being half a message off.
-  const penalty = (budget * 0.5) ** 2;
-  const sentenceEnd = words.map((w) => SENTENCE_END.test(w));
-
-  // best[k][j]: cheapest way to put words[0..j) into k messages.
-  const best: number[][] = Array.from({ length: n + 1 }, () =>
-    new Array<number>(W + 1).fill(Infinity),
-  );
-  const from: number[][] = Array.from({ length: n + 1 }, () =>
-    new Array<number>(W + 1).fill(-1),
-  );
-  best[0][0] = 0;
-  for (let k = 1; k <= n; k++) {
-    for (let j = k; j <= W; j++) {
-      for (let i = j - 1; i >= k - 1; i--) {
-        const l = segLen(i, j);
-        if (l > budget) break;
-        if (best[k - 1][i] === Infinity) continue;
-        const goodCut = sentenceEnd[j - 1] && l >= budget / 2;
-        const cut = j < W && !goodCut ? penalty : 0;
-        const c = best[k - 1][i] + (l - target) ** 2 + cut;
-        if (c < best[k][j]) {
-          best[k][j] = c;
-          from[k][j] = i;
-        }
-      }
-    }
-  }
-
-  const ranges: [number, number][] = [];
-  let j = W;
-  for (let k = n; k >= 1; k--) {
-    const i = from[k][j];
-    ranges.unshift([i, j]);
-    j = i;
-  }
-  return ranges;
+export function composeSms(text: string, signature: string): SmsMessage {
+  const clean = normalizeSmsText(text);
+  if (!clean) return { ok: false, reason: 'empty' };
+  const finalText = clean + signatureSuffix(signature);
+  const encoding: SmsEncoding = isGsm7(finalText) ? 'gsm7' : 'ucs2';
+  const length = smsLength(finalText, encoding);
+  const smsParts = smsPartCount(length, encoding);
+  if (smsParts > MAX_PARTS)
+    return {
+      ok: false,
+      reason: 'too_long',
+      encoding,
+      length,
+      smsParts,
+      excess: length - maxSmsLength(encoding),
+    };
+  return { ok: true, text: clean, finalText, encoding, length, smsParts };
 }
 
-/** Credits for one recipient: Ethio Telecom 1 per message, Safaricom 2. */
-export const CREDITS_PER_MESSAGE = { ethio: 1, safaricom: 2 } as const;
+/** Credits per SMS part: Ethio Telecom 1, Safaricom 2. */
+export const CREDITS_PER_PART = { ethio: 1, safaricom: 2 } as const;
 
 /**
- * Estimated credits: messages per person × (Ethio Telecom recipients + 2 ×
+ * Estimated credits: SMS parts per person × (Ethio Telecom recipients + 2 ×
  * Safaricom recipients).
  */
 export const estimateCredits = (
-  partsPerPerson: number,
+  smsParts: number,
   recipients: { ethio: number; safaricom: number },
 ) =>
-  partsPerPerson *
-  (recipients.ethio * CREDITS_PER_MESSAGE.ethio +
-    recipients.safaricom * CREDITS_PER_MESSAGE.safaricom);
+  smsParts *
+  (recipients.ethio * CREDITS_PER_PART.ethio +
+    recipients.safaricom * CREDITS_PER_PART.safaricom);

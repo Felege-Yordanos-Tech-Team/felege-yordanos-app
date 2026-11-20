@@ -53,7 +53,7 @@ export function SmsEstimate({
               : undefined
           }
         />
-        <Stat label={t('SMS per person')} value={parts || '—'} />
+        <Stat label={t('SMS parts per person')} value={parts || '—'} />
         <Stat
           label={t('Estimated credits')}
           value={summary && parts ? credits : '—'}
