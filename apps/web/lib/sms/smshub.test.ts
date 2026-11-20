@@ -15,6 +15,9 @@ describe('classifyError', () => {
       'signature_too_long',
     ])
       assert.equal(classifyError(400, t), 'pause_broadcast', t);
+    // Too long for one message (more than 10 SMS parts): same text for all.
+    assert.equal(classifyError(422, 'message_too_long'), 'pause_broadcast');
+    assert.equal(classifyError(422, 'signature_too_long'), 'pause_broadcast');
     assert.equal(classifyError(401, null), 'pause_broadcast');
     assert.equal(classifyError(402, null), 'pause_broadcast');
     assert.equal(classifyError(403, 'whatever'), 'pause_broadcast');

@@ -4,6 +4,20 @@ import { eatTime } from '@/lib/check-in-window';
 import { intlLocale, type Locale } from '@/lib/i18n/config';
 import { ethiopianClock } from '@/lib/sms/reminder-time';
 
+/**
+ * "1 message, 4 SMS parts" (English key and values for t()). Broadcasts from
+ * before #150 have several numbered messages of one SMS part each.
+ */
+export function messageSizeLabel(
+  messages: number,
+  smsParts: number,
+): [string, Record<string, number>] {
+  if (messages > 1) return ['{n} messages, {p} SMS parts', { n: messages, p: smsParts }];
+  return smsParts === 1
+    ? ['1 message, 1 SMS part', {}]
+    : ['1 message, {p} SMS parts', { p: smsParts }];
+}
+
 /** English labels (translated in the UI). */
 export const MESSAGE_AUDIENCE_LABEL: Record<BroadcastAudience, string> = {
   members: 'Members',

@@ -25,7 +25,7 @@ import type { MessageAudience, SelectionSummary, SkipReason } from '@/lib/sms/me
 import { ethiopianClock } from '@/lib/sms/reminder-time';
 import { eatMoment, isClockTime, sendLaterRefusal } from '@/lib/sms/schedule';
 import { targetKey, type PersonOption } from '@/lib/sms/selected-people';
-import { estimateCredits, signatureSuffix } from '@/lib/sms/split';
+import { estimateCredits, MAX_SMS_INPUT, signatureSuffix } from '@/lib/sms/split';
 import type { SmsStatus } from '@/lib/sms/transport';
 import { cn } from '@/lib/utils';
 import {
@@ -209,7 +209,7 @@ export function ComposeForm({
       description:
         status.transport === 'console'
           ? t('Development: printed in the server log, not sent.')
-          : t('{n} SMS to {phone}', { n: res.data.sent, phone: ownPhoneMasked ?? '' }),
+          : t('Sent to {phone}', { phone: ownPhoneMasked ?? '' }),
     });
   }
 
@@ -377,7 +377,7 @@ export function ComposeForm({
               value={text}
               onChange={(e) => setText(e.target.value)}
               rows={6}
-              maxLength={1000}
+              maxLength={MAX_SMS_INPUT}
               placeholder={t('Start with ፈለገ ዮርዳኖስ so people know who it is from.')}
               className={cn(fieldCls, 'min-h-[140px] font-ethiopic leading-[1.55]')}
             />
@@ -541,13 +541,13 @@ export function ComposeForm({
                   <dd className="font-mono text-lg font-semibold text-brand-ink">{prepared.summary.recipients}</dd>
                 </div>
                 <div>
-                  <dt className="text-[10px] uppercase tracking-[0.12em] text-gold-deep">{t('SMS per person')}</dt>
-                  <dd className="font-mono text-lg font-semibold text-brand-ink">{prepared.parts.length}</dd>
+                  <dt className="text-[10px] uppercase tracking-[0.12em] text-gold-deep">{t('SMS parts per person')}</dt>
+                  <dd className="font-mono text-lg font-semibold text-brand-ink">{prepared.smsParts}</dd>
                 </div>
                 <div>
                   <dt className="text-[10px] uppercase tracking-[0.12em] text-gold-deep">{t('Credits')}</dt>
                   <dd className="font-mono text-lg font-semibold text-brand-ink">
-                    {estimateCredits(prepared.parts.length, prepared.summary)}
+                    {estimateCredits(prepared.smsParts, prepared.summary)}
                   </dd>
                 </div>
               </dl>
@@ -575,14 +575,13 @@ export function ComposeForm({
                   {t('Balance: {n} credits', { n: prepared.balance })}
                 </p>
               )}
-              <ol className="space-y-2">
-                {prepared.parts.map((p, i) => (
-                  <li key={i} className="rounded-[12px] border border-parchment-edge bg-parchment-soft px-3 py-2 font-ethiopic text-[12.5px] leading-[1.5] whitespace-pre-wrap text-ink dark:bg-parchment-deep">
-                    {p}
-                    <span className="text-ink-muted">{signatureSuffix(prepared.signature)}</span>
-                  </li>
-                ))}
-              </ol>
+              <p className="rounded-[12px] border border-parchment-edge bg-parchment-soft px-3 py-2 font-ethiopic text-[12.5px] leading-[1.5] whitespace-pre-wrap break-words text-ink dark:bg-parchment-deep">
+                {prepared.text}
+                <span className="text-ink-muted">{signatureSuffix(prepared.signature)}</span>
+              </p>
+              <p className="text-[11px] text-ink-muted">
+                {t('Arrives as one message; charged per SMS part.')}
+              </p>
               <div className="flex gap-2 pt-1">
                 <button type="button" onClick={() => setPrepared(null)} className={cn(secondaryBtn, 'flex-1 justify-center')}>
                   {t('Cancel')}

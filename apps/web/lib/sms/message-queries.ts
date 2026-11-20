@@ -41,6 +41,8 @@ import {
   type PersonOption,
   type TargetRef,
 } from './selected-people';
+import { composeSms } from './split';
+import { smsSignature } from './transport';
 
 type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
 type Executor = Tx | typeof db;
@@ -402,7 +404,8 @@ const chunks = <T,>(rows: T[]) =>
 
 /**
  * Creates a broadcast with its recipients (and skipped people) and one
- * delivery per recipient and message, in the caller's transaction. Status
+ * delivery per recipient (one message: `parts` has one element), in the
+ * caller's transaction. Status
  * 'queued': the worker checks the text with the provider, then sends.
  */
 export async function insertBroadcast(
@@ -410,6 +413,8 @@ export async function insertBroadcast(
   input: {
     text: string;
     parts: string[];
+    /** SMS parts charged per person (lib/sms/split.ts). */
+    smsParts: number;
     audience: BroadcastAudience;
     eventId: string | null;
     origin: BroadcastOrigin;
@@ -425,6 +430,7 @@ export async function insertBroadcast(
       channel: 'sms',
       text: input.text,
       parts: input.parts,
+      smsParts: input.smsParts,
       audience: input.audience,
       eventId: input.eventId,
       origin: input.origin,
@@ -447,6 +453,7 @@ export async function insertScheduledBroadcast(
   input: {
     text: string;
     parts: string[];
+    smsParts: number;
     audience: BroadcastAudience;
     eventId: string | null;
     createdBy: string;
@@ -460,6 +467,7 @@ export async function insertScheduledBroadcast(
       channel: 'sms',
       text: input.text,
       parts: input.parts,
+      smsParts: input.smsParts,
       audience: input.audience,
       eventId: input.eventId,
       origin: 'manual',
@@ -540,7 +548,10 @@ export interface BroadcastListItem {
   id: string;
   channel: string;
   text: string;
+  /** Messages per person: 1 (numbered parts only for broadcasts before #150). */
   partsCount: number;
+  /** SMS parts charged per person. */
+  smsParts: number;
   audience: BroadcastAudience;
   eventTitle: string | null;
   origin: BroadcastOrigin;
@@ -571,6 +582,7 @@ export async function listBroadcasts(
       channel: messageBroadcasts.channel,
       text: messageBroadcasts.text,
       parts: messageBroadcasts.parts,
+      smsParts: messageBroadcasts.smsParts,
       audience: messageBroadcasts.audience,
       eventTitle: events.title,
       origin: messageBroadcasts.origin,
@@ -590,11 +602,28 @@ export async function listBroadcasts(
     .orderBy(desc(messageBroadcasts.createdAt))
     .limit(limit);
   const totals = await totalsFor(rows.map((r) => r.id));
-  return rows.map(({ parts, ...r }) => ({
-    ...r,
-    partsCount: parts.length,
-    totals: totals.get(r.id) ?? emptyTotals(),
-  }));
+  return rows.map((row) => {
+    const { parts, smsParts, ...r } = asSent(row);
+    return {
+      ...r,
+      partsCount: parts.length,
+      smsParts,
+      totals: totals.get(r.id) ?? emptyTotals(),
+    };
+  });
+}
+
+/**
+ * A scheduled broadcast goes out as one message built from its text when
+ * it fires (lib/sms/worker.ts), even one stored with several numbered parts
+ * before #150: show it that way. Others: as stored (sent).
+ */
+function asSent<
+  T extends { status: string; text: string; parts: string[]; smsParts: number },
+>(row: T): T {
+  if (row.status !== 'scheduled') return row;
+  const sms = composeSms(row.text, smsSignature());
+  return sms.ok ? { ...row, parts: [sms.text], smsParts: sms.smsParts } : row;
 }
 
 const emptyTotals = (): BroadcastTotals => ({
@@ -624,6 +653,7 @@ export async function loadBroadcast(id: string) {
       channel: messageBroadcasts.channel,
       text: messageBroadcasts.text,
       parts: messageBroadcasts.parts,
+      smsParts: messageBroadcasts.smsParts,
       audience: messageBroadcasts.audience,
       eventId: messageBroadcasts.eventId,
       eventTitle: events.title,
@@ -647,7 +677,7 @@ export async function loadBroadcast(id: string) {
     .limit(1);
   if (!row) return null;
   const totals = (await totalsFor([row.id])).get(row.id) ?? emptyTotals();
-  return { ...row, totals };
+  return { ...asSent(row), totals };
 }
 
 export interface RecipientRow {

@@ -4,7 +4,12 @@ import { ArrowLeft, Bot, CalendarClock, MessageSquareText, Plus } from 'lucide-r
 import { Card, PageHead } from '@/components/ds';
 import { primaryBtn } from '@/components/events/button-classes';
 import { BroadcastStatusPill } from '@/components/messages/broadcast-status';
-import { formatScheduled, formatSentAt, MESSAGE_AUDIENCE_LABEL } from '@/components/messages/format';
+import {
+  formatScheduled,
+  formatSentAt,
+  MESSAGE_AUDIENCE_LABEL,
+  messageSizeLabel,
+} from '@/components/messages/format';
 import { getLocale, getT } from '@/lib/i18n/server';
 import { canSendMessages, isSuperAdmin } from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
@@ -105,7 +110,7 @@ export default async function MessagesPage() {
                         : t(MESSAGE_AUDIENCE_LABEL[b.audience])}
                     </span>
                     {b.senderName && <span>· {b.senderName}</span>}
-                    <span>· {t('{n} SMS per person', { n: b.partsCount })}</span>
+                    <span>· {t(...messageSizeLabel(b.partsCount, b.smsParts))}</span>
                   </div>
                   {b.status === 'scheduled' ||
                   b.status === 'missed' ||

@@ -6,11 +6,16 @@
  * 1. fires due event reminders and scheduled broadcasts (row lock, so two
  *    processes never fire the same one): works out the recipients right now
  *    and queues the broadcast; more than 12 hours late = missed;
- * 2. starts queued broadcasts: checks every message with the provider (and
+ * 2. starts queued broadcasts: checks the message with the provider (and
  *    the balance for real sends), then 'sending', or 'paused' with the reason;
- * 3. sends one message: claims the next part of a recipient
+ * 3. sends one message: claims the next delivery of a recipient
  *    (FOR UPDATE SKIP LOCKED), marks it 'sending' and commits BEFORE the
  *    HTTP call, then writes the result (lib/sms/worker-rules.ts).
+ *
+ * Since #150 a broadcast is one message per recipient: the provider takes
+ * the whole text (up to 10 SMS parts) and the phone joins the parts.
+ * Broadcasts queued before that with several numbered parts finish as they
+ * were (part n+1 only after part n).
  *
  * About one request every 1.1 s, and at most SEND_MAX per SEND_WINDOW_S
  * seconds across all processes (rate_limits), under SMSHub's 60 per minute.
@@ -42,7 +47,7 @@ import {
 } from './message-queries';
 import { REMINDER_GRACE_MS } from './reminder-time';
 import { reminderText } from './reminders';
-import { estimateCredits, splitSms } from './split';
+import { composeSms, estimateCredits } from './split';
 import { smsSignature, smsTransport, type SmsTransport } from './transport';
 import {
   applyOutcome,
@@ -132,9 +137,9 @@ export async function fireDueReminders(now: Date = new Date()): Promise<number> 
       if (decision !== 'fire' || !event) return true;
 
       const text = reminderText(reminder, event);
-      const split = splitSms(text, smsSignature());
-      const loaded = split.ok ? await loadSelection('event', event.id) : null;
-      if (!split.ok || !loaded) {
+      const sms = composeSms(text, smsSignature());
+      const loaded = sms.ok ? await loadSelection('event', event.id) : null;
+      if (!sms.ok || !loaded) {
         await tx
           .update(eventReminders)
           .set({ status: 'missed' })
@@ -144,7 +149,8 @@ export async function fireDueReminders(now: Date = new Date()): Promise<number> 
       }
       const broadcastId = await insertBroadcast(tx, {
         text,
-        parts: split.parts,
+        parts: [sms.text],
+        smsParts: sms.smsParts,
         audience: 'event',
         eventId: event.id,
         origin: 'event_reminder',
@@ -183,7 +189,9 @@ export async function fireScheduledBroadcasts(now: Date = new Date()): Promise<n
           id: messageBroadcasts.id,
           status: messageBroadcasts.status,
           scheduledAt: messageBroadcasts.scheduledAt,
+          text: messageBroadcasts.text,
           parts: messageBroadcasts.parts,
+          smsParts: messageBroadcasts.smsParts,
           audience: messageBroadcasts.audience,
           eventId: messageBroadcasts.eventId,
         })
@@ -225,10 +233,16 @@ export async function fireScheduledBroadcasts(now: Date = new Date()): Promise<n
         console.log(`[sms] scheduled broadcast ${short(b.id)} cancelled: event gone`);
         return false;
       }
-      await insertRecipients(tx, b.id, b.parts, loaded.selection);
+      // One message, built from the text now: a broadcast scheduled before
+      // #150 has several numbered parts stored.
+      const sms = composeSms(b.text, smsSignature());
+      const message = sms.ok
+        ? { parts: [sms.text], smsParts: sms.smsParts }
+        : { parts: b.parts, smsParts: b.smsParts };
+      await insertRecipients(tx, b.id, message.parts, loaded.selection);
       await tx
         .update(messageBroadcasts)
-        .set({ status: 'queued' })
+        .set({ status: 'queued', ...message })
         .where(eq(messageBroadcasts.id, b.id));
       fired += 1;
       console.log(
@@ -329,13 +343,17 @@ async function emailScheduledPaused(broadcastId: string, userId: string, text: s
 }
 
 /**
- * Moves queued broadcasts to 'sending' after checking every message with
- * the provider once (and, for real sends, the balance). Any error pauses the
+ * Moves queued broadcasts to 'sending' after checking the message with the
+ * provider once (and, for real sends, the balance). Any error pauses the
  * broadcast with the provider's message.
  */
 export async function startQueuedBroadcasts(transport: SmsTransport) {
   const queued = await db
-    .select({ id: messageBroadcasts.id, parts: messageBroadcasts.parts })
+    .select({
+      id: messageBroadcasts.id,
+      parts: messageBroadcasts.parts,
+      smsParts: messageBroadcasts.smsParts,
+    })
     .from(messageBroadcasts)
     .where(eq(messageBroadcasts.status, 'queued'))
     .orderBy(messageBroadcasts.createdAt)
@@ -359,7 +377,7 @@ export async function startQueuedBroadcasts(transport: SmsTransport) {
       if (transport.charges) {
         const balance = await transport.balance();
         const safaricom = recipients.filter((r) => r.network === 'safaricom').length;
-        const needed = estimateCredits(b.parts.length, {
+        const needed = estimateCredits(b.smsParts, {
           ethio: recipients.length - safaricom,
           safaricom,
         });
@@ -381,6 +399,12 @@ export async function startQueuedBroadcasts(transport: SmsTransport) {
           failed = true;
           break;
         }
+        // Our count against the provider's (once per broadcast; the stored
+        // credits come from the provider's credits_used anyway).
+        if (b.parts.length === 1 && res.parts !== null && res.parts !== b.smsParts)
+          console.warn(
+            `[sms] broadcast ${short(b.id)}: provider counts ${res.parts} SMS parts, app ${b.smsParts}`,
+          );
         await sleep(1100);
       }
       if (failed) continue;
@@ -390,7 +414,7 @@ export async function startQueuedBroadcasts(transport: SmsTransport) {
       .set({ status: 'sending', startedAt: sql`coalesce(${messageBroadcasts.startedAt}, now())` })
       .where(and(eq(messageBroadcasts.id, b.id), eq(messageBroadcasts.status, 'queued')));
     console.log(
-      `[sms] broadcast ${short(b.id)} sending: ${recipients.length} recipients × ${b.parts.length}`,
+      `[sms] broadcast ${short(b.id)} sending: ${recipients.length} recipients, ${b.parts.length} message(s), ${b.smsParts} SMS part(s) each`,
     );
   }
 }
@@ -424,10 +448,11 @@ interface Claimed {
 }
 
 /**
- * Claims the next message to send: the recipient's next part (part n+1 only
- * once part n is 'sent': recipients.next_part), of a broadcast that is
- * sending, everyone's part 1 before anyone's part 2. Marks it 'sending' and
- * commits before returning.
+ * Claims the next message to send: the recipient's delivery (one per
+ * recipient since #150; for older numbered broadcasts part n+1 only once
+ * part n is 'sent': recipients.next_part), of a broadcast that is sending,
+ * everyone's part 1 before anyone's part 2. Marks it 'sending' and commits
+ * before returning.
  */
 async function claimNext(): Promise<Claimed | null> {
   return db.transaction(async (tx) => {
