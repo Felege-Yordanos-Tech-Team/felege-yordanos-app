@@ -421,7 +421,7 @@ export function EventFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="gap-0 overflow-hidden rounded-[20px] border-parchment-edge bg-parchment bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.10)_0%,transparent_55%)] p-0 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.6)] dark:bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.06)_0%,transparent_55%)] sm:max-w-[560px] sm:rounded-[20px] [&>button:last-child]:hidden max-sm:!bottom-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-auto max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-b-none max-sm:!rounded-t-3xl">
+      <DialogContent className="gap-0 overflow-hidden rounded-[20px] border-parchment-edge bg-parchment bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.10)_0%,transparent_55%)] p-0 shadow-[0_30px_70px_-24px_rgba(0,0,0,0.6)] dark:bg-[radial-gradient(ellipse_at_50%_0%,rgba(212,168,67,0.06)_0%,transparent_55%)] sm:max-w-[560px] sm:rounded-[20px] [&>button:last-child]:hidden max-sm:!bottom-0 max-sm:!left-0 max-sm:!right-0 max-sm:!top-auto max-sm:!w-full max-sm:!max-w-none max-sm:!translate-x-0 max-sm:!translate-y-0 max-sm:!rounded-b-none max-sm:!rounded-t-3xl max-sm:pb-[env(safe-area-inset-bottom,0px)]">
         {/* Mobile drag handle */}
         <div className="mx-auto mt-2.5 h-1 w-9 rounded-full bg-ink-faint/30 sm:hidden" />
 

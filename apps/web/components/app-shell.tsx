@@ -44,8 +44,8 @@ export function AppShell({
         <div className="parchment-bg min-h-dvh md:flex md:h-screen md:min-h-0 md:min-w-0 md:flex-1 md:flex-col">
           <TopBar displayName={displayName} email={email} role={role} />
           <MobileHeader displayName={displayName} email={email} role={role} />
-          {/* Phones: room for the floating tab bar (see BottomNav). */}
-          <main className="pb-[calc(88px+env(safe-area-inset-bottom,0px))] md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-0">
+          {/* Phones: room for the floating tab bar (see BottomNav) plus 16 px. */}
+          <main className="pb-[calc(var(--bottom-nav-height)+var(--bottom-nav-gap)+16px)] md:min-h-0 md:flex-1 md:overflow-y-auto md:pb-[env(safe-area-inset-bottom,0px)]">
             {children}
           </main>
         </div>

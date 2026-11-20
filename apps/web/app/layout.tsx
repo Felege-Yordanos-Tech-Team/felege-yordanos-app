@@ -39,6 +39,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // Real safe-area insets on iOS (notch, home indicator, rounded corners).
+  // Every edge that can touch the screen pads itself with env(safe-area-inset-*).
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
