@@ -22,7 +22,6 @@ import {
   profiles,
   type BroadcastAudience,
   type BroadcastOrigin,
-  type BroadcastStatus,
   type RecipientStatus,
 } from '@felege-yordanos/db/server';
 import type { Audience, PersonKind } from '../audience';
@@ -544,74 +543,9 @@ const totalsSql = {
   skipped: sql<number>`count(*) filter (where ${messageRecipients.status} = 'skipped')::int`,
 };
 
-export interface BroadcastListItem {
-  id: string;
-  channel: string;
-  text: string;
-  /** Messages per person: 1 (numbered parts only for broadcasts before #150). */
-  partsCount: number;
-  /** SMS parts charged per person. */
-  smsParts: number;
-  audience: BroadcastAudience;
-  eventTitle: string | null;
-  origin: BroadcastOrigin;
-  status: BroadcastStatus;
-  pauseReason: string | null;
-  createdAt: Date;
-  /** Status 'scheduled' (and missed): when it goes out. */
-  scheduledAt: Date | null;
-  createdBy: string | null;
-  senderName: string | null;
-  /** Audience 'selected': how many people were chosen. */
-  targetCount: number;
-  totals: BroadcastTotals;
-}
-
 const senderName = sql<string | null>`coalesce(nullif(${profiles.displayName}, ''), ${authUsers.name}, ${authUsers.email})`;
 
 const targetCount = sql<number>`(select count(*)::int from ${messageBroadcastTargets} t where t.broadcast_id = ${messageBroadcasts.id})`;
-
-/** Broadcasts newest first; `createdBy` limits to one sender (null = all). */
-export async function listBroadcasts(
-  createdBy: string | null,
-  limit = 100,
-): Promise<BroadcastListItem[]> {
-  const rows = await db
-    .select({
-      id: messageBroadcasts.id,
-      channel: messageBroadcasts.channel,
-      text: messageBroadcasts.text,
-      parts: messageBroadcasts.parts,
-      smsParts: messageBroadcasts.smsParts,
-      audience: messageBroadcasts.audience,
-      eventTitle: events.title,
-      origin: messageBroadcasts.origin,
-      status: messageBroadcasts.status,
-      pauseReason: messageBroadcasts.pauseReason,
-      createdAt: messageBroadcasts.createdAt,
-      scheduledAt: messageBroadcasts.scheduledAt,
-      createdBy: messageBroadcasts.createdBy,
-      senderName,
-      targetCount,
-    })
-    .from(messageBroadcasts)
-    .leftJoin(events, eq(events.id, messageBroadcasts.eventId))
-    .leftJoin(profiles, eq(profiles.id, messageBroadcasts.createdBy))
-    .leftJoin(authUsers, eq(authUsers.id, messageBroadcasts.createdBy))
-    .where(createdBy ? eq(messageBroadcasts.createdBy, createdBy) : undefined)
-    .orderBy(desc(messageBroadcasts.createdAt))
-    .limit(limit);
-  const totals = await totalsFor(rows.map((r) => r.id));
-  return rows.map((row) => {
-    const { parts, smsParts, ...r } = asSent(row);
-    return {
-      ...r,
-      partsCount: parts.length,
-      smsParts,
-      totals: totals.get(r.id) ?? emptyTotals(),
-    };
-  });
-}
 
 /**
  * A scheduled broadcast goes out as one message built from its text when
