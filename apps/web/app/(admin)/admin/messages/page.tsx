@@ -123,7 +123,9 @@ export default async function MessagesPage({
   );
 
   return (
-    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:max-w-[1180px] md:px-7 md:py-7">
+    // From md up the page fills <main> (the desktop scroll container): a flex
+    // column at least its height, the list card grows, the pages sit at the bottom.
+    <div className="mx-auto max-w-2xl px-[22px] pb-6 pt-4 md:mx-0 md:flex md:min-h-full md:max-w-none md:flex-col md:px-7 md:py-7">
       <Link
         href="/admin"
         className="mb-2.5 inline-flex items-center gap-1.5 text-xs font-medium text-gold-deep transition-colors hover:text-brand md:hidden dark:hover:text-gold-light"
@@ -178,7 +180,7 @@ export default async function MessagesPage({
       )}
 
       {!anyMessage ? (
-        <Card className="flex flex-col items-center gap-3 py-12 text-center">
+        <Card className="flex flex-col items-center justify-center gap-3 py-12 text-center md:flex-1">
           <MessageSquareText className="h-8 w-8 text-gold-deep" />
           <p className="text-sm text-ink-muted">
             {t('No messages yet. Send an SMS notice to members, pre-members or the people of an event.')}
@@ -194,7 +196,7 @@ export default async function MessagesPage({
             periods={periodOptions}
           />
           {rows.length === 0 ? (
-            <Card className="flex flex-col items-center gap-2 py-12 text-center">
+            <Card className="flex flex-col items-center justify-center gap-2 py-12 text-center md:flex-1">
               <p className="text-sm text-ink-muted">{t('No messages match these filters.')}</p>
               {!isCleared && (
                 <Link
