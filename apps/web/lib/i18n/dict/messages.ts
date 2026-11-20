@@ -245,4 +245,37 @@ export const messages: Record<string, string> = {
   'Each person is checked again when it goes out: anyone who has left, turned off SMS, lost their number or is a child member by then is skipped.':
     'ሲላክ እያንዳንዱ ሰው እንደገና ይረጋገጣል፤ እስከዚያ የለቀቀ፣ SMS ያጠፋ፣ ስልክ ቁጥሩ የሌለ ወይም ህጻናት መደበኛ አባል የሆነ ይዘለላል።',
   'and {n} more': 'እና ሌሎች {n}',
+
+  // Messages page: summary, filters, list, pages (#156)
+  'Credit balance': 'የክሬዲት ቀሪ ሂሳብ',
+  'Scheduled messages need {n}': 'የታቀዱ መልዕክቶች {n} ያስፈልጋቸዋል',
+  'People reached': 'የደረሳቸው ሰዎች',
+  'one or more messages': 'አንድ ወይም ከዚያ በላይ መልዕክት',
+  'Credits used': 'ያገለገለ ክሬዲት',
+  'next: {when}': 'ቀጣይ፦ {when}',
+  none: 'የለም',
+  'messages, since {date}': 'መልዕክቶች፣ ከ{date} ጀምሮ',
+  'messages, all time': 'መልዕክቶች፣ በሁሉም ጊዜ',
+  'Not enough credits for the message scheduled for {when}. It needs about {n} and the balance is {m}.':
+    'ለ{when} ለታቀደው መልዕክት በቂ ክሬዲት የለም። ወደ {n} ያህል ያስፈልጋል፤ ቀሪ ሂሳቡ {m} ነው።',
+  'This month': 'በዚህ ወር',
+  'Last month': 'ባለፈው ወር',
+  'Paused or failed': 'የቆሙ ወይም ያልተሳኩ',
+  'All senders': 'ሁሉም ላኪዎች',
+  Me: 'እኔ',
+  'Words in the message…': 'በመልዕክቱ ውስጥ ያሉ ቃላት…',
+  When: 'መቼ',
+  'Sent / people': 'የተላከ / ሰዎች',
+  Action: 'ተግባር',
+  'est. {n}': 'ግምት {n}',
+  credits: 'ክሬዲት',
+  'Not sent': 'አልተላከም',
+  'Showing {a} to {b} of {n} messages': 'ከ{n} መልዕክቶች ከ{a} እስከ {b}',
+  'Page {n} of {m} · {total} messages': 'ገጽ {n} ከ{m} · {total} መልዕክቶች',
+  'Page {n}': 'ገጽ {n}',
+  'Rows per page': 'በገጽ የሚታዩ',
+  Apply: 'ተግብር',
+  'No messages match these filters.': 'ከእነዚህ ማጣሪያዎች ጋር የሚስማማ መልዕክት የለም።',
+  'No messages yet. Send an SMS notice to members, pre-members or the people of an event.':
+    'እስካሁን መልዕክት የለም። ለአባላት፣ ለቅድመ አባላት ወይም ለአንድ መርሃ ግብር ሰዎች የSMS ማሳወቂያ ይላኩ።',
 };
