@@ -78,6 +78,20 @@
       "when": 1793639204115,
       "tag": "0010_song_views",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1795525363369,
+      "tag": "0011_flimsy_magus",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1795525363370,
+      "tag": "0012_fix_membership_history_trigger",
+      "breakpoints": true
     }
   ]
 }

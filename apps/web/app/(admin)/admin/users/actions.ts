@@ -1,9 +1,14 @@
 'use server';
 
 import { revalidatePath } from 'next/cache';
-import { eq } from 'drizzle-orm';
+import { and, eq, isNull, ne } from 'drizzle-orm';
 import { z } from 'zod';
-import { db, departments, profiles } from '@felege-yordanos/db/server';
+import {
+  db,
+  departmentMemberships,
+  departments,
+  profiles,
+} from '@felege-yordanos/db/server';
 import { ROLES } from '@felege-yordanos/db/schema';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
 import { canManageUsers } from '@/lib/permissions';
@@ -65,10 +70,68 @@ export async function updateUserRole(
     if (!dept) return fail('Department not found.');
   }
 
-  await db
-    .update(profiles)
-    .set({ role, departmentId, updatedAt: new Date() })
-    .where(eq(profiles.id, userId));
+  const changedAt = new Date();
+
+  await db.transaction(async (tx) => {
+    // Close the user's current assignment before creating the next one. The
+    // row remains available as immutable history.
+    await tx
+      .update(departmentMemberships)
+      .set({ endedAt: changedAt })
+      .where(
+        and(
+          eq(departmentMemberships.userId, userId),
+          isNull(departmentMemberships.endedAt),
+        ),
+      );
+
+    if (role === 'dept_head' && departmentId != null) {
+      // One-click handover: the current head is demoted and their assignment
+      // is closed before the new head is inserted.
+      const currentHeads = await tx
+        .select({ userId: departmentMemberships.userId })
+        .from(departmentMemberships)
+        .where(
+          and(
+            eq(departmentMemberships.departmentId, departmentId),
+            eq(departmentMemberships.role, 'dept_head'),
+            isNull(departmentMemberships.endedAt),
+            ne(departmentMemberships.userId, userId),
+          ),
+        );
+
+      await tx
+        .update(departmentMemberships)
+        .set({ endedAt: changedAt })
+        .where(
+          and(
+            eq(departmentMemberships.departmentId, departmentId),
+            eq(departmentMemberships.role, 'dept_head'),
+            isNull(departmentMemberships.endedAt),
+          ),
+        );
+
+      for (const head of currentHeads) {
+        await tx
+          .update(profiles)
+          .set({ role: 'member', departmentId: null, updatedAt: changedAt })
+          .where(eq(profiles.id, head.userId));
+      }
+
+      await tx.insert(departmentMemberships).values({
+        userId,
+        departmentId,
+        role: 'dept_head',
+        startedAt: changedAt,
+        assignedBy: user.id,
+      });
+    }
+
+    await tx
+      .update(profiles)
+      .set({ role, departmentId, updatedAt: changedAt })
+      .where(eq(profiles.id, userId));
+  });
 
   revalidatePath('/admin/users');
   revalidatePath('/profile');

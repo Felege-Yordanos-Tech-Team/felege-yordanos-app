@@ -55,10 +55,57 @@ export type Role = (typeof ROLES)[number];
 
 export const departments = pgTable('departments', {
   id: bigintId().primaryKey(),
+  code: text('code').notNull().unique('departments_code_key'),
   nameEn: text('name_en').notNull(),
   nameAm: text('name_am').notNull(),
   createdAt: createdAt(),
 });
+
+/* ─── Department memberships ──────────────────────────────── */
+
+/**
+ * Immutable assignment history. The current assignment is the row whose
+ * endedAt is null; profiles.departmentId remains a denormalized pointer used
+ * by the authorization/session path for fast reads.
+ */
+export const departmentMemberships = pgTable(
+  'department_memberships',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    userId: uuid('user_id').notNull(),
+    departmentId: bigintId('department_id').notNull(),
+    role: text('role').$type<Role>().notNull(),
+    startedAt: timestamp('from', { withTimezone: true }).notNull(),
+    endedAt: timestamp('to', { withTimezone: true }),
+    assignedBy: uuid('assigned_by'),
+  },
+  (t) => [
+    check(
+      'department_memberships_role_check',
+      sql`${t.role} = ANY (ARRAY['member'::text, 'dept_head'::text])`,
+    ),
+    foreignKey({
+      name: 'department_memberships_user_id_fkey',
+      columns: [t.userId],
+      foreignColumns: [authUsers.id],
+    }).onDelete('cascade'),
+    foreignKey({
+      name: 'department_memberships_department_id_fkey',
+      columns: [t.departmentId],
+      foreignColumns: [departments.id],
+    }),
+    foreignKey({
+      name: 'department_memberships_assigned_by_fkey',
+      columns: [t.assignedBy],
+      foreignColumns: [authUsers.id],
+    }).onDelete('set null'),
+    index('idx_department_memberships_user').on(t.userId, t.startedAt),
+    index('idx_department_memberships_department').on(
+      t.departmentId,
+      t.startedAt,
+    ),
+  ],
+);
 
 /* ─── Profiles (one per login account) ───────────────────── */
 
