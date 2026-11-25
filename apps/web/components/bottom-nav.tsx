@@ -25,9 +25,12 @@ const MEMBER_LINKS = [
 ];
 
 /**
- * Mobile bottom nav: a floating pill. 5th tab: Admin for elevated roles,
- * Profile (their QR) for pre-members, Donate otherwise. AppShell pads <main>
- * so the pill never covers content.
+ * Mobile bottom nav: a fully rounded pill floating clear of the screen's
+ * rounded corners: 20 px + safe-area inset on the sides, max(16 px, home
+ * indicator inset) below, height --bottom-nav-height (app/global.css).
+ * 5th tab: Admin for elevated roles, Profile (their QR) for pre-members,
+ * Donate otherwise. AppShell pads <main> with the same variables so the pill
+ * never covers content.
  */
 export function BottomNav({
   role,
@@ -48,8 +51,10 @@ export function BottomNav({
   ];
 
   return (
-    <nav className="print:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent px-2 pb-[calc(12px+env(safe-area-inset-bottom,0px))] md:hidden">
-      <div className="pointer-events-auto mx-auto flex max-w-[480px] items-stretch justify-around rounded-[22px] border border-gold/[0.28] bg-gradient-to-b from-brand-mid to-brand-deep p-1 shadow-[0_14px_30px_-10px_rgba(7,43,38,0.55),0_4px_10px_-4px_rgba(7,43,38,0.35)]">
+    <nav className="print:hidden pointer-events-none fixed inset-x-0 bottom-0 z-20 bg-transparent pb-[var(--bottom-nav-gap)] pl-[calc(20px+env(safe-area-inset-left,0px))] pr-[calc(20px+env(safe-area-inset-right,0px))] md:hidden">
+      {/* p-1 (4 px) all round: the active pill (radius 23) is concentric
+          with the bar (radius 28 minus border and padding). */}
+      <div className="pointer-events-auto mx-auto flex h-[var(--bottom-nav-height)] max-w-[480px] items-stretch justify-around rounded-full border border-gold/[0.28] bg-gradient-to-b from-brand-mid to-brand-deep p-1 shadow-[0_14px_30px_-10px_rgba(7,43,38,0.55),0_4px_10px_-4px_rgba(7,43,38,0.35)]">
         {links.map(({ href, icon: Icon, label, am }) => {
           const active =
             pathname === href ||
@@ -61,7 +66,8 @@ export function BottomNav({
               prefetch
               aria-current={active ? 'page' : undefined}
               className={cn(
-                'flex min-w-0 flex-1 flex-col items-center gap-[3px] rounded-[17px] pb-1.5 pt-[7px] [transition:background_0.15s]',
+                // 46 px high (bar 56 - border - padding): above the 44 px touch target.
+                'flex min-w-0 flex-1 flex-col items-center justify-center gap-[2px] rounded-full [transition:background_0.15s]',
                 active && 'bg-gold/[0.16]',
               )}
             >
@@ -72,10 +78,10 @@ export function BottomNav({
                 )}
                 strokeWidth={active ? 2 : 1.6}
               />
-              {/* May wrap to two lines; never truncated. */}
+              {/* One line; short labels fit five tabs at 360 px. */}
               <span
                 className={cn(
-                  'text-center leading-[1.15] tracking-normal',
+                  'whitespace-nowrap text-center leading-[1.15] tracking-normal',
                   locale === 'am'
                     ? 'font-ethiopic-sans text-[10px]'
                     : 'font-body text-[9.5px]',

@@ -1,5 +1,5 @@
 {
-  "id": "b416160b-5310-43a1-bfb2-5b09da9bb261",
+  "id": "7105e650-d985-4d19-ba6f-0108db04d2d5",
   "prevId": "f60cf4b4-e8df-4897-99f2-02b905c6de36",
   "version": "7",
   "dialect": "postgresql",
@@ -625,150 +625,6 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.department_memberships": {
-      "name": "department_memberships",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "gen_random_uuid()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "department_id": {
-          "name": "department_id",
-          "type": "bigint",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "from": {
-          "name": "from",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "to": {
-          "name": "to",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": false
-        },
-        "assigned_by": {
-          "name": "assigned_by",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": false
-        }
-      },
-      "indexes": {
-        "idx_department_memberships_user": {
-          "name": "idx_department_memberships_user",
-          "columns": [
-            {
-              "expression": "user_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "from",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "idx_department_memberships_department": {
-          "name": "idx_department_memberships_department",
-          "columns": [
-            {
-              "expression": "department_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "from",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {
-        "department_memberships_user_id_fkey": {
-          "name": "department_memberships_user_id_fkey",
-          "tableFrom": "department_memberships",
-          "tableTo": "auth_users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "department_memberships_department_id_fkey": {
-          "name": "department_memberships_department_id_fkey",
-          "tableFrom": "department_memberships",
-          "tableTo": "departments",
-          "columnsFrom": [
-            "department_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "no action",
-          "onUpdate": "no action"
-        },
-        "department_memberships_assigned_by_fkey": {
-          "name": "department_memberships_assigned_by_fkey",
-          "tableFrom": "department_memberships",
-          "tableTo": "auth_users",
-          "columnsFrom": [
-            "assigned_by"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "policies": {},
-      "checkConstraints": {
-        "department_memberships_role_check": {
-          "name": "department_memberships_role_check",
-          "value": "\"department_memberships\".\"role\" = ANY (ARRAY['member'::text, 'dept_head'::text])"
-        }
-      },
-      "isRLSEnabled": false
-    },
     "public.departments": {
       "name": "departments",
       "schema": "",
@@ -777,12 +633,6 @@
           "name": "id",
           "type": "bigint",
           "primaryKey": true,
-          "notNull": true
-        },
-        "code": {
-          "name": "code",
-          "type": "text",
-          "primaryKey": false,
           "notNull": true
         },
         "name_en": {
@@ -808,15 +658,7 @@
       "indexes": {},
       "foreignKeys": {},
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "departments_code_key": {
-          "name": "departments_code_key",
-          "nullsNotDistinct": false,
-          "columns": [
-            "code"
-          ]
-        }
-      },
+      "uniqueConstraints": {},
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -973,6 +815,151 @@
         "donations_status_check": {
           "name": "donations_status_check",
           "value": "\"donations\".\"status\" = ANY (ARRAY['pending'::text, 'verified'::text, 'rejected'::text])"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.event_reminders": {
+      "name": "event_reminders",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "days_before": {
+          "name": "days_before",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 2
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "set_by": {
+          "name": "set_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "set_at": {
+          "name": "set_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'scheduled'"
+        },
+        "broadcast_id": {
+          "name": "broadcast_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "due_at": {
+          "name": "due_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "idx_event_reminders_due": {
+          "name": "idx_event_reminders_due",
+          "columns": [
+            {
+              "expression": "due_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"event_reminders\".\"status\" = 'scheduled'",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "event_reminders_event_id_fkey": {
+          "name": "event_reminders_event_id_fkey",
+          "tableFrom": "event_reminders",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "event_reminders_set_by_fkey": {
+          "name": "event_reminders_set_by_fkey",
+          "tableFrom": "event_reminders",
+          "tableTo": "auth_users",
+          "columnsFrom": [
+            "set_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "event_reminders_broadcast_id_fkey": {
+          "name": "event_reminders_broadcast_id_fkey",
+          "tableFrom": "event_reminders",
+          "tableTo": "message_broadcasts",
+          "columnsFrom": [
+            "broadcast_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "event_reminders_event_id_key": {
+          "name": "event_reminders_event_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "event_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "event_reminders_days_before_check": {
+          "name": "event_reminders_days_before_check",
+          "value": "\"event_reminders\".\"days_before\" BETWEEN 0 AND 14"
+        },
+        "event_reminders_status_check": {
+          "name": "event_reminders_status_check",
+          "value": "\"event_reminders\".\"status\" = ANY (ARRAY['scheduled'::text, 'sent'::text, 'missed'::text, 'cancelled'::text, 'paused'::text])"
         }
       },
       "isRLSEnabled": false
@@ -1822,6 +1809,13 @@
           "type": "uuid",
           "primaryKey": false,
           "notNull": false
+        },
+        "sms_opt_out": {
+          "name": "sms_opt_out",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {
@@ -1904,6 +1898,512 @@
         "members_gender_check": {
           "name": "members_gender_check",
           "value": "\"members\".\"gender\" = ANY (ARRAY['ወንድ'::text, 'ሴት'::text])"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.message_broadcasts": {
+      "name": "message_broadcasts",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "gen_random_uuid()"
+        },
+        "channel": {
+          "name": "channel",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'sms'"
+        },
+        "text": {
+          "name": "text",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "parts": {
+          "name": "parts",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "audience": {
+          "name": "audience",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "event_id": {
+          "name": "event_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "origin": {
+          "name": "origin",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'manual'"
+        },
+        "created_by": {
+          "name": "created_by",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "pause_reason": {
+          "name": "pause_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "finished_at": {
+          "name": "finished_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "idx_message_broadcasts_created_at": {
+          "name": "idx_message_broadcasts_created_at",
+          "columns": [
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "idx_message_broadcasts_status": {
+          "name": "idx_message_broadcasts_status",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "message_broadcasts_event_id_fkey": {
+          "name": "message_broadcasts_event_id_fkey",
+          "tableFrom": "message_broadcasts",
+          "tableTo": "events",
+          "columnsFrom": [
+            "event_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "message_broadcasts_created_by_fkey": {
+          "name": "message_broadcasts_created_by_fkey",
+          "tableFrom": "message_broadcasts",
+          "tableTo": "auth_users",
+          "columnsFrom": [
+            "created_by"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {
+        "message_broadcasts_channel_check": {
+          "name": "message_broadcasts_channel_check",
+          "value": "\"message_broadcasts\".\"channel\" = ANY (ARRAY['sms'::text, 'telegram'::text])"
+        },
+        "message_broadcasts_audience_check": {
+          "name": "message_broadcasts_audience_check",
+          "value": "\"message_broadcasts\".\"audience\" = ANY (ARRAY['members'::text, 'pre_members'::text, 'everyone'::text, 'event'::text])"
+        },
+        "message_broadcasts_origin_check": {
+          "name": "message_broadcasts_origin_check",
+          "value": "\"message_broadcasts\".\"origin\" = ANY (ARRAY['manual'::text, 'event_reminder'::text])"
+        },
+        "message_broadcasts_status_check": {
+          "name": "message_broadcasts_status_check",
+          "value": "\"message_broadcasts\".\"status\" = ANY (ARRAY['queued'::text, 'sending'::text, 'paused'::text, 'done'::text, 'cancelled'::text])"
+        },
+        "message_broadcasts_parts_check": {
+          "name": "message_broadcasts_parts_check",
+          "value": "jsonb_typeof(\"message_broadcasts\".\"parts\") = 'array' AND jsonb_array_length(\"message_broadcasts\".\"parts\") BETWEEN 1 AND 5"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.message_deliveries": {
+      "name": "message_deliveries",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "message_deliveries_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "recipient_id": {
+          "name": "recipient_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "part_no": {
+          "name": "part_no",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "attempts": {
+          "name": "attempts",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "provider_message_id": {
+          "name": "provider_message_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "error_type": {
+          "name": "error_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "credits_used": {
+          "name": "credits_used",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "sent_at": {
+          "name": "sent_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_message_deliveries_open": {
+          "name": "idx_message_deliveries_open",
+          "columns": [
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "where": "\"message_deliveries\".\"status\" IN ('queued', 'sending')",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "message_deliveries_recipient_id_fkey": {
+          "name": "message_deliveries_recipient_id_fkey",
+          "tableFrom": "message_deliveries",
+          "tableTo": "message_recipients",
+          "columnsFrom": [
+            "recipient_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "message_deliveries_recipient_part_key": {
+          "name": "message_deliveries_recipient_part_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "recipient_id",
+            "part_no"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "message_deliveries_status_check": {
+          "name": "message_deliveries_status_check",
+          "value": "\"message_deliveries\".\"status\" = ANY (ARRAY['queued'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'unknown'::text])"
+        },
+        "message_deliveries_part_no_check": {
+          "name": "message_deliveries_part_no_check",
+          "value": "\"message_deliveries\".\"part_no\" BETWEEN 1 AND 5"
+        }
+      },
+      "isRLSEnabled": false
+    },
+    "public.message_recipients": {
+      "name": "message_recipients",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "bigint",
+          "primaryKey": true,
+          "notNull": true,
+          "identity": {
+            "type": "byDefault",
+            "name": "message_recipients_id_seq",
+            "schema": "public",
+            "increment": "1",
+            "startWith": "1",
+            "minValue": "1",
+            "maxValue": "9223372036854775807",
+            "cache": "1",
+            "cycle": false
+          }
+        },
+        "broadcast_id": {
+          "name": "broadcast_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "member_id": {
+          "name": "member_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "pre_member_id": {
+          "name": "pre_member_id",
+          "type": "bigint",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "phone": {
+          "name": "phone",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "network": {
+          "name": "network",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'queued'"
+        },
+        "skip_reason": {
+          "name": "skip_reason",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "next_part": {
+          "name": "next_part",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 1
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        }
+      },
+      "indexes": {
+        "idx_message_recipients_broadcast_status": {
+          "name": "idx_message_recipients_broadcast_status",
+          "columns": [
+            {
+              "expression": "broadcast_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "status",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "message_recipients_broadcast_id_fkey": {
+          "name": "message_recipients_broadcast_id_fkey",
+          "tableFrom": "message_recipients",
+          "tableTo": "message_broadcasts",
+          "columnsFrom": [
+            "broadcast_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "message_recipients_member_id_fkey": {
+          "name": "message_recipients_member_id_fkey",
+          "tableFrom": "message_recipients",
+          "tableTo": "members",
+          "columnsFrom": [
+            "member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "message_recipients_pre_member_id_fkey": {
+          "name": "message_recipients_pre_member_id_fkey",
+          "tableFrom": "message_recipients",
+          "tableTo": "pre_members",
+          "columnsFrom": [
+            "pre_member_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "message_recipients_broadcast_member_key": {
+          "name": "message_recipients_broadcast_member_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "broadcast_id",
+            "member_id"
+          ]
+        },
+        "message_recipients_broadcast_pre_member_key": {
+          "name": "message_recipients_broadcast_pre_member_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "broadcast_id",
+            "pre_member_id"
+          ]
+        },
+        "message_recipients_broadcast_phone_key": {
+          "name": "message_recipients_broadcast_phone_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "broadcast_id",
+            "phone"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {
+        "message_recipients_one_person_check": {
+          "name": "message_recipients_one_person_check",
+          "value": "(\"message_recipients\".\"member_id\" IS NULL) <> (\"message_recipients\".\"pre_member_id\" IS NULL)"
+        },
+        "message_recipients_status_check": {
+          "name": "message_recipients_status_check",
+          "value": "\"message_recipients\".\"status\" = ANY (ARRAY['queued'::text, 'sending'::text, 'sent'::text, 'failed'::text, 'skipped'::text])"
+        },
+        "message_recipients_skip_reason_check": {
+          "name": "message_recipients_skip_reason_check",
+          "value": "(\"message_recipients\".\"status\" = 'skipped') = (\"message_recipients\".\"skip_reason\" IS NOT NULL) AND (\"message_recipients\".\"skip_reason\" IS NULL OR \"message_recipients\".\"skip_reason\" = ANY (ARRAY['no_phone'::text, 'invalid_phone'::text, 'opted_out'::text, 'duplicate_phone'::text]))"
+        },
+        "message_recipients_network_check": {
+          "name": "message_recipients_network_check",
+          "value": "\"message_recipients\".\"network\" IS NULL OR \"message_recipients\".\"network\" = ANY (ARRAY['ethio'::text, 'safaricom'::text])"
+        },
+        "message_recipients_phone_check": {
+          "name": "message_recipients_phone_check",
+          "value": "\"message_recipients\".\"status\" = 'skipped' OR \"message_recipients\".\"phone\" IS NOT NULL"
         }
       },
       "isRLSEnabled": false
@@ -2411,6 +2911,13 @@
           "notNull": true,
           "default": false
         },
+        "sms_opt_out": {
+          "name": "sms_opt_out",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
+        },
         "created_by": {
           "name": "created_by",
           "type": "uuid",
@@ -2670,6 +3177,13 @@
           "primaryKey": false,
           "notNull": false,
           "default": "now()"
+        },
+        "can_send_messages": {
+          "name": "can_send_messages",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "default": false
         }
       },
       "indexes": {},

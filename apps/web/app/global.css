@@ -147,8 +147,21 @@
     @apply border-border;
   }
 
+  /*
+   * Phone tab bar (components/bottom-nav.tsx). AppShell pads <main> with the
+   * same values so the last item of a page scrolls above the bar.
+   */
+  :root {
+    --bottom-nav-height: 56px;
+    --bottom-nav-gap: max(16px, env(safe-area-inset-bottom, 0px));
+  }
+
   body {
     @apply bg-background text-foreground antialiased;
+    /* Landscape on notched phones: nothing under the notch. Fixed elements
+       (tab bar, full-screen overlays) pad themselves. */
+    padding-left: env(safe-area-inset-left, 0px);
+    padding-right: env(safe-area-inset-right, 0px);
     font-family: var(--font-body);
     font-feature-settings:
       'tnum' on,
@@ -161,13 +174,20 @@
   h4 {
     font-family: var(--font-display);
     font-weight: 600;
+    font-feature-settings: 'cv11' on;
   }
 
   :root {
-    --font-ethiopic: 'Noto Serif Ethiopic', serif;
-    --font-ethiopic-sans: 'Noto Sans Ethiopic', 'Noto Serif Ethiopic', sans-serif;
-    --font-display: 'Cormorant Garamond', 'Noto Serif Ethiopic', serif;
-    --font-body: 'Inter Variable', 'Inter', 'Noto Serif Ethiopic', system-ui, sans-serif;
+    /*
+     * Two text typefaces (#164): Noto Sans Ethiopic for Amharic, Inter for
+     * English. Each stack falls back to the other, so Ge'ez inside an Inter
+     * element and Latin inside an Ethiopic element both get the right font.
+     * Only the Ethiopic subset of Noto Sans Ethiopic is bundled.
+     */
+    --font-ethiopic: 'Noto Sans Ethiopic', 'Inter Variable', 'Inter', system-ui, sans-serif;
+    --font-ethiopic-sans: var(--font-ethiopic);
+    --font-display: 'Inter Variable', 'Inter', 'Noto Sans Ethiopic', system-ui, sans-serif;
+    --font-body: 'Inter Variable', 'Inter', 'Noto Sans Ethiopic', system-ui, sans-serif;
     --font-mono: 'JetBrains Mono', ui-monospace, monospace;
   }
 }
@@ -298,11 +318,11 @@
     color: rgb(var(--fy-gold-deep));
   }
 
-  /* Display heading — pairs Cormorant + Noto Serif Ethiopic */
+  /* Display heading — Inter, Ge'ez falls back to Noto Sans Ethiopic */
   .display {
     font-family: var(--font-display);
-    font-weight: 500;
-    letter-spacing: -0.01em;
+    font-weight: 600;
+    letter-spacing: -0.015em;
     line-height: 1.05;
     color: rgb(var(--fy-brand-ink));
   }

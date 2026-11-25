@@ -11,7 +11,7 @@ export default async function LandingPage() {
   const [t, locale] = await Promise.all([getT(), getLocale()]);
 
   return (
-    <div className="sacred-gradient relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 py-12">
+    <div className="sacred-gradient relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-6 pb-12 pt-[calc(48px+env(safe-area-inset-top,0px))]">
       <div className="tibeb-gold pointer-events-none absolute inset-0 opacity-70" />
       <HaloArch />
 
@@ -46,7 +46,7 @@ export default async function LandingPage() {
         </span>
       </Link>
 
-      <p className="relative mt-5 text-center font-display text-[13px] italic tracking-[0.04em] text-cream/45">
+      <p className="relative mt-5 text-center font-display text-[11.5px] tracking-[0.04em] text-cream/45">
         {t('Ethiopian Orthodox Tewahedo Church')}
       </p>
 

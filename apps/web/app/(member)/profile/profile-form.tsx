@@ -151,14 +151,14 @@ export function ProfileForm({
           <div
             className={cn(
               AVATAR,
-              'h-[60px] w-[60px] text-[22px] shadow-[0_4px_12px_-4px_rgba(212,168,67,0.45)]',
+              'h-[60px] w-[60px] text-[19px] shadow-[0_4px_12px_-4px_rgba(212,168,67,0.45)]',
             )}
             aria-hidden
           >
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <div className="truncate font-display text-[19px] font-medium leading-[1.1] text-brand-ink">
+            <div className="truncate font-display text-[16.5px] font-semibold leading-[1.1] text-brand-ink">
               {fullName}
             </div>
             <div className="mt-0.5 truncate text-[11.5px] text-ink-muted">
@@ -254,14 +254,14 @@ export function ProfileForm({
             <div
               className={cn(
                 AVATAR,
-                'h-[58px] w-[58px] text-[22px] shadow-[0_6px_16px_-8px_rgba(164,122,24,0.6)]',
+                'h-[58px] w-[58px] text-[19px] shadow-[0_6px_16px_-8px_rgba(164,122,24,0.6)]',
               )}
               aria-hidden
             >
               {initials}
             </div>
             <div className="min-w-0">
-              <h2 className="truncate font-display text-2xl font-medium leading-[1.1] text-brand-ink">
+              <h2 className="truncate font-display tracking-[-0.01em] text-[21px] font-semibold leading-[1.1] text-brand-ink">
                 {fullName}
               </h2>
               <div className="mt-[5px] flex flex-wrap items-center gap-2">

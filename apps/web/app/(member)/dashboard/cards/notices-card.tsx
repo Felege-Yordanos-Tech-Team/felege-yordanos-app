@@ -73,7 +73,7 @@ export async function NoticesCard({
                     'mt-0.5 block truncate text-brand-ink',
                     hasEthiopic(n.title)
                       ? 'font-ethiopic text-[13px] font-semibold'
-                      : 'font-display text-[15px] font-medium',
+                      : 'font-display text-[13px] font-semibold',
                   )}
                 >
                   {n.title}

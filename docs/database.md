@@ -15,7 +15,7 @@ PostgreSQL 17 with Drizzle ORM. Everything lives in `libs/db`:
 | Table | Purpose |
 |---|---|
 | departments | the 9 departments (ids set explicitly) |
-| profiles | one per login: role, department, display name |
+| profiles | one per login: role, department, display name, `can_send_messages` (SMS right, department heads only) |
 | members, member_types, member_jobs, member_academic_education, member_spiritual_education | parish member register |
 | categories, songs | songbook |
 | song_views | the latest time each user opened each song; used for recently opened songs on the dashboard |
@@ -28,6 +28,11 @@ PostgreSQL 17 with Drizzle ORM. Everything lives in `libs/db`:
 | rate_limits | request counts per key and fixed window (`/join` limits per IP and per session); windows older than a day are pruned |
 | notices, notice_reads | notice board (`notices.audience` as for events) and read marks |
 | donations | donations; receipt file key in `receipt_url` |
+| message_broadcasts | SMS broadcasts (`channel` `sms`, `telegram` reserved): `text`, `parts` (jsonb, the message as sent to SMSHub, frozen at confirm: one element since #150, the whole text sent as one long SMS; older broadcasts have up to 5 numbered parts), `sms_parts` (SMS parts charged per person, 1–10; old rows: the number of numbered parts), `audience` `members` / `pre_members` / `everyone` / `event` (+ `event_id`) / `selected` (people in `message_broadcast_targets`), `origin` `manual` / `event_reminder`, `status` `scheduled` / `queued` / `sending` / `paused` / `done` / `cancelled` / `missed`, `scheduled_at` (send later; a `scheduled` row has no recipients yet), `pause_reason` |
+| message_broadcast_targets | the people chosen for a broadcast with audience `selected` (exactly one of `member_id` / `pre_member_id`, unique per broadcast and person, deleted with the broadcast). A scheduled one has only these until it goes out; then each is checked again |
+| message_recipients | one row per person of a broadcast (exactly one of `member_id` / `pre_member_id`): normalised `phone`, `network`, `status`, `skip_reason` (`inactive` / `child_member` / `no_phone` / `invalid_phone` / `opted_out` / `duplicate_phone`), `next_part` (numbered broadcasts from before #150). Unique per person and per phone |
+| message_deliveries | one row per recipient and message (`part_no`; since #150 one per recipient): `status` `queued` / `sending` / `sent` / `failed` / `unknown`, `attempts`, `provider_message_id`, `error_type`, `credits_used` (the provider's total for the request: SMS parts × 1 Ethio Telecom, × 2 Safaricom) |
+| event_reminders | one SMS reminder per event: `days_before` (0–14), `send_time` (EAT clock time, default 09:00), `text` (null = default text built from the event), `due_at` (`send_time` EAT, `days_before` days before), `status` `scheduled` / `sent` / `missed` / `cancelled` / `paused`, `broadcast_id` |
 | auth_users, auth_sessions, auth_accounts, auth_verifications | Better Auth |
 
 `members.auth_user_id` links a login to a member record, `pre_members.auth_user_id` to a pre-member record (both set when an admin approves a `/claim` request). Link requests for pre-members live in `member_link_requests` (nullable `pre_member_id` and a check that exactly one id is set) instead of a sibling table, so the admin queue and the one-open-request rule stay in one place.

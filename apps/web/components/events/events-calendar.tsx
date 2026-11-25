@@ -348,10 +348,12 @@ export function EventsCalendar({
           'whitespace-nowrap leading-[1.05] text-brand-ink',
           am ? 'font-ethiopic font-semibold' : 'font-display font-semibold',
           compact
-            ? 'max-w-full truncate text-[18px]'
+            ? am
+              ? 'max-w-full truncate text-[18px]'
+              : 'max-w-full truncate text-[15.5px]'
             : am
               ? 'text-[19px]'
-              : 'text-[22px]',
+              : 'text-[19px] tracking-[-0.01em]',
         )}
       >
         {title}
@@ -802,7 +804,7 @@ export function EventsCalendar({
             <div
               className={cn(
                 'font-semibold text-brand-ink',
-                am ? 'font-ethiopic text-[15px]' : 'font-display text-[17px]',
+                am ? 'font-ethiopic text-[15px]' : 'font-display text-[15px]',
               )}
             >
               {DOWL[d.getDay()]}, {MON[d.getMonth()]} {d.getDate()}
@@ -850,7 +852,7 @@ export function EventsCalendar({
               <div className="min-w-0 flex-1">
                 <div
                   className={cn(
-                    'flex items-center gap-1 font-display text-[15px] font-semibold leading-[1.15] text-brand-ink',
+                    'flex items-center gap-1 font-display text-[13px] font-semibold leading-[1.15] text-brand-ink',
                     ev.strike && 'line-through',
                   )}
                 >

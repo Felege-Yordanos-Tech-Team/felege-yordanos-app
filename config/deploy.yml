@@ -61,6 +61,9 @@ env:
     - R2_SECRET_ACCESS_KEY
     - TURNSTILE_SITE_KEY
     - TURNSTILE_SECRET_KEY
+    # SMSHub (SMS notices). May be empty until the key exists: the app starts
+    # and says "SMS is not configured" instead of sending.
+    - SMSHUB_API_KEY
 
 # Seconds a new version may take to pass /up (includes migrations).
 deploy_timeout: 60

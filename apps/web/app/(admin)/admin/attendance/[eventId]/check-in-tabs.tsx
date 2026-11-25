@@ -1031,7 +1031,7 @@ export function CheckInTabs({
               )}
             />
             <div className="min-w-0 flex-1">
-              <div className="truncate font-display text-[15px] font-medium leading-[1.1] text-brand-ink">
+              <div className="truncate font-display text-[13px] font-semibold leading-[1.1] text-brand-ink">
                 {log.name}
               </div>
               <div className="mt-px flex items-center gap-1.5 font-mono text-[10px] text-ink-muted">
@@ -1115,12 +1115,12 @@ export function CheckInTabs({
           <div
             className={cn(
               'text-[11px] tracking-[0.06em] text-gold-deep',
-              locale === 'am' ? 'font-display text-xs' : 'font-ethiopic',
+              locale === 'am' ? 'font-display text-[11px]/4' : 'font-ethiopic',
             )}
           >
             {locale === 'am' ? 'Check-in' : 'መግቢያ'}
           </div>
-          <h1 className="mt-0.5 font-display text-2xl font-medium leading-[1.1] text-brand-ink">
+          <h1 className="mt-0.5 font-display tracking-[-0.01em] text-[21px] font-semibold leading-[1.1] text-brand-ink">
             {event.title}
           </h1>
           <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
@@ -1199,10 +1199,10 @@ export function CheckInTabs({
                   </div>
                 </div>
                 <div className="mt-1 flex items-baseline gap-2">
-                  <span className="font-display text-[64px] font-medium leading-[0.95] tracking-[-0.02em] tabular-nums lining-nums text-gold">
+                  <span className="font-display text-[56px] font-semibold leading-[0.95] tracking-[-0.02em] tabular-nums lining-nums text-gold">
                     {presentCount}
                   </span>
-                  <span className="font-display text-[28px] font-normal tabular-nums lining-nums text-gold-light/50">
+                  <span className="font-display tracking-[-0.01em] text-[24px] font-normal tabular-nums lining-nums text-gold-light/50">
                     / {total}
                   </span>
                   <span className="ml-auto text-[11px] text-cream/60">
@@ -1255,7 +1255,7 @@ export function CheckInTabs({
                   />
                 </div>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate font-display text-lg font-medium leading-[1.1] text-brand-ink">
+                  <div className="truncate font-display text-[15.5px] font-semibold leading-[1.1] text-brand-ink">
                     {latest.name}
                   </div>
                   <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-status-present">
@@ -1384,7 +1384,7 @@ export function CheckInTabs({
                   {t('Live')} · {t('present')}
                 </div>
                 <div className="mt-2 flex items-baseline gap-2">
-                  <span className="font-display text-[58px] font-medium leading-[0.9] tabular-nums lining-nums text-cream">
+                  <span className="font-display tracking-[-0.02em] text-[50px] font-semibold leading-[0.9] tabular-nums lining-nums text-cream">
                     {presentCount}
                   </span>
                   <span className="font-mono text-[15px] text-gold-light/80">

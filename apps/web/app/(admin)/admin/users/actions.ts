@@ -11,7 +11,11 @@ import {
 } from '@felege-yordanos/db/server';
 import { ROLES } from '@felege-yordanos/db/schema';
 import { fail, NOT_ALLOWED, ok, type ActionResult } from '@/lib/action-result';
-import { canManageUsers } from '@/lib/permissions';
+import {
+  canGrantMessaging,
+  canManageUsers,
+  canReceiveMessagingGrant,
+} from '@/lib/permissions';
 import { requireUser } from '@/lib/session';
 
 const updateUserSchema = z.object({
@@ -22,6 +26,8 @@ const updateUserSchema = z.object({
     .int('Invalid department.')
     .positive('Invalid department.')
     .nullable(),
+  // Right to send SMS (department heads only; see canSendMessages).
+  canSendMessages: z.boolean().default(false),
 }).refine(
   ({ role, departmentId }) => role !== 'dept_head' || departmentId !== null,
   {
@@ -32,7 +38,11 @@ const updateUserSchema = z.object({
 
 export type UpdateUserInput = z.input<typeof updateUserSchema>;
 
-/** Changes a user's role and department. Super admins only. */
+/**
+ * Changes a user's role, department and right to send messages. Super
+ * admins only. The right to send messages only exists for department heads:
+ * any other role clears it in the same update.
+ */
 export async function updateUserRole(
   input: UpdateUserInput,
 ): Promise<ActionResult> {
@@ -47,6 +57,10 @@ export async function updateUserRole(
   // Department assignments only apply to department heads.
   const departmentId =
     role === 'dept_head' ? parsed.data.departmentId : null;
+  const canSendMessages =
+    parsed.data.canSendMessages &&
+    canGrantMessaging(user) &&
+    canReceiveMessagingGrant({ role });
 
   // A super admin cannot take away their own super admin role
   // (avoids locking everyone out of user management).
@@ -114,7 +128,12 @@ export async function updateUserRole(
       for (const head of currentHeads) {
         await tx
           .update(profiles)
-          .set({ role: 'member', departmentId: null, updatedAt: changedAt })
+          .set({
+            role: 'member',
+            departmentId: null,
+            canSendMessages: false,
+            updatedAt: changedAt,
+          })
           .where(eq(profiles.id, head.userId));
       }
 
@@ -129,7 +148,7 @@ export async function updateUserRole(
 
     await tx
       .update(profiles)
-      .set({ role, departmentId, updatedAt: changedAt })
+      .set({ role, departmentId, canSendMessages, updatedAt: changedAt })
       .where(eq(profiles.id, userId));
   });
 

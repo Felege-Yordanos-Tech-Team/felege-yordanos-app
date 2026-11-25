@@ -255,14 +255,14 @@ export function EventSummaryView({
           </div>
           <div className="mt-2.5 flex items-baseline justify-between gap-2">
             <div className="flex items-baseline gap-1.5">
-              <span className="font-display text-[36px] font-medium leading-[0.9] tabular-nums lining-nums text-cream md:text-[46px]">
+              <span className="font-display tracking-[-0.02em] text-[31px] font-semibold leading-[0.9] tabular-nums lining-nums text-cream md:text-[40px]">
                 {s.attended}
               </span>
               <span className="font-mono text-[12px] text-gold-light/80 md:text-[14px]">
                 / {s.total}
               </span>
             </div>
-            <span className="font-display text-[20px] italic leading-none text-gold-light md:text-[26px]">
+            <span className="font-display tracking-[-0.01em] text-[17px] leading-none text-gold-light md:text-[23px]">
               {s.attendedPct}%
             </span>
           </div>
@@ -327,7 +327,7 @@ export function EventSummaryView({
             </div>
           </div>
           <div className="shrink-0 text-right">
-            <span className="font-display text-[26px] font-medium leading-none tabular-nums lining-nums text-brand-ink">
+            <span className="font-display tracking-[-0.01em] text-[23px] font-semibold leading-none tabular-nums lining-nums text-brand-ink">
               {g.attended}
             </span>
             <span className="font-mono text-[11px] text-ink-muted"> / {g.total}</span>
@@ -670,7 +670,7 @@ export function EventSummaryView({
           <div
             className={cn(
               'text-xs tracking-[0.06em] text-gold-deep',
-              locale === 'am' ? 'font-display' : 'font-ethiopic',
+              locale === 'am' ? 'font-display text-[11px]' : 'font-ethiopic',
             )}
           >
             {locale === 'am' ? 'Event summary' : 'የዝግጅት ማጠቃለያ'}
@@ -680,7 +680,7 @@ export function EventSummaryView({
               'mt-0.5 leading-[1.05] text-brand-ink',
               locale === 'am'
                 ? 'font-ethiopic text-[24px] font-semibold md:text-[28px]'
-                : 'font-display text-[26px] font-medium md:text-[32px]',
+                : 'font-display tracking-[-0.02em] text-[21px] font-semibold md:text-[28px]',
             )}
           >
             {t('Summary')} — {event.title}
@@ -737,7 +737,7 @@ function StatCard({
         <span aria-hidden className={cn('h-1.5 w-1.5 rounded-full', dot)} />
         {label}
       </div>
-      <div className="mt-2.5 font-display text-[36px] font-medium leading-[0.9] tabular-nums lining-nums text-brand-ink md:text-[42px]">
+      <div className="mt-2.5 font-display tracking-[-0.02em] text-[31px] font-semibold leading-[0.9] tabular-nums lining-nums text-brand-ink md:text-[36px]">
         {value}
       </div>
       <div className="mt-2.5 text-[11px] leading-snug text-ink-muted md:text-[11.5px]">{sub}</div>

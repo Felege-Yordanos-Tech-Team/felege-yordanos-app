@@ -248,14 +248,14 @@ export function PersonAttendanceView(props: PersonAttendanceViewProps) {
             </div>
             <div className="mt-2.5 flex items-baseline justify-between gap-2">
               <div className="flex items-baseline gap-1.5">
-                <span className="font-display text-[36px] font-medium leading-[0.9] tabular-nums lining-nums text-cream md:text-[42px]">
+                <span className="font-display tracking-[-0.02em] text-[31px] font-semibold leading-[0.9] tabular-nums lining-nums text-cream md:text-[36px]">
                   {totals.attended}
                 </span>
                 <span className="font-mono text-[12px] text-gold-light/80 md:text-[13px]">
                   / {totals.expected} {t('expected')}
                 </span>
               </div>
-              <span className="font-display text-[20px] italic leading-none text-gold-light md:text-[24px]">
+              <span className="font-display tracking-[-0.01em] text-[16px] leading-none text-gold-light md:text-[19px]">
                 {rate === null ? '—' : `${rate}%`}
               </span>
             </div>
@@ -451,7 +451,7 @@ export function PersonAttendanceView(props: PersonAttendanceViewProps) {
                   )}
                 >
                   <div className="min-w-0">
-                    <span className="block truncate font-display text-[15px] font-medium text-brand-ink">
+                    <span className="block truncate font-display text-[13px] font-semibold text-brand-ink">
                       {e.title}
                     </span>
                     {tags(e)}
@@ -506,7 +506,7 @@ export function PersonAttendanceView(props: PersonAttendanceViewProps) {
                 {sectionStart(i) && sectionLabel}
                 <div className="flex items-start gap-3 rounded-xl border border-parchment-edge bg-parchment-soft px-3.5 py-[11px]">
                   <div className="flex w-[42px] shrink-0 flex-col text-center">
-                    <span className="font-display text-[19px] font-semibold leading-none text-brand dark:text-gold">
+                    <span className="font-display text-[16.5px] font-semibold leading-none text-brand dark:text-gold">
                       {String(parseYmd(e.eventDate).getDate()).padStart(2, '0')}
                     </span>
                     <span className="text-[8.5px] uppercase tracking-[0.12em] text-ink-muted">
@@ -517,7 +517,7 @@ export function PersonAttendanceView(props: PersonAttendanceViewProps) {
                     </span>
                   </div>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-display text-base font-medium leading-[1.15] text-brand-ink">
+                    <div className="truncate font-display text-[14px] font-semibold leading-[1.15] text-brand-ink">
                       {e.title}
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-[10.5px] text-ink-muted">
@@ -579,7 +579,7 @@ function Stat({
           {label}
         </span>
       </div>
-      <div className="mt-2 font-display text-[30px] font-medium leading-none tabular-nums lining-nums text-brand-ink md:text-[36px]">
+      <div className="mt-2 font-display tracking-[-0.02em] text-[26px] font-semibold leading-none tabular-nums lining-nums text-brand-ink md:text-[31px]">
         {value}
       </div>
       {sub && <div className="mt-1.5 text-[10.5px] text-ink-muted">{sub}</div>}

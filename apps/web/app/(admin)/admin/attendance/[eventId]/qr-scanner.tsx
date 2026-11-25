@@ -295,7 +295,7 @@ export function QRScanner({
               <div className="font-ethiopic text-[13px] tracking-[0.04em] text-gold-light">
                 ኮድ በመስኩ ውስጥ ያስቀምጡ
               </div>
-              <div className="mt-0.5 font-display text-xs italic text-cream/60">
+              <div className="mt-0.5 font-display text-[11px]/4 text-cream/60">
                 Position QR code inside the frame
               </div>
             </div>
@@ -367,7 +367,7 @@ function ScannerStateMessage({
       <div className="flex h-12 w-12 items-center justify-center rounded-full border border-gold/30 bg-cream/[0.08]">
         {icon}
       </div>
-      <div className="font-display text-base font-medium text-cream">
+      <div className="font-display text-[14px]/6 font-semibold text-cream">
         {title}
       </div>
       <div className="break-words text-[11px] text-cream/60">{subtitle}</div>
@@ -385,7 +385,7 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
           <Check className="h-[22px] w-[22px] text-cream" strokeWidth={3} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
+          <div className="truncate font-display text-[14px] font-semibold leading-tight text-brand-ink">
             {result.name}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-status-present">
@@ -407,7 +407,7 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
           <Info className="h-5 w-5 text-cream" strokeWidth={2.5} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-display text-base font-medium leading-tight text-brand-ink">
+          <div className="truncate font-display text-[14px] font-semibold leading-tight text-brand-ink">
             {result.name}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 text-[11px] font-semibold text-status-late">
@@ -425,7 +425,7 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
           <X className="h-[22px] w-[22px] text-cream" strokeWidth={3} />
         </div>
         <div className="min-w-0 flex-1">
-          <div className="font-display text-base font-medium leading-tight text-brand-ink">
+          <div className="font-display text-[14px] font-semibold leading-tight text-brand-ink">
             {t(result.message)}
           </div>
           <div className="mt-0.5 flex items-center gap-1.5 truncate font-mono text-[11px] font-medium text-status-absent">
@@ -442,7 +442,7 @@ function ScanFeedbackBanner({ result }: { result: ScanResult }) {
         <X className="h-[22px] w-[22px] text-cream" strokeWidth={3} />
       </div>
       <div className="min-w-0 flex-1">
-        <div className="font-display text-base font-medium leading-tight text-brand-ink">
+        <div className="font-display text-[14px] font-semibold leading-tight text-brand-ink">
           {t('Invalid QR code')}
         </div>
         <div className="mt-0.5 truncate text-[11px] font-medium text-status-absent">

@@ -31,7 +31,7 @@ export interface CheckInWindow {
 export type CheckInState = 'before' | 'open' | 'after';
 
 /** The instant of an EAT wall-clock date and time. */
-function eatInstant(ymd: string, hh = 0, mm = 0): Date {
+export function eatInstant(ymd: string, hh = 0, mm = 0): Date {
   const [y, m, d] = ymd.split('-').map(Number);
   return new Date(Date.UTC(y, (m ?? 1) - 1, d ?? 1, hh, mm) - EAT_OFFSET_MS);
 }

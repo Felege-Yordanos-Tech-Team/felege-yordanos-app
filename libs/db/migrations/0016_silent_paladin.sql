@@ -33,24 +33,4 @@ FROM "profiles"
 WHERE "role" = 'dept_head' AND "department_id" IS NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "department_memberships_one_active_user" ON "department_memberships" USING btree ("user_id") WHERE "to" IS NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "department_memberships_one_active_head" ON "department_memberships" USING btree ("department_id") WHERE "role" = 'dept_head' AND "to" IS NULL;--> statement-breakpoint
-ALTER TABLE "departments" ADD CONSTRAINT "departments_code_key" UNIQUE("code");--> statement-breakpoint
-CREATE FUNCTION "department_memberships_append_only"() RETURNS trigger
-LANGUAGE plpgsql AS $$
-BEGIN
-  IF TG_OP = 'DELETE' THEN
-    RAISE EXCEPTION 'department_memberships history is append-only';
-  END IF;
-  IF OLD.user_id IS DISTINCT FROM NEW.user_id
-     OR OLD.department_id IS DISTINCT FROM NEW.department_id
-     OR OLD.role IS DISTINCT FROM NEW.role
-     OR OLD."from" IS DISTINCT FROM NEW."from"
-     OR OLD.assigned_by IS DISTINCT FROM NEW.assigned_by
-     OR OLD."to" IS NOT NULL THEN
-    RAISE EXCEPTION 'department_memberships history is append-only';
-  END IF;
-  RETURN NEW;
-END;
-$$;--> statement-breakpoint
-CREATE TRIGGER "department_memberships_no_change"
-BEFORE UPDATE OR DELETE ON "department_memberships"
-FOR EACH ROW EXECUTE FUNCTION "department_memberships_append_only"();
+ALTER TABLE "departments" ADD CONSTRAINT "departments_code_key" UNIQUE("code");

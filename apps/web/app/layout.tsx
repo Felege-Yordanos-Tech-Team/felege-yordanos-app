@@ -1,17 +1,11 @@
 import './global.css';
 // Fonts are bundled with the app (no Google Fonts request at runtime).
-import '@fontsource/noto-serif-ethiopic/400.css';
-import '@fontsource/noto-serif-ethiopic/500.css';
-import '@fontsource/noto-serif-ethiopic/600.css';
-import '@fontsource/noto-serif-ethiopic/700.css';
-// Sans Ethiopic: mobile tab bar labels only.
-import '@fontsource/noto-sans-ethiopic/500.css';
-import '@fontsource/noto-sans-ethiopic/600.css';
-import '@fontsource/cormorant-garamond/400.css';
-import '@fontsource/cormorant-garamond/500.css';
-import '@fontsource/cormorant-garamond/600.css';
-import '@fontsource/cormorant-garamond/400-italic.css';
-import '@fontsource/cormorant-garamond/500-italic.css';
+// Amharic: Noto Sans Ethiopic, Ethiopic subset only (Latin comes from Inter).
+import '@fontsource/noto-sans-ethiopic/ethiopic-400.css';
+import '@fontsource/noto-sans-ethiopic/ethiopic-500.css';
+import '@fontsource/noto-sans-ethiopic/ethiopic-600.css';
+import '@fontsource/noto-sans-ethiopic/ethiopic-700.css';
+// English: Inter (variable, all weights).
 import '@fontsource-variable/inter';
 import '@fontsource/jetbrains-mono/400.css';
 import '@fontsource/jetbrains-mono/500.css';
@@ -39,6 +33,9 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   maximumScale: 1,
+  // Real safe-area insets on iOS (notch, home indicator, rounded corners).
+  // Every edge that can touch the screen pads itself with env(safe-area-inset-*).
+  viewportFit: 'cover',
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

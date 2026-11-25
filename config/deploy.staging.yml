@@ -22,6 +22,10 @@ env:
     STORAGE_DRIVER: s3
     R2_UPLOADS_BUCKET: felege-staging-uploads
     R2_MEDIA_BUCKET: felege-staging-media
+    # SMS through SMSHub's test call: every check runs, nothing is sent or
+    # charged. SMSHUB_API_KEY is a secret (config/deploy.yml).
+    SMS_TRANSPORT: smshub_test
+    SMS_SIGNATURE: FYSS
 
 # Receipts uploaded before R2. Kept until they are copied to the bucket
 # (apps/web/scripts/copy-uploads-to-r2.mjs) and checked.

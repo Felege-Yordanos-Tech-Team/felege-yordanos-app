@@ -67,7 +67,7 @@ export function SongbookDesktop({
                 <div className="font-ethiopic text-[26px] font-bold leading-none text-brand dark:text-gold">
                   መዝሙር
                 </div>
-                <div className="mt-0.5 font-display text-[13px] italic text-ink-muted">
+                <div className="mt-0.5 font-display text-[11.5px] text-ink-muted">
                   Songbook
                 </div>
               </div>
@@ -142,7 +142,7 @@ export function SongbookDesktop({
                 >
                   <span
                     className={cn(
-                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-display text-sm font-semibold',
+                      'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border font-display text-[12.5px]/5 font-semibold',
                       active
                         ? 'sacred-gradient border-gold/40 text-gold'
                         : 'border-parchment-edge bg-gradient-to-br from-parchment-soft to-parchment-deep text-brand dark:text-gold',
@@ -155,7 +155,7 @@ export function SongbookDesktop({
                       {song.title}
                     </span>
                     {song.titleEn && (
-                      <span className="block truncate font-display text-[11.5px] italic text-ink-muted">
+                      <span className="block truncate font-display text-[10.5px] text-ink-muted">
                         {song.titleEn}
                       </span>
                     )}
@@ -185,7 +185,7 @@ export function SongbookDesktop({
             <div className="max-w-[640px]">
               <div className="flex items-start gap-4">
                 <div className="sacred-gradient flex h-[60px] w-[60px] shrink-0 items-center justify-center rounded-[14px] border border-gold/30 shadow-[0_6px_16px_-8px_rgba(10,60,54,0.5)]">
-                  <span className="font-display text-[26px] font-medium text-gold">
+                  <span className="font-display tracking-[-0.01em] text-[23px] font-semibold text-gold">
                     {songNumber(selected.number)}
                   </span>
                 </div>
@@ -194,7 +194,7 @@ export function SongbookDesktop({
                     {selected.title}
                   </h1>
                   {selected.titleEn && (
-                    <div className="mt-0.5 font-display text-base italic text-ink-muted">
+                    <div className="mt-0.5 font-display text-[14px]/6 text-ink-muted">
                       {selected.titleEn}
                     </div>
                   )}

@@ -53,7 +53,7 @@ export async function QuickActions({
                   'leading-none text-brand-ink',
                   am
                     ? 'font-ethiopic text-lg font-semibold'
-                    : 'font-display text-xl font-medium',
+                    : 'font-display text-[17px]/7 font-semibold',
                 )}
               >
                 {songbook.primary}
@@ -61,7 +61,7 @@ export async function QuickActions({
               <span
                 className={cn(
                   'text-[13px] text-gold-deep',
-                  am ? 'font-display italic' : 'font-ethiopic',
+                  am ? 'font-display text-[11.5px]' : 'font-ethiopic',
                 )}
               >
                 · {songbook.secondary}
@@ -101,7 +101,7 @@ export async function QuickActions({
                     'mb-1 leading-none text-brand-ink',
                     am
                       ? 'font-ethiopic text-[17px] font-semibold'
-                      : 'font-display text-[19px] font-medium',
+                      : 'font-display text-[16.5px] font-semibold',
                   )}
                 >
                   {tile.primary}
@@ -109,7 +109,7 @@ export async function QuickActions({
                 <p
                   className={cn(
                     'text-[11px] tracking-[0.04em] text-gold-deep',
-                    am ? 'font-display text-xs italic' : 'font-ethiopic',
+                    am ? 'font-display text-[11px]/4' : 'font-ethiopic',
                   )}
                 >
                   {tile.secondary}
