@@ -11,6 +11,7 @@ import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import {
   db,
+  departments,
   members,
   preMembers,
   profiles,
@@ -43,6 +44,8 @@ export type CurrentUser = {
   role: Role;
   /** null until the email is verified (see role). */
   departmentId: number | null;
+  /** Stable department code used by authorization instead of numeric ids. */
+  departmentCode: string | null;
   /** Role in the profile, even before it is in effect. UI text only, never permission checks. */
   assignedRole: Role;
   emailVerified: boolean;
@@ -74,6 +77,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
   const [row] = await db
     .select({
       profile: profiles,
+      departmentCode: departments.code,
       memberRecordId: members.id,
       memberName: members.name,
       memberFatherName: members.fatherName,
@@ -83,6 +87,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       preMemberFatherName: preMembers.fatherName,
     })
     .from(profiles)
+    .leftJoin(departments, eq(departments.id, profiles.departmentId))
     .leftJoin(members, eq(members.authUserId, profiles.id))
     .leftJoin(preMembers, eq(preMembers.authUserId, profiles.id))
     .where(eq(profiles.id, session.user.id))
@@ -123,6 +128,7 @@ export const getCurrentUser = cache(async (): Promise<CurrentUser | null> => {
       email,
     role,
     departmentId: emailVerified ? (profile?.departmentId ?? null) : null,
+    departmentCode: emailVerified ? (row?.departmentCode ?? null) : null,
     assignedRole,
     emailVerified,
     memberRecordId,

@@ -34,9 +34,24 @@ const event = {
 };
 const at = (hhmm: string) => new Date(`2026-10-11T${hhmm}+03:00`);
 
-const head = { id: 'h', role: 'dept_head' as const, departmentId: 2 };
-const otherHead = { id: 'o', role: 'dept_head' as const, departmentId: 6 };
-const programsHead = { id: 'p', role: 'dept_head' as const, departmentId: 3 };
+const head = {
+  id: 'h',
+  role: 'dept_head' as const,
+  departmentId: 2,
+  departmentCode: 'education_training',
+};
+const otherHead = {
+  id: 'o',
+  role: 'dept_head' as const,
+  departmentId: 6,
+  departmentCode: 'songs_celebrations',
+};
+const programsHead = {
+  id: 'p',
+  role: 'dept_head' as const,
+  departmentId: 3,
+  departmentCode: 'programs_events',
+};
 const admin = { id: 'a', role: 'admin' as const, departmentId: null };
 const member = { id: 'm', role: 'member' as const, departmentId: 2 };
 

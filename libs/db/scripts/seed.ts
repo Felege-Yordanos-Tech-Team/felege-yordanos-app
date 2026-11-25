@@ -51,7 +51,7 @@ const testAccounts = [
     email: 'member@felege.test',
     name: 'Test Member',
     role: 'member',
-    departmentId: null,
+    departmentCode: null,
     member: null,
   },
   {
@@ -59,7 +59,7 @@ const testAccounts = [
     email: 'songs.head@felege.test',
     name: 'Songs Dept Head',
     role: 'dept_head',
-    departmentId: 6,
+    departmentCode: 'songs_celebrations',
     member: 2,
   },
   {
@@ -67,7 +67,7 @@ const testAccounts = [
     email: 'budget.head@felege.test',
     name: 'Budget Dept Head',
     role: 'dept_head',
-    departmentId: 9,
+    departmentCode: 'budget_assets',
     member: 3,
   },
   {
@@ -75,7 +75,7 @@ const testAccounts = [
     email: 'events.head@felege.test',
     name: 'Programs Dept Head',
     role: 'dept_head',
-    departmentId: 3,
+    departmentCode: 'programs_events',
     member: 4,
   },
   {
@@ -83,7 +83,7 @@ const testAccounts = [
     email: 'admin@felege.test',
     name: 'Test Admin',
     role: 'admin',
-    departmentId: null,
+    departmentCode: null,
     member: 5,
   },
   {
@@ -91,7 +91,7 @@ const testAccounts = [
     email: 'superadmin@felege.test',
     name: 'Test Super Admin',
     role: 'super_admin',
-    departmentId: null,
+    departmentCode: null,
     member: null,
   },
 ] as const;
@@ -108,6 +108,14 @@ async function main() {
     .insert(schema.departments)
     .values(seedDepartments)
     .onConflictDoNothing();
+  const departmentRows = await db
+    .select({ id: schema.departments.id, code: schema.departments.code })
+    .from(schema.departments);
+  const departmentId = (code: string) => {
+    const department = departmentRows.find((row) => row.code === code);
+    if (!department) throw new Error(`Department not found: ${code}`);
+    return department.id;
+  };
   await db
     .insert(schema.categories)
     .values(seedCategories)
@@ -154,10 +162,23 @@ async function main() {
       .values({
         id,
         role: a.role,
-        departmentId: a.departmentId,
+        departmentId: a.departmentCode
+          ? departmentId(a.departmentCode)
+          : null,
         displayName: a.name,
       })
       .onConflictDoNothing();
+    if (a.role === 'dept_head' && a.departmentCode) {
+      await db
+        .insert(schema.departmentMemberships)
+        .values({
+          userId: id,
+          departmentId: departmentId(a.departmentCode),
+          role: 'dept_head',
+          startedAt: new Date(),
+        })
+        .onConflictDoNothing();
+    }
     if (a.member) {
       await db
         .update(schema.members)
@@ -179,7 +200,7 @@ async function main() {
           eventDate: isoDate(-5),
           startTime: '09:00',
           endTime: '10:30',
-          departmentId: 2,
+          departmentId: departmentId('education_training'),
           createdBy: userId(5),
         },
         {
@@ -187,7 +208,7 @@ async function main() {
           eventDate: isoDate(2),
           startTime: '08:00',
           endTime: '11:00',
-          departmentId: 3,
+          departmentId: departmentId('programs_events'),
           createdBy: userId(4),
         },
         {
@@ -195,7 +216,7 @@ async function main() {
           eventDate: isoDate(-2),
           startTime: '16:00',
           endTime: '18:00',
-          departmentId: 6,
+          departmentId: departmentId('songs_celebrations'),
           createdBy: userId(2),
         },
       ])

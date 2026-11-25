@@ -17,17 +17,18 @@ import type { Audience } from '@felege-yordanos/db/schema';
 import { isAudioKey, isNoticeImageKey } from './media';
 import type { CurrentUser } from './session';
 
-/** Department ids that carry special permissions (see departments table). */
+/** Stable department codes that carry special permissions (see departments table). */
 export const DEPARTMENT = {
   /** Programs & Events: can read all attendance. */
-  PROGRAMS_EVENTS: 3,
+  PROGRAMS_EVENTS: 'programs_events',
   /** Songs & Celebrations: manages the songbook. */
-  SONGS: 6,
+  SONGS: 'songs_celebrations',
   /** Budget & Asset Management: verifies donations and reads receipts. */
-  BUDGET: 9,
+  BUDGET: 'budget_assets',
 } as const;
 
-type User = Pick<CurrentUser, 'id' | 'role' | 'departmentId'>;
+type User = Pick<CurrentUser, 'id' | 'role' | 'departmentId'> &
+  Partial<Pick<CurrentUser, 'departmentCode'>>;
 
 export const isAdmin = (u: User) =>
   u.role === 'admin' || u.role === 'super_admin';
@@ -45,7 +46,12 @@ export const canAccessAdmin = (u: User) => u.role !== 'member';
 
 /** Department heads of Programs & Events run all gatherings. */
 const isProgramsEventsHead = (u: User) =>
-  isDeptHeadOf(u, DEPARTMENT.PROGRAMS_EVENTS);
+  isDeptHeadOfCode(u, DEPARTMENT.PROGRAMS_EVENTS);
+
+export const isDeptHeadOfCode = (
+  u: User,
+  departmentCode: string,
+) => u.role === 'dept_head' && u.departmentCode === departmentCode;
 
 /**
  * Member features (events, donations, notices): a verified email, and a
@@ -114,7 +120,7 @@ export const canViewSongbook = (u: User) => !!u.id;
 
 /** Create, edit and delete songs and categories (and upload song audio). */
 export const canManageSongs = (u: User) =>
-  isAdmin(u) || isDeptHeadOf(u, DEPARTMENT.SONGS);
+  isAdmin(u) || isDeptHeadOfCode(u, DEPARTMENT.SONGS);
 
 /* ─── Notices ──────────────────────────────────────────────── */
 
@@ -212,7 +218,7 @@ export const canMarkAttendance = (
 
 /** Read attendance of every event (any role in Programs & Events, or admins). */
 export const canViewAllAttendance = (u: User) =>
-  isAdmin(u) || u.departmentId === DEPARTMENT.PROGRAMS_EVENTS;
+  isAdmin(u) || isDeptHeadOfCode(u, DEPARTMENT.PROGRAMS_EVENTS);
 
 /**
  * Mark attendance right now: department heads only inside the event's
@@ -293,7 +299,7 @@ export const canViewPersonAttendance = (
 
 /** See all donations, verify or reject them, open any receipt. */
 export const canReviewDonations = (u: User) =>
-  isAdmin(u) || isDeptHeadOf(u, DEPARTMENT.BUDGET);
+  isAdmin(u) || isDeptHeadOfCode(u, DEPARTMENT.BUDGET);
 
 /**
  * Strict shape of a receipt key: "<donor user id>/<file name>".

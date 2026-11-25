@@ -5,46 +5,55 @@
 export const seedDepartments = [
   {
     id: 1,
+    code: 'planning_monitoring',
     nameEn: 'Planning, Implementation & Monitoring',
     nameAm: 'እቅድ ትግበራ እና ክትትል ክፍል',
   },
   {
     id: 2,
+    code: 'education_training',
     nameEn: 'Education & Training',
     nameAm: 'ትምህርት እና ስልጠና ክፍል',
   },
   {
     id: 3,
+    code: 'programs_events',
     nameEn: 'Programs & Events',
     nameAm: 'መርሐ ግብር እና ጉባኤያት ክፍል',
   },
   {
     id: 4,
+    code: 'people_operations',
     nameEn: 'Human Resources / People Operations',
     nameAm: 'የሰው ሀብት አስተዳደር ክፍል',
   },
   {
     id: 5,
+    code: 'internal_communications',
     nameEn: 'Information & Internal Communications',
     nameAm: 'የመረጃ እና ውስጥ ግንኙነት ክፍል',
   },
   {
     id: 6,
+    code: 'songs_celebrations',
     nameEn: 'Songs & Celebrations',
     nameAm: 'የመዝሙር እና በዓላት ክፍል',
   },
   {
     id: 7,
+    code: 'arts_culture',
     nameEn: 'Arts & Culture',
     nameAm: 'የኪነጥበብ እና ሥነጥበብ ክፍል',
   },
   {
     id: 8,
+    code: 'development_charity',
     nameEn: 'Development & Charity',
     nameAm: 'የልማት እና በጎ አድራጎት ክፍል',
   },
   {
     id: 9,
+    code: 'budget_assets',
     nameEn: 'Budget & Asset Management',
     nameAm: 'የበጀት እና ንብረት አስተዳደር ክፍል',
   },
